@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+*.tgz
+coverage/
+buildstory-out/
+.changeset/*.md
+*.tsbuildinfo
