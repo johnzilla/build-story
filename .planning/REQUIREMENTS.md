@@ -1,0 +1,158 @@
+# Requirements: BuildStory
+
+**Defined:** 2026-04-05
+**Core Value:** Extract the build story from planning artifacts and make it consumable
+
+## v1 Requirements
+
+### Infrastructure
+
+- [ ] **INFRA-01**: Monorepo scaffold with pnpm workspaces (`@buildstory/core`, `buildstory` CLI)
+- [ ] **INFRA-02**: `@buildstory/core` exposes typed public API (`scan()`, `narrate()`, `render()`) with zero CLI/config imports
+- [ ] **INFRA-03**: CLI wrapper parses args and loads `buildstory.toml`, delegates to core functions
+- [ ] **INFRA-04**: `buildstory.toml` configuration at project-level and `~/.config/buildstory/config.toml` for global defaults
+- [ ] **INFRA-05**: ESLint boundary rule preventing core from importing CLI/config concerns
+- [ ] **INFRA-06**: `buildstory run` command executes full pipeline (scan -> narrate -> render)
+
+### Scanning
+
+- [ ] **SCAN-01**: Filesystem walker traverses directories with configurable include/exclude glob patterns
+- [ ] **SCAN-02**: Detects GStack artifacts (PLANNING.md, PLAN.md, ARCHITECTURE.md, DECISIONS.md, ROADMAP.md, STATUS.md, CHANGELOG.md, *.gstack, .gstack/)
+- [ ] **SCAN-03**: Detects GSD artifacts (TASKS.md, TODO.md, SESSION_LOG.md, BLOCKERS.md, *.gsd, .gsd/)
+- [ ] **SCAN-04**: Detects generic planning artifacts (ADR/ directories, docs/, .claude/, README.md)
+- [ ] **SCAN-05**: Extracts markdown structure: headings, dates, content summaries, status markers, cross-references
+- [ ] **SCAN-06**: Git history integration: commit messages with timestamps, git blame per-line dating, branch/merge events, tags
+- [ ] **SCAN-07**: Produces structured Timeline JSON with events, metadata, and date ranges
+- [ ] **SCAN-08**: Planning-artifact timeline merges document events with git events to capture the decision arc
+- [ ] **SCAN-09**: Cross-reference detection between artifacts via path references and link patterns
+- [ ] **SCAN-10**: User can configure custom artifact patterns via `buildstory.toml` or ScanOptions
+- [ ] **SCAN-11**: Configurable max directory depth (default: 5)
+
+### Narration
+
+- [ ] **NARR-01**: LLM narrator supports Anthropic (Claude) provider via official SDK
+- [ ] **NARR-02**: LLM narrator supports OpenAI provider via official SDK
+- [ ] **NARR-03**: Four narrative style presets: technical, overview, retrospective, pitch
+- [ ] **NARR-04**: Scene segmentation assigns visual type to each scene (text_reveal, decision_card, timeline_scrub, code_reveal, architecture_diagram, diff_highlight, milestone_card, montage)
+- [ ] **NARR-05**: Each scene includes source event links tracing back to timeline events
+- [ ] **NARR-06**: Duration estimation and pacing control with configurable target duration
+- [ ] **NARR-07**: Produces structured Script JSON with scenes, narration text, visual data, and source links
+- [ ] **NARR-08**: LLM cost guard: configurable max input tokens to prevent runaway API costs on large repos
+- [ ] **NARR-09**: Deterministic output: same input produces equivalent script (seed-stable prompts)
+
+### Rendering
+
+- [ ] **REND-01**: Frame generation for each visual type using node-canvas or sharp
+- [ ] **REND-02**: TTS audio generation via OpenAI TTS API
+- [ ] **REND-03**: TTS engine abstraction allowing future Piper and ElevenLabs integration
+- [ ] **REND-04**: FFmpeg assembly via direct child_process spawn (not fluent-ffmpeg)
+- [ ] **REND-05**: Video output as MP4 (H.264 + AAC)
+- [ ] **REND-06**: Subtitle generation as SRT file from narration text
+- [ ] **REND-07**: Scene transitions (crossfade, slide, cut)
+- [ ] **REND-08**: Background music mixing with configurable volume
+- [ ] **REND-09**: ffprobe-measured TTS duration drives frame count (not estimated duration)
+- [ ] **REND-10**: Batch-and-release frame generation to prevent node-canvas memory leaks
+- [ ] **REND-11**: Preflight checks: fail fast with actionable error if FFmpeg, API keys, or TTS are missing
+
+### CLI
+
+- [ ] **CLI-01**: `buildstory scan <paths>` command outputs timeline.json
+- [ ] **CLI-02**: `buildstory narrate <timeline.json>` command outputs script.json
+- [ ] **CLI-03**: `buildstory render <script.json>` command outputs MP4 + SRT
+- [ ] **CLI-04**: `buildstory run <paths>` command runs full pipeline
+- [ ] **CLI-05**: Global options: --verbose, --quiet, --config
+- [ ] **CLI-06**: Progress indicators during long-running operations (scan, narrate, render)
+- [ ] **CLI-07**: `buildstory config` command to show/edit configuration
+
+## v2 Requirements
+
+### n8n Integration
+
+- **N8N-01**: Scanner node wrapping `@buildstory/core` scan()
+- **N8N-02**: Narrator node wrapping `@buildstory/core` narrate()
+- **N8N-03**: Renderer node wrapping `@buildstory/core` render()
+- **N8N-04**: Credential definitions for Anthropic and TTS APIs
+- **N8N-05**: Published to npm as `n8n-nodes-buildstory`
+
+### Extended TTS
+
+- **TTS-01**: Piper (local/free/offline) TTS engine support
+- **TTS-02**: ElevenLabs TTS engine support with voice cloning
+
+### Advanced Features
+
+- **ADV-01**: MCP server exposing scan and narrate as tools
+- **ADV-02**: GitHub Action wrapper
+- **ADV-03**: Multi-repo scanning and cross-project timelines
+- **ADV-04**: Incremental scanning (diff against previous timeline)
+- **ADV-05**: Custom visual themes/color schemes
+- **ADV-06**: Interactive script editing (TUI or web preview)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Web UI or dashboard | Duplicates CLI; adds frontend stack, auth, session management |
+| Real-time/streaming video | FFmpeg requires all frames; wrong architecture for offline CLI tool |
+| Cloud hosting of videos | Turns toolkit into SaaS with storage/CDN costs; users upload to YouTube themselves |
+| AI-generated imagery (Midjourney, SD) | Cost, consistency, latency problems; data-driven frames are deterministic and fast |
+| Automatic social media publishing | OAuth complexity; n8n already solves this downstream |
+| Non-GStack/GSD planning tools | Extensibility comes in v2+; custom patterns provide an escape hatch |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| INFRA-01 | — | Pending |
+| INFRA-02 | — | Pending |
+| INFRA-03 | — | Pending |
+| INFRA-04 | — | Pending |
+| INFRA-05 | — | Pending |
+| INFRA-06 | — | Pending |
+| SCAN-01 | — | Pending |
+| SCAN-02 | — | Pending |
+| SCAN-03 | — | Pending |
+| SCAN-04 | — | Pending |
+| SCAN-05 | — | Pending |
+| SCAN-06 | — | Pending |
+| SCAN-07 | — | Pending |
+| SCAN-08 | — | Pending |
+| SCAN-09 | — | Pending |
+| SCAN-10 | — | Pending |
+| SCAN-11 | — | Pending |
+| NARR-01 | — | Pending |
+| NARR-02 | — | Pending |
+| NARR-03 | — | Pending |
+| NARR-04 | — | Pending |
+| NARR-05 | — | Pending |
+| NARR-06 | — | Pending |
+| NARR-07 | — | Pending |
+| NARR-08 | — | Pending |
+| NARR-09 | — | Pending |
+| REND-01 | — | Pending |
+| REND-02 | — | Pending |
+| REND-03 | — | Pending |
+| REND-04 | — | Pending |
+| REND-05 | — | Pending |
+| REND-06 | — | Pending |
+| REND-07 | — | Pending |
+| REND-08 | — | Pending |
+| REND-09 | — | Pending |
+| REND-10 | — | Pending |
+| REND-11 | — | Pending |
+| CLI-01 | — | Pending |
+| CLI-02 | — | Pending |
+| CLI-03 | — | Pending |
+| CLI-04 | — | Pending |
+| CLI-05 | — | Pending |
+| CLI-06 | — | Pending |
+| CLI-07 | — | Pending |
+
+**Coverage:**
+- v1 requirements: 44 total
+- Mapped to phases: 0
+- Unmapped: 44
+
+---
+*Requirements defined: 2026-04-05*
+*Last updated: 2026-04-05 after initial definition*
