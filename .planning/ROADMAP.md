@@ -30,8 +30,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. `buildstory.toml` is loaded by the CLI and surfaced as typed options passed to core functions
 **Plans:** 2 plans
 Plans:
-- [ ] 01-01-PLAN.md — Monorepo scaffold with core package, typed stubs, and ESLint boundary rule
-- [ ] 01-02-PLAN.md — CLI wrapper with Commander, TOML config, and buildstory run end-to-end
+- [x] 01-01-PLAN.md — Monorepo scaffold with core package, typed stubs, and ESLint boundary rule
+- [x] 01-02-PLAN.md — CLI wrapper with Commander, TOML config, and buildstory run end-to-end
 
 ### Phase 2: Scanner
 **Goal**: Users can scan a directory of planning artifacts and produce a structured Timeline JSON capturing the full decision arc
