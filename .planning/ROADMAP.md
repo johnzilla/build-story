@@ -1,0 +1,78 @@
+# Roadmap: BuildStory
+
+## Overview
+
+BuildStory goes from zero to narrated MP4 in four phases. Phase 1 locks in the monorepo scaffold and package boundaries — the ESLint enforcement and core/CLI separation that make everything else safe to build. Phase 2 delivers the scanner: artifact-aware markdown extraction combined with git history produces the Timeline JSON that all downstream phases consume. Phase 3 turns Timeline into Script via LLM narration with style presets, scene segmentation, and cost guards. Phase 4 closes the loop with frame generation, TTS, FFmpeg assembly, and a complete CLI surface — producing a watchable MP4 from real planning artifacts.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Scaffold** - Monorepo foundation with enforced core/CLI boundary and typed pipeline stubs
+- [ ] **Phase 2: Scanner** - Artifact-aware timeline extraction from planning files and git history
+- [ ] **Phase 3: Narrator** - LLM script generation with style presets, scene segmentation, and cost guards
+- [ ] **Phase 4: Renderer** - Frame generation, TTS, FFmpeg assembly, and complete CLI surface
+
+## Phase Details
+
+### Phase 1: Scaffold
+**Goal**: The monorepo is set up with enforced boundaries so all subsequent phases build on a safe, consistent foundation
+**Depends on**: Nothing (first phase)
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05, INFRA-06
+**Success Criteria** (what must be TRUE):
+  1. `pnpm install` succeeds and `@buildstory/core` and `buildstory` CLI packages are independently buildable
+  2. `buildstory run` executes without error and returns empty/stub results (pipeline wired end-to-end)
+  3. ESLint reports an error if any file in `packages/core/src/` imports `fs`, `process.env`, or config libraries
+  4. `buildstory.toml` is loaded by the CLI and surfaced as typed options passed to core functions
+**Plans**: TBD
+
+### Phase 2: Scanner
+**Goal**: Users can scan a directory of planning artifacts and produce a structured Timeline JSON capturing the full decision arc
+**Depends on**: Phase 1
+**Requirements**: SCAN-01, SCAN-02, SCAN-03, SCAN-04, SCAN-05, SCAN-06, SCAN-07, SCAN-08, SCAN-09, SCAN-10, SCAN-11, CLI-01
+**Success Criteria** (what must be TRUE):
+  1. `buildstory scan <path>` produces a valid `timeline.json` with chronologically ordered events and stable event IDs
+  2. GStack artifacts (PLANNING.md, ROADMAP.md, DECISIONS.md, etc.) and GSD artifacts (TASKS.md, SESSION_LOG.md, etc.) appear as distinct typed events in the timeline
+  3. Git commits, tags, and branch/merge events appear in the timeline merged with document events by date
+  4. Cross-references between artifacts are detected and represented in the timeline event graph
+  5. Custom artifact include/exclude patterns in `buildstory.toml` or ScanOptions are respected by the walker
+**Plans**: TBD
+
+### Phase 3: Narrator
+**Goal**: Users can generate a structured Script JSON from a Timeline, choosing from four narrative styles with LLM cost under user control
+**Depends on**: Phase 2
+**Requirements**: NARR-01, NARR-02, NARR-03, NARR-04, NARR-05, NARR-06, NARR-07, NARR-08, NARR-09, CLI-02
+**Success Criteria** (what must be TRUE):
+  1. `buildstory narrate <timeline.json>` produces a valid `script.json` with scenes, narration text, visual type assignments, and source event links
+  2. Passing `--style technical|overview|retrospective|pitch` produces meaningfully different narration for the same timeline
+  3. Running narrate twice with the same input and same LLM seed produces equivalent output (deterministic prompts)
+  4. Narrate fails with a clear error message when estimated input tokens would exceed the configured `maxInputTokens` limit
+**Plans**: TBD
+
+### Phase 4: Renderer
+**Goal**: Users can render a Script JSON into a watchable MP4 with synchronized narration audio, subtitles, and scene transitions
+**Depends on**: Phase 3
+**Requirements**: REND-01, REND-02, REND-03, REND-04, REND-05, REND-06, REND-07, REND-08, REND-09, REND-10, REND-11, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07
+**Success Criteria** (what must be TRUE):
+  1. `buildstory render <script.json>` produces an MP4 (H.264 + AAC) and an SRT subtitle file in `buildstory-out/`
+  2. Audio and video are in sync — narration speech matches the correct scene throughout the video
+  3. `buildstory run <path>` executes all three pipeline phases in sequence and produces the final MP4
+  4. Running render before FFmpeg is installed or without a TTS API key fails immediately with an actionable error message
+  5. `buildstory config` shows the active configuration and `--verbose`, `--quiet`, `--config` flags work across all subcommands
+**Plans**: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Scaffold | 0/? | Not started | - |
+| 2. Scanner | 0/? | Not started | - |
+| 3. Narrator | 0/? | Not started | - |
+| 4. Renderer | 0/? | Not started | - |

@@ -103,56 +103,56 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| INFRA-05 | — | Pending |
-| INFRA-06 | — | Pending |
-| SCAN-01 | — | Pending |
-| SCAN-02 | — | Pending |
-| SCAN-03 | — | Pending |
-| SCAN-04 | — | Pending |
-| SCAN-05 | — | Pending |
-| SCAN-06 | — | Pending |
-| SCAN-07 | — | Pending |
-| SCAN-08 | — | Pending |
-| SCAN-09 | — | Pending |
-| SCAN-10 | — | Pending |
-| SCAN-11 | — | Pending |
-| NARR-01 | — | Pending |
-| NARR-02 | — | Pending |
-| NARR-03 | — | Pending |
-| NARR-04 | — | Pending |
-| NARR-05 | — | Pending |
-| NARR-06 | — | Pending |
-| NARR-07 | — | Pending |
-| NARR-08 | — | Pending |
-| NARR-09 | — | Pending |
-| REND-01 | — | Pending |
-| REND-02 | — | Pending |
-| REND-03 | — | Pending |
-| REND-04 | — | Pending |
-| REND-05 | — | Pending |
-| REND-06 | — | Pending |
-| REND-07 | — | Pending |
-| REND-08 | — | Pending |
-| REND-09 | — | Pending |
-| REND-10 | — | Pending |
-| REND-11 | — | Pending |
-| CLI-01 | — | Pending |
-| CLI-02 | — | Pending |
-| CLI-03 | — | Pending |
-| CLI-04 | — | Pending |
-| CLI-05 | — | Pending |
-| CLI-06 | — | Pending |
-| CLI-07 | — | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Pending |
+| INFRA-05 | Phase 1 | Pending |
+| INFRA-06 | Phase 1 | Pending |
+| SCAN-01 | Phase 2 | Pending |
+| SCAN-02 | Phase 2 | Pending |
+| SCAN-03 | Phase 2 | Pending |
+| SCAN-04 | Phase 2 | Pending |
+| SCAN-05 | Phase 2 | Pending |
+| SCAN-06 | Phase 2 | Pending |
+| SCAN-07 | Phase 2 | Pending |
+| SCAN-08 | Phase 2 | Pending |
+| SCAN-09 | Phase 2 | Pending |
+| SCAN-10 | Phase 2 | Pending |
+| SCAN-11 | Phase 2 | Pending |
+| NARR-01 | Phase 3 | Pending |
+| NARR-02 | Phase 3 | Pending |
+| NARR-03 | Phase 3 | Pending |
+| NARR-04 | Phase 3 | Pending |
+| NARR-05 | Phase 3 | Pending |
+| NARR-06 | Phase 3 | Pending |
+| NARR-07 | Phase 3 | Pending |
+| NARR-08 | Phase 3 | Pending |
+| NARR-09 | Phase 3 | Pending |
+| REND-01 | Phase 4 | Pending |
+| REND-02 | Phase 4 | Pending |
+| REND-03 | Phase 4 | Pending |
+| REND-04 | Phase 4 | Pending |
+| REND-05 | Phase 4 | Pending |
+| REND-06 | Phase 4 | Pending |
+| REND-07 | Phase 4 | Pending |
+| REND-08 | Phase 4 | Pending |
+| REND-09 | Phase 4 | Pending |
+| REND-10 | Phase 4 | Pending |
+| REND-11 | Phase 4 | Pending |
+| CLI-01 | Phase 2 | Pending |
+| CLI-02 | Phase 3 | Pending |
+| CLI-03 | Phase 4 | Pending |
+| CLI-04 | Phase 4 | Pending |
+| CLI-05 | Phase 4 | Pending |
+| CLI-06 | Phase 4 | Pending |
+| CLI-07 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 44 total
-- Mapped to phases: 0
-- Unmapped: 44
+- Mapped to phases: 44
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 after initial definition*
+*Last updated: 2026-04-05 after roadmap creation*
