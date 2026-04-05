@@ -1,6 +1,7 @@
 {
   "name": "build-story",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "pnpm --filter '@buildstory/core' build",
     "test": "pnpm --filter '*' test",
