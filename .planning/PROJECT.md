@@ -12,12 +12,15 @@ Extract the build story from planning artifacts and make it consumable — the s
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Monorepo scaffold with pnpm workspaces (`@buildstory/core`, `buildstory` CLI) — Validated in Phase 1: Scaffold
+- [x] Core library with clean public API: `scan()`, `narrate()`, `format()` — no CLI args, no n8n imports — Validated in Phase 1: Scaffold
+- [x] Configuration via `buildstory.toml` (project-level and global) — Validated in Phase 1: Scaffold
+- [x] ESLint boundary rule preventing core from importing CLI/config concerns — Validated in Phase 1: Scaffold
 
 ### Active
 
 - [ ] Monorepo scaffold with pnpm workspaces (`@buildstory/core`, `buildstory` CLI, `n8n-nodes-buildstory`)
-- [ ] Core library with clean public API: `scan()`, `narrate()`, `render()` — no CLI args, no n8n imports
+- [ ] Core library with clean public API: `scan()`, `narrate()`, `format()` — no CLI args, no n8n imports
 - [ ] Filesystem walker detecting GStack/GSD artifacts plus generic planning files (ADRs, CHANGELOG, docs/)
 - [ ] Markdown parser extracting headings, dates, content summaries, status, cross-references
 - [ ] Git history integration: commit messages, git blame dating, branch/merge events, tags
@@ -94,4 +97,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-05 after initialization*
+*Last updated: 2026-04-05 after Phase 1 completion*
