@@ -143,6 +143,7 @@ import type { Timeline } from '../../types/timeline.js'
 export interface LLMProvider {
   extractStoryArc(timeline: Timeline, style: string): Promise<StoryArc>
   generateFormat(arc: StoryArc, formatType: string, prompt: string): Promise<string>
+  synthesizeArcs(arcs: StoryArc[], systemPrompt: string): Promise<StoryArc>
 }
 ```
 
@@ -198,7 +199,7 @@ const completion = await client.chat.completions.parse({
   temperature: 0,        // NARR-09: determinism
   messages: [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: timelineJson }
+    { role: 'user', content: timelinePayload }
   ],
   response_format: zodResponseFormat(StoryArcSchema, 'story_arc')
 })
@@ -509,22 +510,25 @@ const FORMAT_SPECS = {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `zodResponseFormat` work with Zod v4 in openai@6.33.0?**
    - What we know: There were breaking issues in mid-2025 (GitHub issues #1540, #1576). SDK claims Zod v4 support as of current versions.
    - What's unclear: Whether `6.33.0` specifically (the version in STACK.md) resolves all edge cases with `StoryArcSchema`'s union types and literals.
    - Recommendation: Wave 0 should include a smoke test — install both SDKs, run `zodResponseFormat(StoryArcSchema, 'test')` and verify it produces a valid JSON schema without throwing.
+   - **RESOLVED:** Plan 02 Task 1 implements a Zod v4 fallback path in OpenAIProvider — if `zodResponseFormat` throws at import or call time, falls back to `z.toJSONSchema(StoryArcSchema)` with manual `response_format: { type: 'json_schema', json_schema: { name: 'story_arc', schema: rawSchema, strict: true } }`. Runtime smoke test is implicit in provider unit tests.
 
 2. **Which Claude model should be the default?**
    - What we know: `claude-sonnet-4-5` appears in Anthropic SDK examples. The design doc mentions Claude Sonnet cost estimates.
    - What's unclear: Whether to default to `claude-sonnet-4-5` or `claude-opus-4-5`. Cost vs. quality tradeoff is Claude's discretion per CONTEXT.md.
    - Recommendation: Default to `claude-sonnet-4-5` (cost-efficient); add a `model` option to `NarrateOptions` for override in a future phase.
+   - **RESOLVED:** Plan 02 Task 1 defaults AnthropicProvider to `'claude-sonnet-4-5'` — cost-efficient for narrative extraction. Model override deferred to future `NarrateOptions.model` field.
 
 3. **Which GPT model should be the default?**
    - What we know: `gpt-4o` is the standard for structured output with `zodResponseFormat`.
    - What's unclear: Whether `gpt-4o-mini` produces acceptable StoryArc quality.
    - Recommendation: Default to `gpt-4o`; allow override via `NarrateOptions.model` in future.
+   - **RESOLVED:** Plan 02 Task 1 defaults OpenAIProvider to `'gpt-4o'` — best structured output quality. Model override deferred to future `NarrateOptions.model` field.
 
 ---
 
