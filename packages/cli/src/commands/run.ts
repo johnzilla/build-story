@@ -1,21 +1,11 @@
-import { readFile } from 'fs/promises'
 import { resolve, dirname } from 'path'
 import chalk from 'chalk'
 import ora from 'ora'
 import { scan, narrate, format } from '@buildstory/core'
-import type { ArtifactSource, FormatType } from '@buildstory/core'
+import type { FormatType } from '@buildstory/core'
 import { loadConfig } from '../config.js'
-
-/** Minimal fs-based ArtifactSource for CLI usage */
-function createFsSource(): ArtifactSource {
-  return {
-    readFile: (path: string) => readFile(path, 'utf8'),
-    glob: async (_patterns: string[], _options?: { cwd?: string; ignore?: string[] }) => {
-      // Phase 1 stub: scan() ignores source for now — returns empty timeline
-      return []
-    },
-  }
-}
+import { createFsSource } from '../adapters/fs-source.js'
+import { createGitSource } from '../adapters/git-source.js'
 
 export async function run(
   paths: string[],
@@ -38,15 +28,20 @@ export async function run(
       ? (process.env['ANTHROPIC_API_KEY'] ?? '')
       : (process.env['OPENAI_API_KEY'] ?? '')
 
-  const source = createFsSource()
+  const source = createFsSource(resolve(rootDir))
+  const gitSource = await createGitSource(resolve(rootDir))
 
   const spinner = ora('Scanning artifacts...').start()
-  const timeline = await scan(source, {
-    rootDir,
-    patterns: config.scan?.patterns,
-    excludes: config.scan?.excludes,
-    maxDepth: config.scan?.maxDepth,
-  })
+  const timeline = await scan(
+    source,
+    {
+      rootDir,
+      patterns: config.scan?.patterns,
+      excludes: config.scan?.excludes,
+      maxDepth: config.scan?.maxDepth,
+    },
+    gitSource,
+  )
   spinner.succeed(chalk.green('Scan complete'))
 
   spinner.start('Narrating...')

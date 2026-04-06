@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { run } from './commands/run.js'
+import { scanCommand } from './commands/scan.js'
 
 const program = new Command()
 
@@ -16,5 +17,15 @@ program
   .option('--style <style>', 'narrative style', 'overview')
   .option('-o, --output <path>', 'output directory', './buildstory-out')
   .action(run)
+
+program
+  .command('scan')
+  .description('Scan planning artifacts and produce a timeline')
+  .argument('[paths...]', 'Paths to scan', ['.'])
+  .option('-o, --output <file>', 'Output file path (default: stdout)')
+  .option('-c, --config <path>', 'Config file path')
+  .action(async (paths: string[], opts: { output?: string; config?: string }) => {
+    await scanCommand(paths, opts)
+  })
 
 await program.parseAsync(process.argv)
