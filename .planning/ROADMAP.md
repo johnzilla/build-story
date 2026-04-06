@@ -43,7 +43,11 @@ Plans:
   3. Git commits, tags, and branch/merge events appear in the timeline merged with document events by date
   4. Cross-references between artifacts are detected and represented in the timeline event graph
   5. Custom artifact include/exclude patterns in `buildstory.toml` or ScanOptions are respected by the walker
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 02-01-PLAN.md — Extend type contracts (GitSource, ArtifactSource, TimelineEvent) and install scanner dependencies
+- [ ] 02-02-PLAN.md — Core scan implementation (file-walker, artifact-parser, timeline-builder, scan orchestrator)
+- [ ] 02-03-PLAN.md — CLI adapters (fs-source with redaction, git-source with simple-git) and buildstory scan command
 
 ### Phase 3: Narrator
 **Goal**: Users can generate a structured Script JSON from a Timeline, choosing from four narrative styles with LLM cost under user control
@@ -76,6 +80,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scaffold | 0/2 | Planning complete | - |
-| 2. Scanner | 0/? | Not started | - |
+| 2. Scanner | 0/3 | Planning complete | - |
 | 3. Narrator | 0/? | Not started | - |
 | 4. Renderer | 0/? | Not started | - |
