@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   scan,
   narrate,
@@ -8,13 +8,31 @@ import {
   StoryArcSchema,
   StoryBeatSchema,
 } from '../index.js'
-import type { ArtifactSource, ScanOptions, NarrateOptions, FormatType } from '../index.js'
+import type { ArtifactSource, ScanOptions, NarrateOptions, FormatType, LLMProvider } from '../index.js'
 
 // Minimal in-memory ArtifactSource for testing
 const emptySource: ArtifactSource = {
   readFile: async (_path: string) => '',
   glob: async (_patterns: string[], _options?: { cwd?: string; ignore?: string[] }) => [],
 }
+
+const emptyArc = StoryArcSchema.parse({
+  version: '1',
+  beats: [],
+  metadata: {
+    generatedAt: new Date().toISOString(),
+    style: 'technical',
+    sourceTimeline: '/test',
+  },
+})
+
+// Mock LLMProvider for narrate() and format() tests
+// (real implementations make SDK calls; tests use injected mocks)
+const makeMockProvider = (): LLMProvider => ({
+  extractStoryArc: vi.fn().mockResolvedValue(emptyArc),
+  generateFormat: vi.fn().mockResolvedValue(''),
+  synthesizeArcs: vi.fn().mockResolvedValue(emptyArc),
+})
 
 describe('scan()', () => {
   it('returns a valid Timeline object that passes TimelineSchema.parse()', async () => {
@@ -45,7 +63,9 @@ describe('narrate()', () => {
       style: 'technical',
       apiKey: 'test-key',
     }
-    const result = await narrate(timeline, options)
+    // Inject a mock provider to avoid real SDK calls in unit tests
+    const provider = makeMockProvider()
+    const result = await narrate(timeline, options, provider)
     expect(() => StoryArcSchema.parse(result)).not.toThrow()
   })
 
@@ -62,25 +82,20 @@ describe('narrate()', () => {
       style: 'overview',
       apiKey: 'test-key',
     }
-    const result = await narrate(timeline, options)
+    const provider = makeMockProvider()
+    const result = await narrate(timeline, options, provider)
     expect(result.version).toBe('1')
     expect(result.beats).toEqual([])
   })
 })
 
 describe('format()', () => {
-  it('returns a string (stub returns empty string)', async () => {
-    const arc = StoryArcSchema.parse({
-      version: '1',
-      beats: [],
-      metadata: {
-        generatedAt: new Date().toISOString(),
-        style: 'technical',
-        sourceTimeline: '/test',
-      },
-    })
+  it('returns a string', async () => {
+    const arc = emptyArc
     const formatType: FormatType = 'outline'
-    const result = await format(arc, formatType)
+    // Inject a mock provider to avoid real SDK calls in unit tests
+    const provider = makeMockProvider()
+    const result = await format(arc, formatType, provider)
     expect(typeof result).toBe('string')
   })
 })

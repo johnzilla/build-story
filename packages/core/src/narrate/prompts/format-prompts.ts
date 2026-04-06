@@ -67,7 +67,7 @@ Requirements:
 - Balance narrative story with concrete technical detail
 - Use \`inline code\` for tool names, file paths, and technical terms
 - Blockquotes (>) for particularly significant beats or decisions
-- Code blocks (```) for any code, config, or command-line examples mentioned
+- Code blocks (\`\`\`) for any code, config, or command-line examples mentioned
 
 Output ONLY the markdown blog post. No metadata or preamble.`,
 
