@@ -2,7 +2,7 @@
 
 ## Overview
 
-BuildStory goes from zero to narrated MP4 in four phases. Phase 1 locks in the monorepo scaffold and package boundaries — the ESLint enforcement and core/CLI separation that make everything else safe to build. Phase 2 delivers the scanner: artifact-aware markdown extraction combined with git history produces the Timeline JSON that all downstream phases consume. Phase 3 turns Timeline into Script via LLM narration with style presets, scene segmentation, and cost guards. Phase 4 closes the loop with frame generation, TTS, FFmpeg assembly, and a complete CLI surface — producing a watchable MP4 from real planning artifacts.
+BuildStory goes from zero to narrated MP4 in four phases. Phase 1 locks in the monorepo scaffold and package boundaries — the ESLint enforcement and core/CLI separation that make everything else safe to build. Phase 2 delivers the scanner: artifact-aware markdown extraction combined with git history produces the Timeline JSON that all downstream phases consume. Phase 3 turns Timeline into StoryArc via LLM narration with style presets, beat classification, and cost guards, then formats it into multiple text outputs. Phase 4 closes the loop with frame generation, TTS, FFmpeg assembly, and a complete CLI surface — producing a watchable MP4 from real planning artifacts.
 
 ## Phases
 
@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Scaffold** - Monorepo foundation with enforced core/CLI boundary and typed pipeline stubs
 - [ ] **Phase 2: Scanner** - Artifact-aware timeline extraction from planning files and git history
-- [ ] **Phase 3: Narrator** - LLM script generation with style presets, scene segmentation, and cost guards
+- [ ] **Phase 3: Narrator** - LLM narration with style presets, beat classification, format generation, and cost guards
 - [ ] **Phase 4: Renderer** - Frame generation, TTS, FFmpeg assembly, and complete CLI surface
 
 ## Phase Details
@@ -50,15 +50,19 @@ Plans:
 - [x] 02-03-PLAN.md — CLI adapters (fs-source with redaction, git-source with simple-git) and buildstory scan command
 
 ### Phase 3: Narrator
-**Goal**: Users can generate a structured Script JSON from a Timeline, choosing from four narrative styles with LLM cost under user control
+**Goal**: Users can generate a StoryArc from a Timeline via LLM narration with 4 style presets, then format it into 4 text outputs (outline, thread, blog, video-script) with token cost guards
 **Depends on**: Phase 2
 **Requirements**: NARR-01, NARR-02, NARR-03, NARR-04, NARR-05, NARR-06, NARR-07, NARR-08, NARR-09, CLI-02
 **Success Criteria** (what must be TRUE):
-  1. `buildstory narrate <timeline.json>` produces a valid `script.json` with scenes, narration text, visual type assignments, and source event links
+  1. `buildstory narrate <timeline.json>` produces a valid StoryArc JSON and 4 text format files (outline.md, thread.md, blog.md, video-script.md)
   2. Passing `--style technical|overview|retrospective|pitch` produces meaningfully different narration for the same timeline
-  3. Running narrate twice with the same input and same LLM seed produces equivalent output (deterministic prompts)
-  4. Narrate fails with a clear error message when estimated input tokens would exceed the configured `maxInputTokens` limit
-**Plans**: TBD
+  3. Running narrate twice with the same input and `temperature: 0` produces equivalent output (deterministic prompts)
+  4. Narrate fails with a clear error message when estimated input tokens exceed the configured `maxInputTokens` limit
+**Plans:** 3 plans
+Plans:
+- [ ] 03-01-PLAN.md — Install LLM SDKs, LLMProvider interface, style/format prompts, token guard, chunker
+- [ ] 03-02-PLAN.md — Anthropic and OpenAI provider implementations, narrate() and format() orchestration
+- [ ] 03-03-PLAN.md — CLI narrate command, run command update, end-to-end verification
 
 ### Phase 4: Renderer
 **Goal**: Users can render a Script JSON into a watchable MP4 with synchronized narration audio, subtitles, and scene transitions
@@ -81,5 +85,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Scaffold | 0/2 | Planning complete | - |
 | 2. Scanner | 0/3 | Planning complete | - |
-| 3. Narrator | 0/? | Not started | - |
+| 3. Narrator | 0/3 | Planning complete | - |
 | 4. Renderer | 0/? | Not started | - |
