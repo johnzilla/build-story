@@ -33,10 +33,10 @@
 - [ ] **NARR-01**: LLM narrator supports Anthropic (Claude) provider via official SDK
 - [ ] **NARR-02**: LLM narrator supports OpenAI provider via official SDK
 - [ ] **NARR-03**: Four narrative style presets: technical, overview, retrospective, pitch
-- [ ] **NARR-04**: Scene segmentation assigns visual type to each scene (text_reveal, decision_card, timeline_scrub, code_reveal, architecture_diagram, diff_highlight, milestone_card, montage)
+- [ ] **NARR-04**: Beat classification using 9 beat types (idea, goal, attempt, obstacle, pivot, side_quest, decision, result, open_loop) per StoryBeat schema
 - [ ] **NARR-05**: Each scene includes source event links tracing back to timeline events
-- [ ] **NARR-06**: Duration estimation and pacing control with configurable target duration
-- [ ] **NARR-07**: Produces structured Script JSON with scenes, narration text, visual data, and source links
+- [ ] **NARR-06**: Word count and estimated reading time per format output
+- [ ] **NARR-07**: Produces StoryArc JSON with beats + text format outputs (outline.md, thread.md, blog.md, video-script.md)
 - [ ] **NARR-08**: LLM cost guard: configurable max input tokens to prevent runaway API costs on large repos
 - [ ] **NARR-09**: Deterministic output: same input produces equivalent script (seed-stable prompts)
 
@@ -57,7 +57,7 @@
 ### CLI
 
 - [ ] **CLI-01**: `buildstory scan <paths>` command outputs timeline.json
-- [ ] **CLI-02**: `buildstory narrate <timeline.json>` command outputs script.json
+- [ ] **CLI-02**: `buildstory narrate <timeline.json>` command outputs story-arc.json + outline.md, thread.md, blog.md, video-script.md
 - [ ] **CLI-03**: `buildstory render <script.json>` command outputs MP4 + SRT
 - [ ] **CLI-04**: `buildstory run <paths>` command runs full pipeline
 - [ ] **CLI-05**: Global options: --verbose, --quiet, --config
@@ -155,4 +155,4 @@
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 after roadmap creation*
+*Last updated: 2026-04-06 after Phase 3 plan 01 — realigned NARR-04, NARR-06, NARR-07, CLI-02 per D-09/D-11/D-12*

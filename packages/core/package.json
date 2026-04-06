@@ -16,7 +16,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
     "gray-matter": "^4.0.3",
+    "openai": "^6.33.0",
     "remark": "^15.0.1",
     "remark-frontmatter": "^5.0.0",
     "remark-parse": "^11.0.0",

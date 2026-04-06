@@ -83,7 +83,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scaffold | 0/2 | Planning complete | - |
-| 2. Scanner | 0/3 | Planning complete | - |
-| 3. Narrator | 0/3 | Planning complete | - |
+| 1. Scaffold | 2/2 | Complete | 2026-04-05 |
+| 2. Scanner | 3/3 | Complete | 2026-04-05 |
+| 3. Narrator | 0/3 | Executing | - |
 | 4. Renderer | 0/? | Not started | - |
