@@ -19,8 +19,8 @@ describe('classifyArtifact()', () => {
     expect(classifyArtifact('PLANNING.md')).toBe('gstack')
   })
 
-  it('classifies PLAN.md as gstack', () => {
-    expect(classifyArtifact('PLAN.md')).toBe('gstack')
+  it('classifies PLAN.md as generic (GSD-generated, not a GStack canonical name)', () => {
+    expect(classifyArtifact('PLAN.md')).toBe('generic')
   })
 
   it('classifies ARCHITECTURE.md as gstack', () => {

@@ -40,14 +40,14 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. `buildstory scan <path>` produces a valid `timeline.json` with chronologically ordered events and stable event IDs
   2. GStack artifacts (PLANNING.md, ROADMAP.md, DECISIONS.md, etc.) and GSD artifacts (TASKS.md, SESSION_LOG.md, etc.) appear as distinct typed events in the timeline
-  3. Git commits, tags, and branch/merge events appear in the timeline merged with document events by date
+  3. Git tags appear as milestone events in the timeline; file events are enriched with git commit dates (branch/merge events deferred per D-04)
   4. Cross-references between artifacts are detected and represented in the timeline event graph
   5. Custom artifact include/exclude patterns in `buildstory.toml` or ScanOptions are respected by the walker
 **Plans:** 3 plans
 Plans:
-- [ ] 02-01-PLAN.md — Extend type contracts (GitSource, ArtifactSource, TimelineEvent) and install scanner dependencies
-- [ ] 02-02-PLAN.md — Core scan implementation (file-walker, artifact-parser, timeline-builder, scan orchestrator)
-- [ ] 02-03-PLAN.md — CLI adapters (fs-source with redaction, git-source with simple-git) and buildstory scan command
+- [x] 02-01-PLAN.md — Extend type contracts (GitSource, ArtifactSource, TimelineEvent) and install scanner dependencies
+- [x] 02-02-PLAN.md — Core scan implementation (file-walker, artifact-parser, timeline-builder, scan orchestrator)
+- [x] 02-03-PLAN.md — CLI adapters (fs-source with redaction, git-source with simple-git) and buildstory scan command
 
 ### Phase 3: Narrator
 **Goal**: Users can generate a structured Script JSON from a Timeline, choosing from four narrative styles with LLM cost under user control

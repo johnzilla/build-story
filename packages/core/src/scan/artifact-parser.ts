@@ -8,13 +8,13 @@ import type { ArtifactSource } from '../types/source.js'
 
 const GSTACK_FILENAMES = new Set([
   'PLANNING.md',
-  'PLAN.md',
   'ARCHITECTURE.md',
   'DECISIONS.md',
   'ROADMAP.md',
   'STATUS.md',
   'CHANGELOG.md',
 ])
+
 
 const GSD_FILENAMES = new Set(['TASKS.md', 'TODO.md', 'SESSION_LOG.md', 'BLOCKERS.md'])
 
@@ -26,26 +26,23 @@ export function classifyArtifact(
 ): 'gstack' | 'gsd' | 'generic' {
   const basename = relativePath.split('/').pop() ?? relativePath
 
-  // Check file extension (most specific — extension takes precedence)
+  // 1. File extension (most specific)
   if (basename.endsWith('.gstack')) return 'gstack'
   if (basename.endsWith('.gsd')) return 'gsd'
 
-  // Check GSD path segments BEFORE filename (path context is more specific than filename)
-  // e.g. .planning/phases/01/PLAN.md is gsd even though PLAN.md is a gstack filename
-  for (const seg of GSD_PATH_SEGMENTS) {
-    if (relativePath.includes(seg)) return 'gsd'
-  }
+  // 2. GStack canonical filenames — ROADMAP.md is GStack even inside .planning/
+  if (GSTACK_FILENAMES.has(basename)) return 'gstack'
 
-  // Check GStack path segments
+  // 3. GSD canonical filenames
+  if (GSD_FILENAMES.has(basename)) return 'gsd'
+
+  // 4. Path segments — .gstack/ directory means GStack, .planning/ means GSD
   for (const seg of GSTACK_PATH_SEGMENTS) {
     if (relativePath.includes(seg)) return 'gstack'
   }
-
-  // Check GStack filenames
-  if (GSTACK_FILENAMES.has(basename)) return 'gstack'
-
-  // Check GSD filenames
-  if (GSD_FILENAMES.has(basename)) return 'gsd'
+  for (const seg of GSD_PATH_SEGMENTS) {
+    if (relativePath.includes(seg)) return 'gsd'
+  }
 
   return 'generic'
 }
