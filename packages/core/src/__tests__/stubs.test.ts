@@ -109,6 +109,7 @@ describe('ESLint boundary rule (schema validation)', () => {
       summary: 'test event',
       metadata: {},
       dateConfidence: 'exact',
+      rawContent: '',
     })
     expect(validEvent.dateConfidence).toBe('exact')
   })
