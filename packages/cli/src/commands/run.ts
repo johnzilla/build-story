@@ -1,7 +1,8 @@
-import { resolve, dirname } from 'path'
+import { writeFile, mkdir } from 'node:fs/promises'
+import { resolve, dirname } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
-import { scan, narrate, format } from '@buildstory/core'
+import { scan, narrate, format, createProvider } from '@buildstory/core'
 import type { FormatType } from '@buildstory/core'
 import { loadConfig } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
@@ -44,22 +45,41 @@ export async function run(
   )
   spinner.succeed(chalk.green('Scan complete'))
 
-  spinner.start('Narrating...')
-  const arc = await narrate(timeline, {
+  const narrateOpts = {
     provider,
     style: (config.style ?? opts.style) as 'technical' | 'overview' | 'retrospective' | 'pitch',
     apiKey,
-  })
+  }
+
+  // Create ONE provider instance — pass to both narrate() and format() (no double instantiation)
+  const llmProvider = createProvider(narrateOpts)
+
+  spinner.start('Narrating...')
+  const arc = await narrate(timeline, narrateOpts, llmProvider)
   spinner.succeed(chalk.green('Narration complete'))
 
-  // Eng review amendment: format() for each format type instead of render()
+  // Format for all 4 output types, reusing the same LLMProvider instance
   const formatTypes: FormatType[] = ['outline', 'thread', 'blog', 'video-script']
   spinner.start('Formatting output...')
   const outputs: Record<string, string> = {}
   for (const ft of formatTypes) {
-    outputs[ft] = await format(arc, ft)
+    outputs[ft] = await format(arc, ft, llmProvider)
   }
   spinner.succeed(chalk.green('Format complete'))
+
+  // Write output files to disk
+  const outputDir = resolve(opts.output)
+  await mkdir(outputDir, { recursive: true })
+
+  await writeFile(resolve(outputDir, 'story-arc.json'), JSON.stringify(arc, null, 2))
+  console.log(chalk.green(`  story-arc.json`))
+
+  for (const ft of formatTypes) {
+    await writeFile(resolve(outputDir, `${ft}.md`), outputs[ft] ?? '')
+    console.log(chalk.green(`  ${ft}.md`))
+  }
+
+  console.log(chalk.bold(`\nOutput written to ${opts.output}`))
 
   return { timeline, arc, outputs }
 }
