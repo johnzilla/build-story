@@ -19,6 +19,9 @@ export const StoryBeatSchema = z.object({
   evidence: z.array(z.string()),
   sourceEventIds: z.array(z.string()),
   significance: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  visual_cue: z.string().optional(),
+  tone: z.string().optional(),
+  duration_seconds: z.number().optional(),
 })
 
 export const StoryArcSchema = z.object({
@@ -28,10 +31,11 @@ export const StoryArcSchema = z.object({
     generatedAt: z.string(),
     style: z.string(),
     sourceTimeline: z.string(),
+    warnings: z.array(z.string()).optional(),
   }),
 })
 
-export const FormatTypeSchema = z.enum(['outline', 'thread', 'blog', 'video-script'])
+export const FormatTypeSchema = z.enum(['outline', 'thread', 'blog', 'video-script', 'remotion-script'])
 
 export type BeatType = z.infer<typeof BeatTypeSchema>
 export type StoryBeat = z.infer<typeof StoryBeatSchema>
