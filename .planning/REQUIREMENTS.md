@@ -39,30 +39,33 @@
 - [ ] **NARR-07**: Produces StoryArc JSON with beats + text format outputs (outline.md, thread.md, blog.md, video-script.md)
 - [ ] **NARR-08**: LLM cost guard: configurable max input tokens to prevent runaway API costs on large repos
 - [ ] **NARR-09**: Deterministic output: same input produces equivalent script (seed-stable prompts)
+- [ ] **NARR-10**: "story" narrative style with punchy second-person voice, humor, stakes — avg sentence under 15 words
+- [ ] **NARR-11**: StoryBeat schema extension: optional visual_cue, tone, duration_seconds fields for video rendering
+- [ ] **NARR-12**: Narration warnings returned in StoryArc metadata (not console.warn) — core stays pure
 
 ### Rendering
 
-- [ ] **REND-01**: Frame generation for each visual type using node-canvas or sharp
-- [ ] **REND-02**: TTS audio generation via OpenAI TTS API
-- [ ] **REND-03**: TTS engine abstraction allowing future Piper and ElevenLabs integration
-- [ ] **REND-04**: FFmpeg assembly via direct child_process spawn (not fluent-ffmpeg)
+- [ ] **REND-01**: Video composition via Remotion (React-based programmatic video) in new `@buildstory/video` package
+- [ ] **REND-02**: TTS audio generation via OpenAI TTS API with parallel concurrency (default: 2)
+- [ ] **REND-03**: TTS cost estimation printed before API calls; --dry-run flag to preview costs without calling APIs
+- [ ] **REND-04**: Remotion renders MP4 via headless Chrome — no custom canvas+FFmpeg pipeline
 - [ ] **REND-05**: Video output as MP4 (H.264 + AAC)
 - [ ] **REND-06**: Subtitle generation as SRT file from narration text
-- [ ] **REND-07**: Scene transitions (crossfade, slide, cut)
-- [ ] **REND-08**: Background music mixing with configurable volume
+- [ ] **REND-07**: 4 scene components: TitleCard, TimelineBar, DecisionCallout, StatsCard with beat-type mapping
+- [ ] **REND-08**: Per-scene audio via Remotion `<Audio>` components with ffprobe-measured startFrom offsets
 - [ ] **REND-09**: ffprobe-measured TTS duration drives frame count (not estimated duration)
-- [ ] **REND-10**: Batch-and-release frame generation to prevent node-canvas memory leaks
-- [ ] **REND-11**: Preflight checks: fail fast with actionable error if FFmpeg, API keys, or TTS are missing
+- [ ] **REND-10**: Lazy Remotion install — @buildstory/video installed on first `render` use (~200MB)
+- [ ] **REND-11**: Preflight checks before TTS: verify Remotion installed, headless Chrome available, API keys present. Fail fast.
 
 ### CLI
 
 - [ ] **CLI-01**: `buildstory scan <paths>` command outputs timeline.json
-- [ ] **CLI-02**: `buildstory narrate <timeline.json>` command outputs story-arc.json + outline.md, thread.md, blog.md, video-script.md
-- [ ] **CLI-03**: `buildstory render <script.json>` command outputs MP4 + SRT
-- [ ] **CLI-04**: `buildstory run <paths>` command runs full pipeline
-- [ ] **CLI-05**: Global options: --verbose, --quiet, --config
-- [ ] **CLI-06**: Progress indicators during long-running operations (scan, narrate, render)
-- [ ] **CLI-07**: `buildstory config` command to show/edit configuration
+- [ ] **CLI-02**: `buildstory narrate <timeline.json>` command outputs story-arc.json + text formats
+- [ ] **CLI-03**: `buildstory render <story-arc.json>` command outputs MP4 + SRT from existing story arc
+- [ ] **CLI-04**: `buildstory run <paths>` command runs full pipeline (scan → narrate → TTS → render)
+- [ ] **CLI-05**: `run` defaults to style:"story"; `narrate` keeps style:"overview"
+- [ ] **CLI-06**: Progress indicators during long-running operations including Remotion render frame count
+- [ ] **CLI-07**: Video mode skips text format generation; --include-text flag to add them back
 
 ## v2 Requirements
 
@@ -78,6 +81,7 @@
 
 - **TTS-01**: Piper (local/free/offline) TTS engine support
 - **TTS-02**: ElevenLabs TTS engine support with voice cloning
+- **TTS-03**: TTS checkpoint/resume — persist manifest of completed segments for partial failure recovery
 
 ### Advanced Features
 
@@ -87,48 +91,61 @@
 - **ADV-04**: Incremental scanning (diff against previous timeline)
 - **ADV-05**: Custom visual themes/color schemes
 - **ADV-06**: Interactive script editing (TUI or web preview)
+- **ADV-07**: Background music mixing with configurable volume
+- **ADV-08**: Live Build Radio — real-time narrated audio of build sessions
+- **ADV-09**: GitHub Wrapped / Build Wrapped — shareable HTML stats page
+- **ADV-10**: Remotion cloud rendering via Lambda
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
 | Web UI or dashboard | Duplicates CLI; adds frontend stack, auth, session management |
-| Real-time/streaming video | FFmpeg requires all frames; wrong architecture for offline CLI tool |
+| Real-time/streaming video | Wrong architecture for offline CLI tool |
 | Cloud hosting of videos | Turns toolkit into SaaS with storage/CDN costs; users upload to YouTube themselves |
 | AI-generated imagery (Midjourney, SD) | Cost, consistency, latency problems; data-driven frames are deterministic and fast |
 | Automatic social media publishing | OAuth complexity; n8n already solves this downstream |
 | Non-GStack/GSD planning tools | Extensibility comes in v2+; custom patterns provide an escape hatch |
+| Custom canvas+FFmpeg renderer | Replaced by Remotion per office-hours design review (2026-04-06) |
+| TTS engine abstraction (v1) | OpenAI TTS only for v1; Piper/ElevenLabs deferred to v2 (TTS-01, TTS-02) |
+| Background music mixing (v1) | Deferred to v2 (ADV-07); focus on narration quality first |
+| buildstory config command | Deferred; users edit buildstory.toml directly |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
-| INFRA-03 | Phase 1 | Pending |
-| INFRA-04 | Phase 1 | Pending |
-| INFRA-05 | Phase 1 | Pending |
-| INFRA-06 | Phase 1 | Pending |
-| SCAN-01 | Phase 2 | Pending |
-| SCAN-02 | Phase 2 | Pending |
-| SCAN-03 | Phase 2 | Pending |
-| SCAN-04 | Phase 2 | Pending |
-| SCAN-05 | Phase 2 | Pending |
-| SCAN-06 | Phase 2 | Pending |
-| SCAN-07 | Phase 2 | Pending |
-| SCAN-08 | Phase 2 | Pending |
-| SCAN-09 | Phase 2 | Pending |
-| SCAN-10 | Phase 2 | Pending |
-| SCAN-11 | Phase 2 | Pending |
-| NARR-01 | Phase 3 | Pending |
-| NARR-02 | Phase 3 | Pending |
-| NARR-03 | Phase 3 | Pending |
-| NARR-04 | Phase 3 | Pending |
-| NARR-05 | Phase 3 | Pending |
-| NARR-06 | Phase 3 | Pending |
-| NARR-07 | Phase 3 | Pending |
-| NARR-08 | Phase 3 | Pending |
-| NARR-09 | Phase 3 | Pending |
+| INFRA-01 | Phase 1 | Complete |
+| INFRA-02 | Phase 1 | Complete |
+| INFRA-03 | Phase 1 | Complete |
+| INFRA-04 | Phase 1 | Complete |
+| INFRA-05 | Phase 1 | Complete |
+| INFRA-06 | Phase 1 | Complete |
+| SCAN-01 | Phase 2 | Complete |
+| SCAN-02 | Phase 2 | Complete |
+| SCAN-03 | Phase 2 | Complete |
+| SCAN-04 | Phase 2 | Complete |
+| SCAN-05 | Phase 2 | Complete |
+| SCAN-06 | Phase 2 | Complete |
+| SCAN-07 | Phase 2 | Complete |
+| SCAN-08 | Phase 2 | Complete |
+| SCAN-09 | Phase 2 | Complete |
+| SCAN-10 | Phase 2 | Complete |
+| SCAN-11 | Phase 2 | Complete |
+| CLI-01 | Phase 2 | Complete |
+| NARR-01 | Phase 3 | Complete |
+| NARR-02 | Phase 3 | Complete |
+| NARR-03 | Phase 3 | Complete |
+| NARR-04 | Phase 3 | Complete |
+| NARR-05 | Phase 3 | Complete |
+| NARR-06 | Phase 3 | Complete |
+| NARR-07 | Phase 3 | Complete |
+| NARR-08 | Phase 3 | Complete |
+| NARR-09 | Phase 3 | Complete |
+| CLI-02 | Phase 3 | Complete |
+| NARR-10 | Phase 4 | Pending |
+| NARR-11 | Phase 4 | Pending |
+| NARR-12 | Phase 4 | Pending |
 | REND-01 | Phase 4 | Pending |
 | REND-02 | Phase 4 | Pending |
 | REND-03 | Phase 4 | Pending |
@@ -140,8 +157,6 @@
 | REND-09 | Phase 4 | Pending |
 | REND-10 | Phase 4 | Pending |
 | REND-11 | Phase 4 | Pending |
-| CLI-01 | Phase 2 | Pending |
-| CLI-02 | Phase 3 | Pending |
 | CLI-03 | Phase 4 | Pending |
 | CLI-04 | Phase 4 | Pending |
 | CLI-05 | Phase 4 | Pending |
@@ -149,10 +164,12 @@
 | CLI-07 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 44 total
-- Mapped to phases: 44
+- v1 requirements: 47 total
+- Mapped to phases: 47
 - Unmapped: 0
+- Phases 1-3: 28 Complete
+- Phase 4: 19 Pending
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-06 after Phase 3 plan 01 — realigned NARR-04, NARR-06, NARR-07, CLI-02 per D-09/D-11/D-12*
+*Last updated: 2026-04-06 after Remotion MVP design review — replaced REND requirements, added NARR-10/11/12, updated CLI requirements*

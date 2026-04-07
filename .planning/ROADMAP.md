@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Scaffold** - Monorepo foundation with enforced core/CLI boundary and typed pipeline stubs
 - [ ] **Phase 2: Scanner** - Artifact-aware timeline extraction from planning files and git history
 - [ ] **Phase 3: Narrator** - LLM narration with style presets, beat classification, format generation, and cost guards
-- [ ] **Phase 4: Renderer** - Frame generation, TTS, FFmpeg assembly, and complete CLI surface
+- [ ] **Phase 4: Renderer** - Story voice, TTS audio, Remotion video composition, and complete CLI surface
 
 ## Phase Details
 
@@ -65,15 +65,17 @@ Plans:
 - [x] 03-03-PLAN.md — CLI narrate command, run command update, end-to-end verification
 
 ### Phase 4: Renderer
-**Goal**: Users can render a Script JSON into a watchable MP4 with synchronized narration audio, subtitles, and scene transitions
+**Goal**: Users can run one command and get a narrated video of their build journey with engaging voice, visual timeline, and decision callouts — something they'd share on X
 **Depends on**: Phase 3
-**Requirements**: REND-01, REND-02, REND-03, REND-04, REND-05, REND-06, REND-07, REND-08, REND-09, REND-10, REND-11, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07
+**Requirements**: NARR-10, NARR-11, NARR-12, REND-01, REND-02, REND-03, REND-04, REND-05, REND-06, REND-07, REND-08, REND-09, REND-10, REND-11, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07
+**Design doc**: `~/.gstack/projects/johnzilla-build-story/john-main-design-20260406-213135.md` (APPROVED, 8/10)
 **Success Criteria** (what must be TRUE):
-  1. `buildstory render <script.json>` produces an MP4 (H.264 + AAC) and an SRT subtitle file in `buildstory-out/`
-  2. Audio and video are in sync — narration speech matches the correct scene throughout the video
-  3. `buildstory run <path>` executes all three pipeline phases in sequence and produces the final MP4
-  4. Running render before FFmpeg is installed or without a TTS API key fails immediately with an actionable error message
-  5. `buildstory config` shows the active configuration and `--verbose`, `--quiet`, `--config` flags work across all subcommands
+  1. `buildstory run ~/my-project` produces an MP4 video with narrated audio and visual timeline in `buildstory-out/<project>/`
+  2. The narration sounds like a person telling a story, not a bot reading docs — punchy, second-person, with stakes
+  3. Audio and video are in sync (ffprobe-measured durations, not estimated)
+  4. `buildstory render <story-arc.json>` produces MP4 + SRT from an existing story arc
+  5. Running render before Remotion is installed, Chrome is available, or API keys are set fails immediately with actionable error messages
+  6. Total pipeline time under 10 minutes for a typical project (100-200 events)
 **Plans**: TBD
 
 ## Progress
