@@ -15,8 +15,8 @@ export const DecisionCallout: React.FC<{ beat: BeatWithFrames }> = ({ beat }) =>
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
   )
 
-  // Icon glyph for beat type
-  const icon = beat.type === 'obstacle' ? '\u26A0' : beat.type === 'pivot' ? '\u21BB' : '\u2714'
+  // Icon glyph for beat type (obstacle = warning, pivot = refresh, decision = checkmark)
+  const icon = beat.type === 'obstacle' ? '\u26A0' : beat.type === 'pivot' ? '\u21BB' : beat.type === 'decision' ? '\u2714' : '\u2022'
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#1a1a2e', opacity, padding: 80 }}>
