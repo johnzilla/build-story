@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter '@buildstory/core' build && pnpm --filter 'buildstory' build",
+    "build": "pnpm --filter '@buildstory/core' build && pnpm --filter '@buildstory/video' build && pnpm --filter 'buildstory' build",
     "test": "pnpm --filter '*' test",
     "lint": "eslint packages/*/src",
     "format": "prettier --write .",

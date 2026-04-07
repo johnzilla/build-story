@@ -5,12 +5,21 @@ import { parse } from 'smol-toml'
 
 export interface BuildStoryConfig {
   provider?: 'anthropic' | 'openai'
-  style?: 'technical' | 'overview' | 'retrospective' | 'pitch'
+  style?: 'technical' | 'overview' | 'retrospective' | 'pitch' | 'story'
   outputDir?: string
   scan?: {
     patterns?: string[]
     excludes?: string[]
     maxDepth?: number
+  }
+  tts?: {
+    voice?: string
+    speed?: number
+    concurrency?: number
+  }
+  render?: {
+    titleCard?: boolean
+    statsCard?: boolean
   }
 }
 
@@ -47,5 +56,7 @@ export function loadConfig(projectRoot: string): BuildStoryConfig {
     ...globalConfig,
     ...projectConfig,
     scan: { ...globalConfig.scan, ...projectConfig.scan },
+    tts: { ...globalConfig.tts, ...projectConfig.tts },
+    render: { ...globalConfig.render, ...projectConfig.render },
   }
 }
