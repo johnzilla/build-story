@@ -76,16 +76,21 @@ Plans:
   4. `buildstory render <story-arc.json>` produces MP4 + SRT from an existing story arc
   5. Running render before Remotion is installed, Chrome is available, or API keys are set fails immediately with actionable error messages
   6. Total pipeline time under 10 minutes for a typical project (100-200 events)
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+- [ ] 04-01-PLAN.md — Core type extensions (StoryBeat schema, "story" style prompt, warning accumulation)
+- [ ] 04-02-PLAN.md — @buildstory/video package scaffold, TTS orchestration, ffprobe measurement, preflight checks
+- [ ] 04-03-PLAN.md — Remotion composition, 4 scene components, renderVideo() orchestrator, SRT generation
+- [ ] 04-04-PLAN.md — CLI wiring (render command, run pipeline extension, lazy install, all flags)
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scaffold | 2/2 | Complete | 2026-04-05 |
 | 2. Scanner | 3/3 | Complete | 2026-04-05 |
 | 3. Narrator | 0/3 | Executing | - |
-| 4. Renderer | 0/? | Not started | - |
+| 4. Renderer | 0/4 | Not started | - |
