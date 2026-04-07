@@ -93,18 +93,19 @@ export async function narrate(
 
   // Post-narration: validate sourceEventIds against actual timeline event IDs (NARR-05)
   const validIds = new Set(timeline.events.map((e) => e.id))
+  const warnings: string[] = []
 
   const validatedBeats = finalArc.beats.map((beat) => {
     const badIds = beat.sourceEventIds.filter((id) => !validIds.has(id))
     if (badIds.length > 0) {
       for (const badId of badIds) {
-        console.warn(
-          `Warning: Beat "${beat.title}" references unknown event ID "${badId}" — LLM hallucinated a source link`,
+        warnings.push(
+          `Beat "${beat.title}" references unknown event ID "${badId}" — LLM hallucinated a source link`,
         )
       }
       const filtered = beat.sourceEventIds.filter((id) => validIds.has(id))
       if (filtered.length === 0) {
-        console.warn(`Warning: Beat "${beat.title}" has no valid sourceEventIds after filtering hallucinated IDs`)
+        warnings.push(`Beat "${beat.title}" has no valid sourceEventIds after filtering hallucinated IDs`)
       }
       return { ...beat, sourceEventIds: filtered }
     }
@@ -117,6 +118,7 @@ export async function narrate(
     metadata: {
       ...finalArc.metadata,
       generatedAt: new Date().toISOString(),
+      ...(warnings.length > 0 ? { warnings } : {}),
     },
   }
 
