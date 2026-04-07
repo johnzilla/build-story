@@ -6,6 +6,7 @@ import { Command } from 'commander'
 import { run } from './commands/run.js'
 import { scanCommand } from './commands/scan.js'
 import { narrateCommand } from './commands/narrate.js'
+import { renderCommand } from './commands/render.js'
 
 const program = new Command()
 
@@ -16,11 +17,16 @@ program
 
 program
   .command('run [paths...]')
-  .description('Run the full pipeline: scan -> narrate -> format')
+  .description('Run the full pipeline: scan -> narrate -> TTS -> render')
   .option('-c, --config <path>', 'path to buildstory.toml')
   .option('--provider <provider>', 'LLM provider (anthropic|openai)', 'anthropic')
-  .option('--style <style>', 'narrative style', 'overview')
+  .option('--style <style>', 'narrative style', 'story')
   .option('-o, --output <path>', 'output directory', './buildstory-out')
+  .option('--skip-video', 'Skip video rendering, text-only output')
+  .option('--include-text', 'Include text formats alongside video')
+  .option('--dry-run', 'Show cost estimates without calling APIs')
+  .option('--no-title-card', 'Disable auto-inserted title card')
+  .option('--no-stats-card', 'Disable auto-inserted stats card')
   .action(run)
 
 program
@@ -40,10 +46,23 @@ program
   .option('-c, --config <path>', 'Config file path')
   .option('-f, --format <format>', 'Output format (outline|thread|blog|video-script) — all by default')
   .option('--provider <provider>', 'LLM provider (anthropic|openai)', 'anthropic')
-  .option('--style <style>', 'Narrative style (technical|overview|retrospective|pitch)', 'overview')
+  .option('--style <style>', 'Narrative style (technical|overview|retrospective|pitch|story)', 'overview')
   .option('-o, --output <path>', 'Output directory', './buildstory-out')
   .action(async (timeline: string, opts) => {
     await narrateCommand(timeline, opts)
+  })
+
+program
+  .command('render')
+  .description('Render video from a story arc')
+  .argument('<story-arc>', 'Path to story-arc.json')
+  .option('-c, --config <path>', 'Config file path')
+  .option('-o, --output <path>', 'Output directory', './buildstory-out')
+  .option('--dry-run', 'Show TTS cost estimate without calling APIs')
+  .option('--no-title-card', 'Disable auto-inserted title card')
+  .option('--no-stats-card', 'Disable auto-inserted stats card')
+  .action(async (storyArc: string, opts) => {
+    await renderCommand(storyArc, opts)
   })
 
 await program.parseAsync(process.argv)
