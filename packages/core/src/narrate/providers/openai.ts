@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { StoryArcSchema } from '../../types/story.js'
 import type { StoryArc, FormatType } from '../../types/story.js'
 import type { Timeline } from '../../types/timeline.js'
-import type { LLMProvider } from './interface.js'
+import type { LLMProvider, UsageStats } from './interface.js'
 import { buildTimelinePayload } from '../tokens.js'
 
 /**
@@ -16,10 +16,23 @@ import { buildTimelinePayload } from '../tokens.js'
 export class OpenAIProvider implements LLMProvider {
   private readonly client: OpenAI
   private readonly model: string
+  private _usage: UsageStats = { calls: 0, inputTokens: 0, outputTokens: 0 }
 
   constructor({ apiKey, model = 'gpt-4o' }: { apiKey: string; model?: string }) {
     this.client = new OpenAI({ apiKey, maxRetries: 2 })
     this.model = model
+  }
+
+  private trackUsage(usage: OpenAI.Completions.CompletionUsage | undefined) {
+    this._usage.calls++
+    if (usage) {
+      this._usage.inputTokens += usage.prompt_tokens
+      this._usage.outputTokens += usage.completion_tokens
+    }
+  }
+
+  getUsage(): UsageStats {
+    return { ...this._usage }
   }
 
   async extractStoryArc(timeline: Timeline, systemPrompt: string): Promise<StoryArc> {
@@ -44,6 +57,8 @@ export class OpenAIProvider implements LLMProvider {
         { role: 'user', content: beatsJson },
       ],
     })
+
+    this.trackUsage(completion.usage ?? undefined)
 
     const content = completion.choices[0]?.message.content
     if (content === null || content === undefined) {
@@ -89,6 +104,8 @@ export class OpenAIProvider implements LLMProvider {
         response_format: responseFormat,
       })
 
+      this.trackUsage(completion.usage ?? undefined)
+
       const parsed = completion.choices[0]?.message.parsed
       if (parsed === null || parsed === undefined) {
         throw new Error('OpenAI failed to produce structured output (content filter or length limit)')
@@ -123,6 +140,8 @@ export class OpenAIProvider implements LLMProvider {
           },
         },
       })
+
+      this.trackUsage(completion.usage ?? undefined)
 
       const content = completion.choices[0]?.message.content
       if (content === null || content === undefined) {

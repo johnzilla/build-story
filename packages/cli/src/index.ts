@@ -1,3 +1,7 @@
+import { loadEnvFile } from 'node:process'
+
+try { loadEnvFile() } catch { /* no .env file — use existing env */ }
+
 import { Command } from 'commander'
 import { run } from './commands/run.js'
 import { scanCommand } from './commands/scan.js'

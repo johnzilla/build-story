@@ -5,28 +5,54 @@ Turn planning artifacts into publishable content. BuildStory scans your GStack/G
 ## Quick Start
 
 ```bash
-# Install
-pnpm install
+# Install and build
+pnpm install && pnpm build
 
-# Build
-pnpm build
+# Add your API key to .env (already in .gitignore)
+echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env
 
 # Scan your project's planning artifacts
-buildstory scan . -o timeline.json
+npx buildstory scan ~/my-project -o timeline.json
 
 # Generate all narrative formats
-ANTHROPIC_API_KEY=sk-... buildstory narrate timeline.json
+npx buildstory narrate timeline.json
 
-# Or run the full pipeline
-ANTHROPIC_API_KEY=sk-... buildstory run .
+# Or run the full pipeline (scan + narrate + format)
+npx buildstory run ~/my-project
 ```
 
-Output goes to `./buildstory-out/` by default:
+Output goes to `./buildstory-out/<project-name>/` by default:
 - `story-arc.json` -- structured narrative beats
 - `outline.md` -- full narrative essay (800-1500 words)
 - `thread.md` -- X/LinkedIn thread (8-15 posts, <280 chars each)
 - `blog.md` -- blog post with headings, code blocks, blockquotes
 - `video-script.md` -- narrated script with scene markers
+
+Example output:
+```
+  BuildStory Narrate
+
+✔ Loaded timeline: honeyprompt — 116 events
+  Provider: anthropic | Style: overview
+
+✔ [1/5] Story arc extracted — 30 beats (2m 37s)
+✔ [2/5] outline.md (1m 30s)
+✔ [3/5] thread.md (24s)
+✔ [4/5] blog.md (1m 11s)
+✔ [5/5] video-script.md (33s)
+
+  Done in 6m 15s
+
+  Project:    honeyprompt
+  Timeline:   3/29/2026 → 4/1/2026
+  Events:     116 scanned
+  Artifacts:  110 gsd, 1 gstack, 4 git-tag, 1 generic
+  Beats:      30 narrative beats
+  API calls:  5 (anthropic)
+  Tokens:     77.8k in / 14.5k out (92.3k total)
+  Output:     ./buildstory-out/honeyprompt
+  Files:      story-arc.json, outline.md, thread.md, blog.md, video-script.md
+```
 
 ## CLI
 
@@ -68,9 +94,11 @@ maxDepth = 5
 
 Global defaults at `~/.config/buildstory/config.toml` (project config overrides global).
 
-API keys are always read from environment variables:
+API keys via `.env` file (recommended) or environment variables:
 - `ANTHROPIC_API_KEY` for Claude
 - `OPENAI_API_KEY` for GPT
+
+The CLI automatically loads `.env` from the current working directory.
 
 ## What It Scans
 

@@ -129,8 +129,13 @@ export async function parseArtifact(
 ): Promise<ParsedArtifact> {
   const tree = parseMarkdown(content)
   const summary = buildSummary(tree)
-  const parsed = matter(content)
-  const metadata: Record<string, unknown> = parsed.data as Record<string, unknown>
+  let metadata: Record<string, unknown> = {}
+  try {
+    const parsed = matter(content)
+    metadata = parsed.data as Record<string, unknown>
+  } catch {
+    // Malformed frontmatter — skip metadata extraction
+  }
   const crossRefs = await extractCrossRefs(content, relativePath, source, allPaths)
 
   return {

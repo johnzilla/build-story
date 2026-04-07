@@ -36,6 +36,7 @@ export const DEFAULT_EXCLUDES: string[] = [
   'target/**',
   'build/**',
   '.turbo/**',
+  '.claude/worktrees/**',
 ]
 
 export async function discoverFiles(

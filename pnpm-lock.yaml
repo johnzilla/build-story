@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      buildstory:
+        specifier: workspace:*
+        version: link:packages/cli
     devDependencies:
       '@changesets/cli':
         specifier: ^2.30.0

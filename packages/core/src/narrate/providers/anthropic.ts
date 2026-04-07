@@ -3,7 +3,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { StoryArcSchema } from '../../types/story.js'
 import type { StoryArc, FormatType } from '../../types/story.js'
 import type { Timeline } from '../../types/timeline.js'
-import type { LLMProvider } from './interface.js'
+import type { LLMProvider, UsageStats } from './interface.js'
 import { buildTimelinePayload } from '../tokens.js'
 
 /**
@@ -14,10 +14,21 @@ import { buildTimelinePayload } from '../tokens.js'
 export class AnthropicProvider implements LLMProvider {
   private readonly client: Anthropic
   private readonly model: string
+  private _usage: UsageStats = { calls: 0, inputTokens: 0, outputTokens: 0 }
 
   constructor({ apiKey, model = 'claude-sonnet-4-5' }: { apiKey: string; model?: string }) {
     this.client = new Anthropic({ apiKey, maxRetries: 2 })
     this.model = model
+  }
+
+  private trackUsage(usage: { input_tokens: number; output_tokens: number }) {
+    this._usage.calls++
+    this._usage.inputTokens += usage.input_tokens
+    this._usage.outputTokens += usage.output_tokens
+  }
+
+  getUsage(): UsageStats {
+    return { ...this._usage }
   }
 
   async extractStoryArc(timeline: Timeline, systemPrompt: string): Promise<StoryArc> {
@@ -33,6 +44,8 @@ export class AnthropicProvider implements LLMProvider {
         format: zodOutputFormat(StoryArcSchema),
       },
     })
+
+    this.trackUsage(response.usage)
 
     if (response.parsed_output === null || response.parsed_output === undefined) {
       throw new Error('Anthropic refused to generate structured output')
@@ -53,6 +66,8 @@ export class AnthropicProvider implements LLMProvider {
       system: systemPrompt,
       messages: [{ role: 'user', content: beatsJson }],
     })
+
+    this.trackUsage(response.usage)
 
     const firstContent = response.content[0]
     if (firstContent === undefined || firstContent.type !== 'text') {
@@ -83,6 +98,8 @@ export class AnthropicProvider implements LLMProvider {
         format: zodOutputFormat(StoryArcSchema),
       },
     })
+
+    this.trackUsage(response.usage)
 
     if (response.parsed_output === null || response.parsed_output === undefined) {
       throw new Error('Anthropic refused to generate structured output during arc synthesis')

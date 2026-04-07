@@ -1,6 +1,12 @@
 import type { StoryArc, FormatType } from '../../types/story.js'
 import type { Timeline } from '../../types/timeline.js'
 
+export interface UsageStats {
+  calls: number
+  inputTokens: number
+  outputTokens: number
+}
+
 /**
  * Provider-agnostic LLM client interface per D-03.
  * narrate() and format() depend only on this interface — not on specific SDK implementations.
@@ -26,4 +32,7 @@ export interface LLMProvider {
    * separately, then this synthesis call merges the resulting arcs into one.
    */
   synthesizeArcs(arcs: StoryArc[], systemPrompt: string): Promise<StoryArc>
+
+  /** Accumulated token usage across all calls. */
+  getUsage(): UsageStats
 }
