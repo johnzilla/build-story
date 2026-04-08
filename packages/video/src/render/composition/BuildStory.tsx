@@ -61,9 +61,7 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
           <Sequence key={`beat-${i}`} from={startFrame} durationInFrames={frames}>
             <SceneForBeat beat={beat} isFirst={isFirst} isLast={isLast} isStats={isStats} />
             {audioManifest.scenes[i] && (
-              <Sequence from={2}>
-                <Audio src={audioManifest.scenes[i]!.filePath} />
-              </Sequence>
+              <Audio src={audioManifest.scenes[i]!.filePath} />
             )}
           </Sequence>
         )
