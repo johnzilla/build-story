@@ -157,7 +157,7 @@ export async function run(
 
     // TTS (REND-02)
     const ttsVoice = config.tts?.voice ?? 'nova'
-    const ttsSpeed = config.tts?.speed ?? 1.15
+    const ttsSpeed = config.tts?.speed ?? 1.0
     const ttsConcurrency = config.tts?.concurrency ?? 2
 
     const ttsSpinner = ora(`[3/${totalSteps}] Generating TTS audio...`).start()

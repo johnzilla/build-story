@@ -28,7 +28,7 @@ export async function generateSceneAudio(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const response = await client.audio.speech.create({
-        model: 'tts-1',
+        model: 'tts-1-hd',
         voice: opts.voice as 'nova' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'shimmer',
         input: truncated,
         speed: opts.speed,
