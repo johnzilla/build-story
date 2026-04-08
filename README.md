@@ -2,6 +2,8 @@
 
 Turn planning artifacts into narrated video documentaries. BuildStory scans your GStack/GSD planning files, extracts the decision arc via LLM, generates narration audio, and renders an MP4 video with visual timeline, decision callouts, and TTS voice-over.
 
+**[Watch an example: BuildStory narrating its own build journey](https://youtu.be/OtYFP66iI9s)**
+
 Also produces text formats: X threads, blog drafts, story outlines, and video scripts.
 
 ## Quick Start
