@@ -78,10 +78,10 @@ Plans:
   6. Total pipeline time under 10 minutes for a typical project (100-200 events)
 **Plans:** 4 plans
 Plans:
-- [ ] 04-01-PLAN.md — Core type extensions (StoryBeat schema, "story" style prompt, warning accumulation)
-- [ ] 04-02-PLAN.md — @buildstory/video package scaffold, TTS orchestration, ffprobe measurement, preflight checks
-- [ ] 04-03-PLAN.md — Remotion composition, 4 scene components, renderVideo() orchestrator, SRT generation
-- [ ] 04-04-PLAN.md — CLI wiring (render command, run pipeline extension, lazy install, all flags)
+- [x] 04-01-PLAN.md — Core type extensions (StoryBeat schema, "story" style prompt, warning accumulation)
+- [x] 04-02-PLAN.md — @buildstory/video package scaffold, TTS orchestration, ffprobe measurement, preflight checks
+- [x] 04-03-PLAN.md — Remotion composition, 4 scene components, renderVideo() orchestrator, SRT generation
+- [x] 04-04-PLAN.md — CLI wiring (render command, run pipeline extension, lazy install, all flags)
 
 ## Progress
 
