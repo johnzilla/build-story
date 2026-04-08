@@ -195,4 +195,4 @@ Use `--dry-run` to see cost estimates before any API calls.
 
 ## License
 
-MIT
+[MIT](LICENSE)
