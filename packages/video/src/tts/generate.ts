@@ -1,5 +1,9 @@
-import { writeFile } from 'node:fs/promises'
+import { writeFile, unlink } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import OpenAI from 'openai'
+
+const execFileAsync = promisify(execFile)
 
 interface GenerateOpts {
   voice: string
@@ -19,14 +23,10 @@ export async function generateSceneAudio(
   outputPath: string,
   opts: GenerateOpts,
 ): Promise<void> {
-  // Prepend a brief SSML-style pause to avoid MP3 encoder padding clipping the first syllable.
-  // OpenAI TTS treats "..." as a natural pause (~200ms) which gives the decoder enough lead-in.
-  const padded = `... ${text}`
-
   // If text exceeds limit, truncate at last sentence boundary under limit
-  const truncated = padded.length > MAX_TTS_CHARS
-    ? padded.slice(0, padded.lastIndexOf('.', MAX_TTS_CHARS) + 1) || padded.slice(0, MAX_TTS_CHARS)
-    : padded
+  const truncated = text.length > MAX_TTS_CHARS
+    ? text.slice(0, text.lastIndexOf('.', MAX_TTS_CHARS) + 1) || text.slice(0, MAX_TTS_CHARS)
+    : text
 
   const MAX_ATTEMPTS = 3
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -38,7 +38,21 @@ export async function generateSceneAudio(
         speed: opts.speed,
       })
       const buffer = Buffer.from(await response.arrayBuffer())
-      await writeFile(outputPath, buffer)
+
+      // OpenAI returns MP3 which has encoder padding that clips the first syllable
+      // in Remotion. Convert to WAV (PCM) which has zero padding.
+      const tempMp3 = `${outputPath}.tmp.mp3`
+      await writeFile(tempMp3, buffer)
+
+      const ffmpegPath = process.env['FFMPEG_PATH'] ?? 'ffmpeg'
+      await execFileAsync(ffmpegPath, [
+        '-y', '-i', tempMp3,
+        '-acodec', 'pcm_s16le',
+        '-ar', '24000',
+        outputPath,
+      ])
+
+      await unlink(tempMp3).catch(() => {})
       return
     } catch (err: unknown) {
       if (attempt === MAX_ATTEMPTS) throw err

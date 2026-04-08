@@ -45,7 +45,7 @@ export async function orchestrateTTS(
   const scenes: SceneAudio[] = []
 
   const tasks = beats.map((beat, i) => async () => {
-    const filePath = join(audioDir, `scene-${String(i).padStart(3, '0')}.mp3`)
+    const filePath = join(audioDir, `scene-${String(i).padStart(3, '0')}.wav`)
     await generateSceneAudio(client, beat.summary, filePath, generateOpts)
     const durationSeconds = await measureAudioDuration(filePath)
     onProgress?.(i + 1, beats.length)
