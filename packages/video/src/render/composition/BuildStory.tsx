@@ -1,11 +1,11 @@
 import React from 'react'
 import { AbsoluteFill, Sequence, Audio } from 'remotion'
-import type { BuildStoryInputProps, BeatWithFrames } from './types.js'
+import type { BuildStoryInputProps, BeatWithFrames } from './types'
 import type { BeatType } from '@buildstory/core'
-import { TitleCard } from './scenes/TitleCard.js'
-import { TimelineBar } from './scenes/TimelineBar.js'
-import { DecisionCallout } from './scenes/DecisionCallout.js'
-import { StatsCard } from './scenes/StatsCard.js'
+import { TitleCard } from './scenes/TitleCard'
+import { TimelineBar } from './scenes/TimelineBar'
+import { DecisionCallout } from './scenes/DecisionCallout'
+import { StatsCard } from './scenes/StatsCard'
 
 // D-09: Beat type → scene component mapping
 // TitleCard: first/last beats (inserted by composition logic, not beat type)

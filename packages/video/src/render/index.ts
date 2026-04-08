@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises'
+import { writeFile, copyFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { bundle } from '@remotion/bundler'
@@ -20,17 +20,18 @@ export interface RenderOptions {
 }
 
 // Resolve the composition entry point relative to this file's package root.
-// tsup bundles src/index.ts → dist/index.js but keeps src/ alongside dist/
+// tsup bundles everything into a single dist/index.js, so import.meta.url
+// points to packages/video/dist/index.js. Go up one level to package root.
 // The Remotion bundler needs the TypeScript source entry (it runs its own webpack/esbuild pass).
 function resolveCompositionEntry(): string {
   const thisFile = fileURLToPath(import.meta.url)
   const thisDir = path.dirname(thisFile)
 
-  // When running from dist/render/index.js, go up to package root then into src/
-  // When running from src/render/index.ts (ts-node / vitest), path is already in src/
-  const packageRoot = thisDir.includes('/dist/')
-    ? path.resolve(thisDir, '../../')
-    : path.resolve(thisDir, '../../')
+  // From dist/index.js → go up 1 level to package root
+  // From src/render/index.ts (dev) → go up 2 levels to package root
+  const packageRoot = thisDir.includes('/dist')
+    ? path.resolve(thisDir, '..')
+    : path.resolve(thisDir, '../..')
 
   return path.resolve(packageRoot, 'src/render/composition/index.ts')
 }
@@ -48,9 +49,25 @@ export async function renderVideo(
     webpackOverride: (config) => config,
   })
 
+  // Remotion's <Audio> only accepts http/https URLs served by its dev server.
+  // Copy audio files into the webpack bundle's public directory so they're served as static assets.
+  const audioPublicDir = path.join(bundleLocation, 'audio')
+  await mkdir(audioPublicDir, { recursive: true })
+
+  const audioManifestForRemotion: typeof audioManifest = {
+    ...audioManifest,
+    scenes: await Promise.all(
+      audioManifest.scenes.map(async (scene) => {
+        const filename = path.basename(scene.filePath)
+        await copyFile(scene.filePath, path.join(audioPublicDir, filename))
+        return { ...scene, filePath: `/audio/${filename}` }
+      }),
+    ),
+  }
+
   const inputProps = {
     storyArc,
-    audioManifest,
+    audioManifest: audioManifestForRemotion,
     fps: 30,
   }
 
