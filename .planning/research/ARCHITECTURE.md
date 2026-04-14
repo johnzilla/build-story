@@ -2,6 +2,7 @@
 
 **Domain:** TypeScript monorepo toolkit — file scanner + LLM pipeline + video renderer
 **Researched:** 2026-04-05
+**Updated:** 2026-04-14 (HeyGen renderer integration added)
 **Confidence:** HIGH
 
 ## Standard Architecture
@@ -104,34 +105,292 @@ build-story/
 │   │   │   ├── commands/
 │   │   │   │   ├── scan.ts             # buildstory scan
 │   │   │   │   ├── narrate.ts          # buildstory narrate
-│   │   │   │   ├── render.ts           # buildstory render
+│   │   │   │   ├── render.ts           # buildstory render (updated v1.1)
 │   │   │   │   └── run.ts              # buildstory run (all three)
-│   │   │   ├── config.ts               # buildstory.toml loader (toml parser)
+│   │   │   ├── config.ts               # buildstory.toml loader (updated v1.1)
 │   │   │   └── index.ts                # commander entry point
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
+│   ├── video/                      # @buildstory/video (Remotion renderer)
+│   │   └── src/
+│   │       ├── tts/                # OpenAI TTS orchestration
+│   │       ├── render/             # Remotion composition + ffmpeg assembly
+│   │       ├── preflight.ts        # Chrome + ffprobe + API key checks
+│   │       └── index.ts
+│   │
+│   ├── heygen/                     # @buildstory/heygen (NEW — v1.1)
+│   │   └── src/
+│   │       ├── types.ts            # HeyGenOptions, HeyGenResult, API Zod schemas
+│   │       ├── client.ts           # fetch wrapper: createVideo(), getVideoStatus()
+│   │       ├── adapter.ts          # StoryArc → HeyGen video_inputs payload
+│   │       ├── poll.ts             # polling loop with timeout and backoff
+│   │       ├── download.ts         # stream video_url to local file
+│   │       ├── cost.ts             # credit estimation before submission
+│   │       ├── preflight.ts        # HEYGEN_API_KEY check, optional avatar/voice validation
+│   │       └── index.ts            # exports renderHeyGen(), preflightHeyGenCheck(), estimateHeyGenCost()
+│   │
 │   └── n8n-nodes/                  # n8n-nodes-buildstory (future milestone)
-│       ├── src/
-│       │   ├── BuildStoryScan.node.ts
-│       │   ├── BuildStoryNarrate.node.ts
-│       │   └── BuildStoryRender.node.ts
-│       ├── package.json
-│       └── tsconfig.json
 │
 ├── pnpm-workspace.yaml
-├── package.json                    # root: scripts, shared devDeps
-├── turbo.json                      # build task graph
-└── tsconfig.base.json              # shared compiler options
+├── package.json
+├── turbo.json
+└── tsconfig.base.json
 ```
 
-### Structure Rationale
+---
 
-- **`packages/core/src/scan/`, `narrate/`, `render/`:** Mirror the three pipeline phases. Each subfolder owns everything for that phase, making the boundary visually obvious. Phase-specific types stay colocated with their phase.
-- **`packages/core/src/types/`:** Shared data structures (Timeline, Script) that cross phase boundaries live here. These are the contracts between phases — define them early and stabilize them.
-- **`packages/core/src/index.ts`:** Single public API surface — `scan()`, `narrate()`, `render()` plus their option/result types. Wrappers import only from this barrel.
-- **`packages/cli/src/commands/`:** One file per subcommand. Each command file: parse args → load config → call core → write output. No business logic.
-- **`packages/cli/src/config.ts`:** All `buildstory.toml` loading and merging (global + project-level) isolated here. Never bleeds into core.
+## HeyGen Renderer Integration (v1.1)
+
+### Decision: New Package `@buildstory/heygen`
+
+Create `packages/heygen/` as a new standalone package. Do not modify `@buildstory/video`.
+
+**Why a separate package:**
+- `@buildstory/video` bundles Remotion (headless Chrome), FFmpeg, OpenAI TTS, and canvas — all heavy native dependencies. HeyGen is HTTP-only. Mixing them forces every HeyGen user to install 200MB+ of rendering dependencies they do not need.
+- The milestone goal is "without touching the existing Remotion pipeline" — a structural package boundary enforces this.
+- Consistent with existing pattern: each renderer is an independently installable package. The CLI lazy-imports whichever is needed.
+
+### Updated Package Dependency Graph
+
+```
+@buildstory/core          (unchanged — owns StoryArc, StoryBeat types)
+        ↑                         ↑
+@buildstory/video          @buildstory/heygen (NEW)
+(Remotion renderer)        (HeyGen HTTP renderer)
+        ↑                         ↑
+        └─────────────────────────┘
+                    ↑
+              buildstory CLI
+```
+
+### HeyGen API Mechanics
+
+**MEDIUM confidence** — WebSearch confirmed against official HeyGen docs structure; WebFetch unavailable for full verification.
+
+**Generate video:**
+`POST https://api.heygen.com/v2/video/generate`
+Header: `X-Api-Key: {HEYGEN_API_KEY}`
+
+Request body:
+```typescript
+{
+  video_inputs: [{
+    character: {
+      type: "avatar",
+      avatar_id: string,      // from config or --avatar flag
+      avatar_style: "normal"
+    },
+    voice: {
+      type: "text",
+      input_text: string,     // narration text, ≤5000 chars per item
+      voice_id: string,       // from config or --voice flag
+      speed: number           // 0.8–1.2 recommended
+    },
+    background: {
+      type: "color",
+      value: "#1a1a2e"
+    }
+  }],
+  dimension: { width: 1280, height: 720 }
+}
+```
+
+Response: `{ data: { video_id: string } }`
+
+**Key difference from Remotion:** HeyGen performs TTS server-side. There is no local audio generation step. The beat summaries from `StoryArc` map directly to `input_text`.
+
+**Poll for completion:**
+`GET https://api.heygen.com/v1/video_status.get?video_id={video_id}`
+
+Status values: `"pending"` | `"processing"` | `"completed"` | `"failed"`
+
+On `"completed"`, response includes `video_url` (valid 7 days). Poll every 10 seconds; typical generation time 2–5 minutes per video.
+
+**Cost:** Standard avatar = 1 credit per minute of output. Avatar IV = 1 credit per 10 seconds (~6 credits/minute). Pay-as-you-go from $5; no free API credits as of Feb 2026.
+
+**Authentication:** `process.env.HEYGEN_API_KEY` only — never stored in `buildstory.toml`.
+
+### Data Flow: StoryArc → HeyGen → MP4
+
+```
+StoryArc (JSON from narrate phase)
+    │
+    ▼
+@buildstory/heygen/adapter.ts
+    │  Maps beats[] → single video_inputs item
+    │  Concatenates beat summaries (Strategy A — see below)
+    │  Injects avatar_id, voice_id from HeyGenOptions
+    │  Estimates credit cost from beat.duration_seconds
+    │
+    ▼
+@buildstory/heygen/client.ts
+    │  POST /v2/video/generate → video_id
+    │
+    ▼
+@buildstory/heygen/poll.ts
+    │  GET /v1/video_status.get?video_id={id}
+    │  Polls every 10s, reports progress via onProgress callback
+    │  Default timeout: 10 minutes (configurable via HEYGEN_TIMEOUT_SECONDS)
+    │
+    ▼
+@buildstory/heygen/download.ts
+    │  Streams video_url → outputPath MP4
+    │
+    ▼
+MP4 file at opts.outputPath
+```
+
+### Multi-Beat Strategy: Concatenation (v1.1)
+
+HeyGen's `video_inputs` accepts multiple items, but community reports indicate only the first item is reliably processed when items use different character/voice configurations. Two approaches exist:
+
+**Strategy A — Single concatenated narration (recommended for v1.1):**
+Concatenate all `beat.summary` texts (prefixed with beat titles) into one `input_text` within a single `video_inputs` item. HeyGen renders one continuous avatar narration. This is simpler, avoids reliability issues with multi-item arrays, and produces an immediately usable video. Character limit: 5000 chars per item; use 4800 as safe buffer.
+
+**Strategy B — Per-beat segments with ffmpeg stitch (future):**
+Submit one `video_inputs` item per beat, receive N `video_id`s, poll all, download N MP4s, stitch with ffmpeg. Produces per-beat visual variety. Adds ffmpeg dependency to `@buildstory/heygen` and significant API call overhead. Defer until Strategy A validates the concept.
+
+Text assembly for Strategy A:
+```typescript
+function buildInputText(beats: StoryBeat[]): string {
+  const MAX = 4800
+  const parts = beats.map(b => `${b.title}. ${b.summary}`)
+  let text = parts.join(' ')
+  if (text.length > MAX) {
+    // truncate at last sentence boundary; log a warning with beat count dropped
+    text = text.slice(0, text.lastIndexOf('.', MAX) + 1) || text.slice(0, MAX)
+  }
+  return text
+}
+```
+
+### Renderer Interface Contract
+
+A minimal interface for the CLI to dispatch to either renderer. **Do not over-engineer**: two renderers do not require a plugin registry. A simple discriminated union in the CLI render command is sufficient for v1.1.
+
+```typescript
+// Location: packages/cli/src/commands/render.ts (inline, not a shared package)
+// Rationale: renderer concerns belong to the wrapper layer, not @buildstory/core
+
+export interface VideoRenderer {
+  readonly name: string
+  preflight(opts: unknown): Promise<{ ok: boolean; failures: string[] }>
+  estimate(arc: StoryArc): { label: string; estimatedCostUSD?: number; estimatedDurationSeconds: number }
+  render(arc: StoryArc, opts: { outputPath: string; onProgress?: (progress: number) => void }): Promise<void>
+}
+```
+
+Do not put this interface in `@buildstory/core`. Core must remain free of rendering concerns per the package boundary constraint in CLAUDE.md.
+
+### New `HeyGenOptions` Type
+
+```typescript
+// packages/heygen/src/types.ts
+export interface HeyGenOptions {
+  apiKey: string           // from process.env.HEYGEN_API_KEY
+  avatarId: string         // required: HeyGen avatar ID
+  voiceId: string          // required: HeyGen voice ID
+  width?: number           // default: 1280
+  height?: number          // default: 720
+  speed?: number           // default: 1.0
+  timeoutSeconds?: number  // default: 600
+}
+
+export interface HeyGenResult {
+  videoId: string
+  videoUrl: string
+  durationSeconds: number
+  creditsUsed: number
+}
+```
+
+### CLI Integration Points
+
+**Modified: `packages/cli/src/commands/render.ts`**
+
+Current path: preflight → TTS → renderVideo()
+
+New path: resolve renderer → branch:
+
+```typescript
+const renderer = opts.renderer ?? config.video?.renderer ?? 'remotion'
+
+if (renderer === 'heygen') {
+  // lazy import — no Remotion/ffmpeg installed needed
+  const heygenPkg = await import('@buildstory/heygen')
+  const apiKey = process.env['HEYGEN_API_KEY'] ?? ''
+  if (!apiKey) {
+    console.error(chalk.red('  HEYGEN_API_KEY not set. Required for --renderer=heygen.'))
+    process.exit(1)
+  }
+  // preflight → estimate → renderHeyGen()
+} else {
+  // existing Remotion path — unchanged
+  const video = await import('@buildstory/video')
+  // ... existing TTS + renderVideo() flow
+}
+```
+
+**Modified: `packages/cli/src/config.ts`**
+
+Extend `BuildStoryConfig`:
+```typescript
+export interface BuildStoryConfig {
+  // ... existing fields ...
+  video?: {
+    renderer?: 'remotion' | 'heygen'
+  }
+  heygen?: {
+    avatarId?: string     // default avatar for this project
+    voiceId?: string      // default voice for this project
+  }
+}
+```
+
+`HEYGEN_API_KEY` is never added to `BuildStoryConfig`. It is always read from `process.env`.
+
+### CLI Flag
+
+Add `--renderer <name>` to `buildstory render` and `buildstory run` commands:
+
+```bash
+buildstory render story-arc.json --renderer=heygen
+buildstory render story-arc.json --renderer=heygen --avatar=<id> --voice=<id>
+buildstory run --renderer=heygen
+```
+
+`--avatar` and `--voice` flags override `buildstory.toml` heygen config. If neither flag nor config provides them, preflight fails with a clear error listing how to find available avatar/voice IDs.
+
+### Build Order for v1.1 Milestone
+
+```
+1. packages/heygen/src/types.ts
+   packages/cli/src/commands/render.ts (VideoRenderer interface only)
+   — No dependencies. Defines contracts upfront.
+
+2. packages/heygen/src/client.ts
+   packages/heygen/src/preflight.ts
+   — Depends on types. Immediately testable against HeyGen API.
+
+3. packages/heygen/src/adapter.ts
+   — Depends on StoryArc from @buildstory/core (already built).
+   — Pure function, unit-testable without API.
+
+4. packages/heygen/src/poll.ts
+   packages/heygen/src/download.ts
+   packages/heygen/src/cost.ts
+   — Depends on client types. Complete polling + download logic.
+
+5. packages/heygen/src/index.ts (renderHeyGen orchestration)
+   — Wires all above. Integration-testable end-to-end.
+
+6. packages/cli/src/commands/render.ts (full renderer dispatch)
+   packages/cli/src/config.ts (heygen config section)
+   — Last because it depends on the package being functional.
+```
+
+---
 
 ## Architectural Patterns
 
@@ -246,12 +505,17 @@ Filesystem + Git repo
    [LLMProvider]  ←── Timeline + style prompt ───→  structured scene list
    [ScriptBuilder] — scene segmentation + pacing
         ↓
-   Script JSON     (serializable; can write to disk)
+   StoryArc JSON   (serializable; can write to disk)
         ↓
-   [FrameGenerator] ← scene visual type assignments → PNG frames per scene
-   [TTSProvider]   ← narration text per scene ──────→ audio segments (MP3/WAV)
-        ↓
-   [FFmpegAssembler] — stitch frames + audio, fades, subtitles
+   ┌────────────────────────────────────┐
+   │         Renderer Branch            │
+   │                                    │
+   │  --renderer=remotion (default)     │  --renderer=heygen
+   │  [FrameGenerator] → PNG frames     │  [HeyGen adapter] → video_inputs
+   │  [TTSProvider] → WAV audio         │  [HeyGen client] → POST /v2/video/generate
+   │  [FFmpegAssembler] → MP4           │  [Poll loop] → wait for completion
+   │                                    │  [Download] → stream MP4
+   └────────────────────────────────────┘
         ↓
    Output video file (MP4)
 ```
@@ -265,17 +529,19 @@ buildstory.toml (project: ./buildstory.toml)
         ↓
    [config.ts in CLI] — merge, validate, resolve defaults
         ↓
-   ScanOptions / NarrateOptions / RenderOptions
+   ScanOptions / NarrateOptions / RenderOptions / HeyGenOptions
         ↓
    @buildstory/core functions (core never reads toml directly)
+   @buildstory/heygen functions (heygen never reads toml directly)
 ```
 
 ### Key Data Flows
 
 1. **Scan phase output is the master record:** All subsequent phases derive from Timeline. If scan produces incorrect dates or missing events, downstream phases cannot correct it — scan quality gates matter most.
 2. **Script JSON links back to source events:** Each Scene in Script carries `sourceEventIds: string[]` pointing back into Timeline. This enables future features (provenance, citations) and debugging.
-3. **Frames + audio are ephemeral:** Generated in a temp directory during render. Only the assembled video is the final artifact — temp cleanup is the render phase's responsibility.
-4. **Resumable pipeline via disk:** `buildstory scan --output timeline.json` followed by `buildstory narrate --input timeline.json` enables partial re-runs without re-scanning or re-calling the LLM. The CLI handles this; core functions accept typed objects and do not know about files.
+3. **Frames + audio are ephemeral (Remotion path):** Generated in a temp directory during render. Only the assembled video is the final artifact — temp cleanup is the render phase's responsibility.
+4. **HeyGen path produces no local intermediate files:** No frames, no audio segments — only the final downloaded MP4. This is the primary dependency advantage of HeyGen.
+5. **Resumable pipeline via disk:** `buildstory scan --output timeline.json` followed by `buildstory narrate --input timeline.json` enables partial re-runs without re-scanning or re-calling the LLM. The same story arc JSON can be rendered by either renderer independently.
 
 ## Build Order
 
@@ -284,8 +550,11 @@ Dependencies must be built in this order. Turborepo infers this automatically fr
 ```
 1. @buildstory/core          ← no internal workspace dependencies
          ↓
-2. buildstory (CLI)          ← depends on workspace:@buildstory/core
-   n8n-nodes-buildstory      ← depends on workspace:@buildstory/core (parallel with CLI)
+2. @buildstory/video         ← depends on workspace:@buildstory/core
+   @buildstory/heygen        ← depends on workspace:@buildstory/core (parallel with video)
+         ↓
+3. buildstory (CLI)          ← depends on workspace:@buildstory/core
+                                optionally lazy-imports @buildstory/video or @buildstory/heygen
 ```
 
 ### TypeScript Project References
@@ -294,6 +563,12 @@ Each `tsconfig.json` mirrors the package dependency graph:
 
 ```jsonc
 // packages/cli/tsconfig.json
+{
+  "compilerOptions": { "composite": true, "outDir": "dist" },
+  "references": [{ "path": "../core" }]
+}
+
+// packages/heygen/tsconfig.json
 {
   "compilerOptions": { "composite": true, "outDir": "dist" },
   "references": [{ "path": "../core" }]
@@ -313,15 +588,19 @@ Running `tsc --build` from the root compiles in dependency order. Turborepo's `b
 | OpenAI TTS | `openai` SDK, `audio.speech.create()` | Returns Buffer; write to temp file for ffmpeg |
 | FFmpeg | `fluent-ffmpeg` wrapper + `ffmpeg-static` for bundled binary | `ffmpeg-static` avoids requiring system install; detect at startup |
 | Git | `simple-git` | Wrap in try/catch — scanning non-git dirs is valid |
+| HeyGen API | Native Node `fetch`, `X-Api-Key` header | No SDK — HTTP client is thin enough to DIY; avoids third-party SDK dependency |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Contract |
 |----------|---------------|----------|
 | CLI → core | Function call with typed options objects | `ScanOptions`, `NarrateOptions`, `RenderOptions` in `@buildstory/core/types` |
+| CLI → heygen (lazy) | Dynamic `import('@buildstory/heygen')` | `renderHeyGen()`, `preflightHeyGenCheck()`, `estimateHeyGenCost()` |
+| CLI → video (lazy) | Dynamic `import('@buildstory/video')` | `renderVideo()`, `orchestrateTTS()`, `preflightCheck()` |
 | n8n nodes → core | Same function calls; n8n credentials map to provider API keys | Same typed interfaces — n8n is just another thin caller |
 | scan → narrate | `Timeline` JSON object (or deserialized from disk) | `Timeline` type in `@buildstory/core/types/timeline.ts` |
-| narrate → render | `Script` JSON object (or deserialized from disk) | `Script` type in `@buildstory/core/types/script.ts` |
+| narrate → render | `StoryArc` JSON object (or deserialized from disk) | `StoryArc` type in `@buildstory/core/types/story.ts` |
+| heygen adapter → heygen client | `HeyGenVideoGenerateRequest` (internal type) | Defined in `packages/heygen/src/types.ts` |
 | FrameGenerator → FFmpegAssembler | Directory of PNG files + timing metadata | Frame filenames must be zero-padded sequential for ffmpeg concat |
 | TTSProvider → FFmpegAssembler | Audio segment files + per-scene duration | Duration from TTS response drives frame count calculation |
 
@@ -335,7 +614,31 @@ Running `tsc --build` from the root compiles in dependency order. Turborepo's `b
 
 **Do this instead:** Core functions accept fully-resolved typed options. The wrapper (CLI, n8n node) is responsible for loading config, resolving defaults, and passing concrete values. Core never touches `process.env` or config files.
 
-### Anti-Pattern 2: Fat Phase Functions
+### Anti-Pattern 2: Adding HeyGen to `@buildstory/video`
+
+**What people might do:** Extend `@buildstory/video` with a HeyGen code path since it's "also a renderer."
+
+**Why it's wrong:** `@buildstory/video` bundles 200MB+ of native dependencies (Remotion, headless Chrome, canvas, FFmpeg). HeyGen is HTTP-only. A user who only wants HeyGen would install all of it. Separate packages = independent install footprints.
+
+**Do this instead:** `packages/heygen/` as a standalone package. The CLI lazy-imports whichever is needed.
+
+### Anti-Pattern 3: Storing HEYGEN_API_KEY in buildstory.toml
+
+**What people do:** Add `api_key` to the `[heygen]` section of `buildstory.toml` for convenience.
+
+**Why it's wrong:** Config files are committed to repos. API keys in config files leak credentials.
+
+**Do this instead:** Read `process.env.HEYGEN_API_KEY` only. Print a clear diagnostic if missing. Document the env var in README.
+
+### Anti-Pattern 4: Building a Renderer Plugin Registry for Two Renderers
+
+**What people do:** Create a `renderers` registry object, `register()` functions, and runtime dynamic loading by string key.
+
+**Why it's wrong:** Two known renderers do not justify this complexity. It obfuscates the dispatch logic and makes it harder to read.
+
+**Do this instead:** A simple `if (renderer === 'heygen') { ... } else { ... }` in `render.ts`. Refactor if a third renderer is ever needed.
+
+### Anti-Pattern 5: Fat Phase Functions
 
 **What people do:** Write `scan()` as a 500-line function that does walking, git, parsing, and timeline merging in one place.
 
@@ -343,21 +646,13 @@ Running `tsc --build` from the root compiles in dependency order. Turborepo's `b
 
 **Do this instead:** Each phase's `index.ts` orchestrates focused sub-components (`FileWalker`, `GitReader`, `ArtifactParser`). Each sub-component is a class or set of functions testable in isolation. The phase function is a thin orchestrator.
 
-### Anti-Pattern 3: Skipping Intermediate JSON Serialization
+### Anti-Pattern 6: Skipping Intermediate JSON Serialization
 
 **What people do:** Chain `scan() → narrate() → render()` in memory only, never allowing disk checkpoints.
 
 **Why it's wrong:** Re-running the full pipeline to iterate on video style means re-scanning (slow) and re-calling LLM (costs money). No way to inspect what the LLM produced.
 
-**Do this instead:** Design `Timeline` and `Script` as serializable from day one. The CLI `run` command chains them in memory by default but accepts `--save-timeline` / `--save-script` flags. Re-entry points (`buildstory narrate --input timeline.json`) use the same core functions with deserialized inputs.
-
-### Anti-Pattern 4: Monolithic n8n Module Type
-
-**What people do:** Set `"type": "module"` in the n8n nodes package to match the rest of the monorepo.
-
-**Why it's wrong:** n8n's node loader uses `require()`. ESM modules cannot be `require()`'d. Runtime error: `ERR_REQUIRE_ESM`.
-
-**Do this instead:** Keep `n8n-nodes-buildstory` as CommonJS output (`"module": "CommonJS"` in tsconfig, no `"type": "module"` in package.json). The n8n package imports from `@buildstory/core` which can be ESM — Node.js supports dynamic `import()` from CJS, or use dual-publish on core if needed.
+**Do this instead:** Design `Timeline` and `StoryArc` as serializable from day one. The CLI `run` command chains them in memory by default but accepts `--save-timeline` / `--save-arc` flags. Re-entry points (`buildstory render story-arc.json --renderer=heygen`) use the same core functions with deserialized inputs.
 
 ## Scaling Considerations
 
@@ -368,20 +663,25 @@ BuildStory is a local developer tool processing single repositories. Scaling to 
 | Single repo, typical size | Default architecture — in-process, synchronous pipeline |
 | Monorepo with 10k+ files | FileWalker needs concurrency limits; `fast-glob` handles this well with `concurrency` option |
 | Long git history (10k+ commits) | GitReader should filter by date range before processing; `simple-git`'s `log({ '--after': date })` |
-| Long-form video (30+ min) | Frame generation becomes the bottleneck; consider worker_threads for `node-canvas` rendering |
+| Long story arc (20+ beats) | HeyGen: concatenate and truncate at 4800 chars; log beats dropped. Remotion: no limit. |
+| Long-form video (30+ min) | Remotion: frame generation bottleneck; consider worker_threads for `node-canvas`. HeyGen: server-side, no local bottleneck |
+| HeyGen generation latency | Typical: 2–5 min. Poll with configurable timeout (default 10 min via `HEYGEN_TIMEOUT_SECONDS`) |
 | n8n workflows | n8n handles concurrency at workflow level — core functions need to be stateless (they already are with the options pattern) |
 
 ## Sources
 
 - n8n monorepo package organization: [DeepWiki n8n core packages](https://deepwiki.com/n8n-io/n8n/1.1-core-packages)
 - n8n custom nodes in monorepo (CJS/ESM conflict): [n8n community discussion](https://community.n8n.io/t/building-custom-nodes-in-a-monorepo-possible/45297)
-- Platform-agnostic core + wrapper pattern: [Storyie monorepo architecture](https://storyie.com/blog/monorepo-architecture)
 - pnpm workspace protocol and catalog support: [pnpm workspaces docs](https://pnpm.io/workspaces)
 - TypeScript project references for build order: [TypeScript docs](https://www.typescriptlang.org/docs/handbook/project-references.html)
 - fluent-ffmpeg + ffmpeg-static pattern: [Creatomate video rendering guide](https://creatomate.com/blog/video-rendering-with-nodejs-and-ffmpeg)
-- CLI thin wrapper architecture (2026): [hackers.pub TypeScript CLI 2026](https://hackers.pub/@hongminhee/2026/typescript-cli-2026)
 - Turborepo dependency graph and build ordering: [Turborepo pipeline guide](https://vercel.com/academy/production-monorepos/update-turborepo-pipeline)
+- HeyGen API — [Create Avatar Video v2 reference](https://docs.heygen.com/reference/create-video) (MEDIUM confidence — WebSearch verified, WebFetch unavailable)
+- HeyGen API — [Video Status endpoint](https://docs.heygen.com/reference/video-status)
+- HeyGen multiple video_inputs limitation: [community thread](https://docs.heygen.com/discuss/6732a523cde84a0016c7b04c) (LOW confidence — community forum report)
+- HeyGen API pricing: [heygen.com/api-pricing](https://www.heygen.com/api-pricing)
+- Existing codebase: `packages/video/src/render/index.ts`, `packages/video/src/tts/`, `packages/cli/src/commands/render.ts`, `packages/cli/src/config.ts`, `packages/core/src/types/story.ts` — read directly, HIGH confidence
 
 ---
 *Architecture research for: TypeScript monorepo toolkit — file scanner + LLM pipeline + video renderer*
-*Researched: 2026-04-05*
+*Initial research: 2026-04-05 | HeyGen integration: 2026-04-14*

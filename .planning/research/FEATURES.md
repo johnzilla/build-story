@@ -1,14 +1,16 @@
 # Feature Research
 
 **Domain:** Developer artifact scanning + narrative video generation toolkit
-**Researched:** 2026-04-05
+**Researched:** 2026-04-05 (initial) | Updated 2026-04-14 (HeyGen renderer milestone)
 **Confidence:** MEDIUM-HIGH (ecosystem research; some claims WebSearch-verified, core pipeline features confirmed via multiple sources)
 
-## Feature Landscape
+---
+
+## SECTION 1: Core Pipeline Features (v1.0 — Previously Researched)
+
+*This section covers the original BuildStory pipeline. Retained as reference.*
 
 ### Table Stakes (Users Expect These)
-
-Features users assume exist. Missing these = product feels incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
@@ -17,203 +19,305 @@ Features users assume exist. Missing these = product feels incomplete.
 | CLI interface with composable subcommands | Solo devs running in terminal expect `scan`, `narrate`, `render` as discrete steps they can chain | LOW | `buildstory scan | buildstory narrate | buildstory render` pipeline feel |
 | Configurable artifact patterns | Repos differ; users expect include/exclude glob patterns, not hardcoded paths | LOW | `buildstory.toml` project + global config |
 | LLM provider choice | Anthropic vs OpenAI is a solved problem; users expect at least two providers | MEDIUM | Abstracted provider interface; API key from env |
-| TTS voice narration | All comparable narrated-video tools (Narakeet, Script2Screen, n8n storytelling pipelines) generate audio; silent video is a downgrade | MEDIUM | OpenAI TTS v1 default; abstracted for Piper/ElevenLabs |
-| Subtitle/caption output | Narakeet, Descript, Whisper pipelines all generate SRT; users uploading to YouTube/LinkedIn need captions for accessibility and SEO | MEDIUM | SRT generated during FFmpeg assembly; burned-in option |
+| TTS voice narration | All comparable narrated-video tools generate audio; silent video is a downgrade | MEDIUM | OpenAI TTS v1 default; abstracted for Piper/ElevenLabs |
+| Subtitle/caption output | Narakeet, Descript, Whisper pipelines all generate SRT; users need captions for accessibility and SEO | MEDIUM | SRT generated during FFmpeg assembly |
 | Video file output (MP4) | Users sharing to YouTube, personal sites, social expect a single .mp4 deliverable | HIGH | FFmpeg assembly: frames + audio + transitions + subtitles |
 | Deterministic, reproducible output | Dev tools must be scriptable; running twice on same input must produce equivalent output | MEDIUM | Seed-stable LLM prompts, deterministic frame generation |
 | Error messages that name the missing dependency | FFmpeg, LLM API keys, TTS API keys are external; missing one must fail fast with actionable message | LOW | Preflight checks before pipeline stages |
 
-### Differentiators (Competitive Advantage)
-
-Features that set the product apart. Not required, but valued.
+### Differentiators (v1.0)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| GStack/GSD planning artifact awareness | No competitor reads `.planning/` dirs, milestone docs, ADRs, or GSD phase files — this is the unique source material that separates BuildStory from git-only tools | MEDIUM | Filesystem walker with GStack/GSD pattern matching plus generic docs (ADR, CHANGELOG, README, docs/) |
-| Narrative style presets (technical / overview / retrospective / pitch) | GitStory offers commit-level styles; BuildStory operates at planning-artifact level with full project arc awareness — producing actually useful narratives, not just "committed X files" paraphrases | MEDIUM | Four LLM prompt templates with distinct tone, audience, and structure; switchable per run |
-| Source event links in script JSON | Every narration scene links back to the specific planning artifact and timeline event that generated it — unique audit trail no competitor offers | LOW | `scene.source_events[]` in script JSON; enables debugging and regeneration |
-| Scene segmentation with visual type assignments | Most tools dump TTS over a static image; BuildStory assigns semantic visual types (timeline view, code diff, milestone card, quote pull) to each scene | HIGH | Visual type taxonomy drives frame generation; node-canvas renders type-appropriate frames |
-| Modular core library (`@buildstory/core`) with thin wrappers | No comparable tool exposes a typed TypeScript API; all existing tools are CLI-only or web-only; this enables n8n nodes, MCP server, GitHub Actions without duplicating logic | MEDIUM | Clean `scan()` / `narrate()` / `render()` public API; zero CLI/config imports in core |
-| Planning-artifact timeline (not just commit timeline) | Gource and git-story only show file-level git events; BuildStory reconstructs the decision and planning arc (why things were built, not just what changed) | MEDIUM | Merges git events with document events; cross-references between artifacts |
-| Configurable pacing (duration per scene) | Narakeet supports per-scene voice/timing; BuildStory applies similar control derived from event significance (milestone = longer, minor commit = shorter) | MEDIUM | Pacing algorithm in scene segmentation; override available in config |
-| Multiple TTS engines with local/free option | Most pipelines lock to ElevenLabs or OpenAI; Piper (local, free, offline) is a strong differentiator for users who won't pay per-character or need offline generation | HIGH | TTS abstraction layer; OpenAI default, Piper + ElevenLabs as pluggable backends |
-| n8n node wrapper (post-v1) | No other planning-narrative tool integrates with n8n; opens automation workflows (weekly auto-generated project updates, CI-triggered release videos) | MEDIUM | Thin wrapper calling `@buildstory/core`; deferred to post-CLI milestone |
+| GStack/GSD planning artifact awareness | No competitor reads `.planning/` dirs, milestone docs, ADRs, or GSD phase files | MEDIUM | Filesystem walker with GStack/GSD pattern matching |
+| Narrative style presets (technical / overview / retrospective / pitch) | Planning-artifact level narrative vs commit-level paraphrases | MEDIUM | Four LLM prompt templates |
+| Source event links in script JSON | Every scene links back to the specific planning artifact that generated it | LOW | `scene.source_events[]` in script JSON |
+| Scene segmentation with visual type assignments | Semantic visual types (timeline view, code diff, milestone card, quote pull) per scene | HIGH | Visual type taxonomy drives frame generation |
+| Modular core library (`@buildstory/core`) with thin wrappers | Typed TypeScript API; enables n8n nodes, MCP server, GitHub Actions without duplicating logic | MEDIUM | Clean `scan()` / `narrate()` / `render()` public API |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+### Anti-Features (v1.0)
 
-Features that seem good but create problems.
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Interactive script editor (TUI/web) | Expands scope; kills CLI composability | Export script JSON; user edits directly |
+| Real-time / streaming video output | FFmpeg requires all frames before assembly | Render to file |
+| Cloud hosting / video storage | Turns toolkit into SaaS | Output MP4 locally |
+| AI-generated visual imagery (Midjourney, Stable Diffusion) | Adds image gen API costs, latency, consistency problems | node-canvas / sharp deterministic frames |
+| Multi-project cross-repo narratives | Complex timeline merge strategy | Single repo per run in v1 |
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Interactive script editor (TUI/web) | Users want to tweak narration before rendering | Requires a UI framework, session state, and a feedback loop that duplicates LLM work; massively expands scope; kills the "composable CLI tool" positioning | Export script JSON → user edits JSON directly → pass edited JSON to `render`; clean separation of concerns |
-| Real-time / streaming video output | "Stream the render as it generates" sounds impressive | FFmpeg requires all frames before assembly; streaming implies a different architecture entirely (HLS, fragmented MP4); zero user demand for this use case | Render to file; fast enough for offline personal use |
-| Cloud hosting / video storage | Users want a shareable link | Turns a developer toolkit into a SaaS product with auth, storage costs, CDN, and ToS; out of scope | Output MP4 locally; users upload to YouTube, Vimeo, personal sites themselves |
-| AI-generated visual imagery (Midjourney, Stable Diffusion, Veo) | Makes the video "prettier" | Adds image generation API costs, prompt engineering complexity, visual consistency problems across scenes, and latency; distracts from the core artifact-to-narrative value | node-canvas / sharp rendering of data-driven frames (timeline charts, milestone cards, text overlays) — deterministic and fast |
-| Multi-project cross-repo narratives | "Tell the story of my whole company" | Resolving cross-repo timelines requires merge strategies, conflict resolution, identity deduplication across git histories, and a fundamentally more complex data model | Scope to single repo per run in v1; multi-project is a v2 feature with clear prerequisites |
-| Real-time incremental scanning (watch mode) | "Update the timeline as I commit" | Incremental diff against previous timeline requires state persistence, invalidation logic, and partial re-render of downstream stages; adds significant complexity for marginal value in v1 | On-demand `buildstory run` is the right model; CI can trigger it on push |
-| Web UI / dashboard | "I want a visual editor" | Duplicates the CLI; requires frontend stack, auth, session management; destroys CLI composability; no demand from the solo-dev/small-team target users | JSON output is the "API"; users integrate into their own tooling if needed |
-| Automatic social media publishing | "Post to YouTube/LinkedIn directly" | Requires OAuth flows for each platform, ToS compliance, platform API maintenance; n8n already solves this and BuildStory has an n8n wrapper planned | BuildStory outputs MP4; n8n workflow handles publishing; clean separation |
+---
 
-## Feature Dependencies
+## SECTION 2: HeyGen Renderer Features (v1.1 Milestone — New Research)
+
+**Research focus:** What does HeyGen's API offer as a video renderer, mapped against the existing BuildStory story arc format and pipeline.
+
+**Sources:** HeyGen official docs (docs.heygen.com), HeyGen developer portal (developers.heygen.com), WebSearch-verified claims. No WebFetch access available; claims marked with confidence levels.
+
+---
+
+### How HeyGen Works: API Workflow
+
+*Confidence: MEDIUM — assembled from search result excerpts referencing official docs.*
+
+The HeyGen video generation API is asynchronous. The workflow is:
+
+1. **POST** `https://api.heygen.com/v2/video/generate` with `video_inputs[]` (avatar + voice + background per scene) and `dimension` — returns a `video_id`
+2. **GET** `https://api.heygen.com/v1/video_status.get?video_id={id}` — poll until `status` is `completed`, `failed`, or `pending`/`processing`
+3. On `completed`, response includes `video_url` — a temporary URL to the rendered MP4
+4. Download MP4 from `video_url`
+
+Concrete status values: `pending` (queued), `processing` (rendering), `completed`, `failed`.
+
+Processing time: approximately 10 minutes per 1 minute of generated video under typical load; varies significantly under high platform load. The API design assumes polling, not webhooks, for most integrations.
+
+---
+
+### Avatar Types
+
+*Confidence: MEDIUM-HIGH — multiple sources corroborate the three-tier model.*
+
+| Avatar Type | Description | API Access | Cost Implication |
+|-------------|-------------|------------|-----------------|
+| **Stock avatars** | 500+ pre-built avatars included in all paid plans | Available via `avatar_id` from `GET /v2/avatars` | No extra cost per minute; included in credit cost |
+| **Photo avatar (Talking Photo)** | Single still image animated with lip sync + facial expressions (Avatar IV engine) | Available via `avatar_id` (user-uploaded image) | Requires creator plan; Avatar IV costs ~6 credits/min |
+| **Digital twin (Video Avatar)** | Trained from real video footage; speaks any script post-training | Enterprise API only for creation; existing twin usable via `avatar_id` | Training requires Business ($149/mo) or enterprise; usage costs credits |
+| **Generated avatar** | Created from text prompt, no real person | Available | Less relevant for BuildStory use case |
+
+**For BuildStory v1.1:** Stock avatars are the right default. They require only an API key and credits — no custom training, no account tier prerequisite. Photo avatar is a useful upgrade path for users who want their own face. Digital twin is enterprise-tier and out of scope.
+
+---
+
+### Voice Options
+
+*Confidence: MEDIUM — search results consistent with docs structure.*
+
+| Option | Description | How Specified |
+|--------|-------------|---------------|
+| **HeyGen TTS voices** | 1,000+ AI voices in 40+ languages (some sources say 175+ language lip sync support via Avatar IV) | `voice_id` string from `GET /v2/voices` |
+| **Pre-generated audio file** | Upload an audio file (WAV/MP3) via asset upload API; set voice `type: "audio"` with `audio_asset_id` or `audio_url` | Asset upload endpoint returns `audio_asset_id` |
+| **Voice clone** | Clone a specific voice from uploaded audio | Enterprise/Business tier feature; not in scope for v1.1 |
+
+**Critical for BuildStory:** The audio file input path (`type: "audio"`) is the key integration point. BuildStory already generates OpenAI TTS audio via `orchestrateTTS()`. The HeyGen renderer can upload those pre-generated audio files as assets and pass them to HeyGen rather than using HeyGen's own TTS — giving users BuildStory's existing voice without paying for a second TTS pass. This is the preferred integration strategy.
+
+Alternatively, bypass BuildStory TTS entirely and use a HeyGen `voice_id` — simpler but loses the existing `AudioManifest` timing data that the SRT generator depends on.
+
+---
+
+### Input Format
+
+*Confidence: MEDIUM-HIGH — corroborated by multiple search results citing official docs.*
+
+HeyGen's `POST /v2/video/generate` accepts a JSON body structured as:
+
+```json
+{
+  "video_inputs": [
+    {
+      "character": {
+        "type": "avatar",
+        "avatar_id": "<string>",
+        "avatar_style": "normal"
+      },
+      "voice": {
+        "type": "text",
+        "input_text": "<narration text — plain or SSML>",
+        "voice_id": "<string>",
+        "speed": 1.0
+      },
+      "background": {
+        "type": "color",
+        "value": "#1a1a2e"
+      }
+    }
+  ],
+  "dimension": {
+    "width": 1280,
+    "height": 720
+  }
+}
+```
+
+**Text format options:**
+- `type: "text"` with `input_text` — plain text or SSML (controlled by a `text_type` field: `"plain"` or `"ssml"`)
+- `type: "audio"` with `audio_asset_id` or `audio_url` — pre-generated audio file (either uploaded asset ID or public URL)
+
+**Scene structure:** `video_inputs` is an array; each element is a scene. API limit: 10 scenes per video call (MEDIUM confidence — reported consistently but not found in primary docs). Character limit per `input_text`: 1,500–5,000 characters (conflicting reports; official docs say 5,000, users report 1,500 errors — treat 1,500 as the safe limit).
+
+**What this means for the StoryArc format:** The existing `StoryArc.beats[]` maps cleanly to `video_inputs[]`. Each `StoryBeat` has `summary` (narration text) and `visual_cue` (usable to set background). The 10-scene API limit is a constraint: long StoryArcs (10+ beats) need to be chunked into multiple API calls and stitched downstream.
+
+---
+
+### Output Format
+
+*Confidence: MEDIUM-HIGH.*
+
+- Output: MP4 video accessible via temporary `video_url` in the status response
+- Resolution: 1080p max on standard API plan; 4K requires enterprise
+- Typical dimensions: 1280×720 (16:9) or 1920×1080; portrait (9:16) supported but v4 API may have issues with fully-portrait output (reported bug)
+- Download: HTTP GET on the `video_url`; URL is time-limited (exact TTL not specified in search results)
+- No SRT/subtitle output from HeyGen — subtitles would need to be generated separately (BuildStory's existing SRT generator can still handle this if audio timing is available)
+
+---
+
+### Table Stakes for the HeyGen Renderer Feature Set
+
+Features the HeyGen renderer integration must have to be considered complete and usable.
+
+| Feature | Why Expected | Complexity | Dependencies on Existing Pipeline |
+|---------|--------------|------------|----------------------------------|
+| `HEYGEN_API_KEY` env var + config option | API key management is the first thing any user expects | LOW | Existing `buildstory.toml` config loading in CLI; add `heygen.api_key` key |
+| `--renderer=heygen` CLI flag | User must be able to select the renderer per-run; Remotion stays default | LOW | Existing `render` command in CLI; add `--renderer` option |
+| Stock avatar selection via config | User must specify which avatar to use; no sensible default exists | LOW | New `heygen.avatar_id` in `buildstory.toml`; `GET /v2/avatars` to enumerate |
+| HeyGen voice selection via config | User must specify voice; HeyGen has 1,000+ options | LOW | New `heygen.voice_id` in config; `GET /v2/voices` to enumerate |
+| `StoryArc` → `video_inputs[]` mapping | Core transform from existing data model to HeyGen API format | MEDIUM | Reads existing `StoryArc.beats[]`; maps `beat.summary` → `input_text`, `beat.visual_cue` → background hint |
+| Async polling loop with progress display | Video takes minutes; user needs feedback; polling is mandatory | MEDIUM | No existing polling infrastructure; new code required |
+| Download and save MP4 | Final output artifact | LOW | Existing output directory conventions from render command |
+| Preflight check for `HEYGEN_API_KEY` | Fail fast with clear message; consistent with existing preflight pattern | LOW | Existing `preflightCheck()` in `@buildstory/video`; extend or create parallel for HeyGen renderer |
+| Cost estimation before submit | Existing render command shows TTS cost estimate; HeyGen has credit cost | MEDIUM | Credit cost: ~1 credit/min standard; ~6 credits/min for Avatar IV. Must estimate video duration from beat `duration_seconds` fields |
+| Graceful error for missing key | Actionable message, no stack trace | LOW | CLI error handling pattern already established |
+
+---
+
+### Differentiators for the HeyGen Renderer
+
+Features that make the HeyGen renderer more valuable than a minimal integration.
+
+| Feature | Value Proposition | Complexity | Dependencies |
+|---------|-------------------|------------|-------------|
+| Pre-generated audio passthrough (use BuildStory TTS audio in HeyGen) | Reuse existing OpenAI TTS audio instead of paying for a second TTS pass; preserves audio timing for SRT generation | HIGH | Requires asset upload API call per scene; `type: "audio"` voice config; existing `AudioManifest` from `orchestrateTTS()` |
+| Scene chunking for long StoryArcs | StoryArcs with >10 beats need multiple API calls; chunking is invisible to the user | MEDIUM | New chunker logic in HeyGen renderer; merge/concatenate output videos via ffmpeg or return multiple files |
+| Avatar and voice discovery CLI command (`buildstory heygen list-avatars`, `buildstory heygen list-voices`) | Users cannot guess avatar_id or voice_id values; discovery is required for usability | MEDIUM | New subcommands hitting `GET /v2/avatars` and `GET /v2/voices`; tabular output |
+| Background color from `visual_cue` | StoryBeat.`visual_cue` carries scene context; map known beat types to a color palette for visual variety | LOW | Existing `BeatType` enum (`idea`, `goal`, `attempt`, `obstacle`, `pivot`, etc.); map to hex colors |
+| Dry-run mode showing credit estimate | Consistent with existing `--dry-run` in render command; prevents surprise costs | LOW | Credit cost formula: `sum(beat.duration_seconds) / 60 * credits_per_min`; credits_per_min from avatar tier |
+| SRT generation from existing audio timing | HeyGen produces no SRT; if using BuildStory TTS audio, timing is available from `AudioManifest` | LOW | Existing `generateSRT()` function — already works if `AudioManifest` is populated |
+
+---
+
+### Anti-Features for the HeyGen Renderer
+
+Features to explicitly not build in v1.1.
+
+| Anti-Feature | Why Requested | Why Avoid | Alternative |
+|--------------|---------------|-----------|-------------|
+| Digital twin training via CLI | Users want their own likeness | Enterprise API only; requires business account tier; training pipeline is a product of its own | Document that users can create a twin in HeyGen Studio and reference the resulting `avatar_id` in config |
+| HeyGen template-based video generation | Templates offer pre-designed layouts | Template API is a different workflow (variable substitution, not scene-by-scene generation); mixing the two approaches adds complexity for marginal gain | Stick to `v2/video/generate` programmatic API |
+| Interactive avatar / Streaming Avatar SDK | Real-time avatar for chat-style video | Streaming Avatar is for live interactive use cases (kiosks, customer service bots); unrelated to batch video generation from planning artifacts | Not applicable |
+| Multi-language translation via HeyGen | HeyGen offers video translation API | Adds a separate async pipeline; out of scope for v1.1 exploration | Future milestone if HeyGen proves valuable |
+| Avatar IV (photo avatar) as default | Higher quality, more realistic | Costs ~6x more credits per minute; requires user to upload a photo; appropriate as an opt-in `heygen.avatar_tier: "avatar_iv"` config option | Stock avatar is the zero-setup default |
+| Hybrid composite mode (HeyGen + Remotion in one video) | Best of both renderers | Requires merging two video streams; complex timing synchronization; out of scope per PROJECT.md | Explore standalone first; defer hybrid |
+| Voice cloning | User's own voice | Enterprise/Business tier; out of scope | Use HeyGen TTS voices or BuildStory's existing OpenAI TTS audio passthrough |
+
+---
+
+### Feature Dependencies (HeyGen Renderer)
 
 ```
-[GStack/GSD artifact detection]
-    └──requires──> [Filesystem walker]
-                       └──requires──> [Configurable include/exclude patterns]
+[HeyGen renderer module]
+    └──requires──> [HEYGEN_API_KEY config/env]
+    └──requires──> [StoryArc → video_inputs[] mapping]
+                       └──reads──> [StoryArc.beats[] (existing)]
+                       └──reads──> [StoryBeat.summary → input_text]
+                       └──reads──> [StoryBeat.duration_seconds → pacing]
+                       └──reads──> [StoryBeat.type → background color]
+    └──requires──> [Async polling loop]
+    └──requires──> [MP4 download + save]
 
-[Timeline JSON]
-    └──requires──> [Git history ingestion]
-    └──requires──> [Markdown parser (headings, dates, status, cross-refs)]
-    └──requires──> [GStack/GSD artifact detection]
+[Pre-generated audio passthrough]
+    └──requires──> [HeyGen asset upload API]
+    └──requires──> [AudioManifest from orchestrateTTS() (existing)]
+    └──enables──> [SRT generation from existing generateSRT() (existing)]
 
-[Script JSON]
-    └──requires──> [Timeline JSON]
-    └──requires──> [LLM narrator (Anthropic / OpenAI)]
-    └──requires──> [Narrative style presets]
-    └──enhances──> [Scene segmentation + visual type assignments]
-    └──enhances──> [Source event links]
+[Scene chunking]
+    └──requires──> [StoryArc.beats[] length > 10]
+    └──requires──> [Multiple video_generate calls]
+    └──requires──> [FFmpeg concat or multi-file output]
 
-[Video output (MP4)]
-    └──requires──> [Script JSON]
-    └──requires──> [Frame generation (node-canvas / sharp)]
-    └──requires──> [TTS audio generation]
-    └──requires──> [FFmpeg assembly]
+[Avatar/voice discovery commands]
+    └──requires──> [HeyGen list avatars API (GET /v2/avatars)]
+    └──requires──> [HeyGen list voices API (GET /v2/voices)]
 
-[Subtitle/SRT output]
-    └──requires──> [TTS audio generation] (timing data)
-    └──requires──> [FFmpeg assembly]
+[Cost estimation]
+    └──requires──> [StoryBeat.duration_seconds (existing, optional field)]
+    └──requires──> [Credits-per-minute formula (avatar tier dependent)]
 
-[TTS audio generation]
-    └──requires──> [Script JSON]
-    └──requires──> [TTS provider abstraction]
-                       └──enhances──> [Local TTS (Piper)]
-                       └──enhances──> [ElevenLabs TTS]
-
-[n8n node wrapper]
-    └──requires──> [@buildstory/core public API] (scan / narrate / render)
-    └──requires──> [CLI milestone complete + API stable]
-
-[Configurable pacing]
-    └──requires──> [Scene segmentation]
-    └──enhances──> [TTS audio generation]
-
-[Source event links in script JSON]
-    └──requires──> [Timeline JSON events have stable IDs]
+[--renderer=heygen CLI flag]
+    └──requires──> [Renderer interface / pluggable provider pattern]
+    └──requires──> [HeyGen renderer module]
+    └──alternatives──> [Remotion renderer (existing)]
 ```
 
-### Dependency Notes
+**Key dependency: `StoryBeat.duration_seconds` is optional in the current schema.** The HeyGen renderer needs duration to estimate credits and to properly pace scenes. If absent, it must fall back to a word-count-based estimate (words / 150 = approximate seconds). This is the primary adaptation needed to the existing story arc format.
 
-- **Video output requires Frame generation:** node-canvas or sharp renders each scene frame before FFmpeg stitches them; frame generation is the blocking work inside the render phase
-- **Script JSON requires Timeline JSON:** `narrate()` is a pure transform of timeline data; without a stable timeline schema, the narrator has no structured input
-- **Subtitle output requires TTS timing data:** SRT timestamps must align with audio; timing comes from TTS response metadata, not from a post-render transcription step
-- **n8n nodes require stable core API:** Wrappers must be written after `@buildstory/core` API is locked; any breaking change to `scan()` / `narrate()` / `render()` breaks all downstream consumers simultaneously
-- **Narrative style presets enhance Scene segmentation:** Different styles (pitch vs technical) produce different scene counts and visual type distributions; the segmentation algorithm must be style-aware
+**Key dependency: `@buildstory/video` package boundary.** The current video package couples TTS + Remotion rendering. The HeyGen renderer should either live in `@buildstory/video` as an alternative render path, or in a new `@buildstory/heygen` package. Given the milestone goal is exploration, placing it in the CLI package initially (or a thin `@buildstory/heygen` package) avoids polluting the Remotion video package with HeyGen-specific async/polling code.
 
-## MVP Definition
+---
 
-### Launch With (v1)
+### Complexity and Cost Realities
 
-Minimum viable product — what's needed to validate the concept.
+*These facts should inform roadmap phase sizing.*
 
-- [ ] Filesystem walker with GStack/GSD + generic planning artifact detection — the unique data source that differentiates BuildStory
-- [ ] Git history ingestion (commits, tags, branches, blame dating) — table stakes for any build timeline
-- [ ] Markdown parser (headings, dates, status, cross-refs) — extracts signal from planning docs
-- [ ] Timeline JSON output with stable event IDs — foundational data structure for all downstream stages
-- [ ] LLM narrator (Anthropic + OpenAI) with four narrative style presets — the "magic" that turns raw events into a script
-- [ ] Scene segmentation with visual type assignments and duration pacing — makes the script renderable
-- [ ] Script JSON with source event links — audit trail + enables re-render without re-narrating
-- [ ] Frame generation (node-canvas / sharp) for each visual type — turns script into visual frames
-- [ ] OpenAI TTS audio generation — narrated output is the core product promise
-- [ ] FFmpeg assembly with transitions and subtitle generation — delivers the MP4 users share
-- [ ] CLI: `buildstory scan`, `buildstory narrate`, `buildstory render`, `buildstory run` — composable pipeline
-- [ ] `buildstory.toml` configuration (project + global) — required for usable defaults and custom patterns
-- [ ] Preflight checks with actionable error messages for missing FFmpeg / API keys
+**API cost model (MEDIUM confidence):**
+- Standard avatar generation: ~1 credit/minute of output video
+- Avatar IV (photo avatar): ~6 credits/minute
+- Minimum top-up: $5 (pays for ~5 minutes of standard avatar video or ~50 seconds of Avatar IV)
+- No free API credits as of February 2026
+- Concurrent video limit: 3 videos processing simultaneously on standard API plan
+- Video length limit: 30 minutes max per video (enterprise has higher limits)
 
-### Add After Validation (v1.x)
+**Processing time reality:** 10 min processing per 1 min of video is the official estimate. A 5-minute build story video could take 50+ minutes to complete. The polling loop must handle long waits gracefully — with progress updates, timeout handling, and the ability to resume by `video_id` if the process is interrupted.
 
-Features to add once core is working.
+**Character limit ambiguity:** Official docs say 5,000 chars per `input_text`; user reports suggest 1,500 char errors in practice. Safe limit: assume 1,500. A typical `StoryBeat.summary` is 100–400 characters, so this is not a bottleneck in practice.
 
-- [ ] n8n node wrapper — trigger: core API stable; enables automation workflows
-- [ ] Piper TTS (local/free) — trigger: user demand for offline/free generation; TTS abstraction already in place
-- [ ] ElevenLabs TTS (premium) — trigger: user demand for higher-quality voices
-- [ ] MCP server wrapper — trigger: after CLI and n8n proven; same core API
-- [ ] GitHub Actions wrapper — trigger: after CLI proven; CI-triggered release videos
+**No official Node.js/TypeScript SDK for batch video generation.** `@heygen/streaming-avatar` is for interactive real-time avatars (browser-side). `@teamduality/heygen-typescript-sdk` is a community SDK (not official). For BuildStory, a direct REST client with `fetch` or `axios` is the correct approach — the API surface needed (generate, poll, download, list avatars, list voices, upload asset) is small enough to implement directly without an SDK dependency.
 
-### Future Consideration (v2+)
+---
 
-Features to defer until product-market fit is established.
-
-- [ ] Multi-project cross-repo narratives — defer: requires complex timeline merge strategy; solve single-repo first
-- [ ] Incremental scanning (diff against previous timeline) — defer: requires state persistence; on-demand is sufficient for v1
-- [ ] Interactive script editor (TUI or web) — defer: JSON editing works for power users; validate demand before building UI
-
-## Feature Prioritization Matrix
+## Feature Prioritization Matrix (HeyGen Renderer — v1.1)
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| GStack/GSD artifact detection | HIGH | MEDIUM | P1 |
-| Git history ingestion | HIGH | LOW | P1 |
-| Markdown parser | HIGH | LOW | P1 |
-| Timeline JSON output | HIGH | LOW | P1 |
-| LLM narrator + style presets | HIGH | MEDIUM | P1 |
-| Scene segmentation + visual types | HIGH | MEDIUM | P1 |
-| Script JSON + source event links | HIGH | LOW | P1 |
-| Frame generation (node-canvas/sharp) | HIGH | MEDIUM | P1 |
-| TTS audio generation (OpenAI) | HIGH | LOW | P1 |
-| FFmpeg assembly + subtitles | HIGH | MEDIUM | P1 |
-| CLI subcommands | HIGH | LOW | P1 |
-| `buildstory.toml` config | MEDIUM | LOW | P1 |
-| Preflight dependency checks | MEDIUM | LOW | P1 |
-| n8n node wrapper | HIGH | LOW | P2 |
-| Piper TTS (local) | MEDIUM | MEDIUM | P2 |
-| ElevenLabs TTS | MEDIUM | LOW | P2 |
-| MCP server wrapper | MEDIUM | LOW | P2 |
-| GitHub Actions wrapper | MEDIUM | LOW | P2 |
-| Multi-repo narratives | MEDIUM | HIGH | P3 |
-| Incremental scanning | LOW | HIGH | P3 |
-| Interactive script editor | LOW | HIGH | P3 |
+| `HEYGEN_API_KEY` env + config | HIGH | LOW | P1 |
+| `--renderer=heygen` CLI flag | HIGH | LOW | P1 |
+| Avatar selection via config | HIGH | LOW | P1 |
+| Voice selection via config | HIGH | LOW | P1 |
+| StoryArc → video_inputs mapping | HIGH | MEDIUM | P1 |
+| Async polling with progress | HIGH | MEDIUM | P1 |
+| MP4 download + save | HIGH | LOW | P1 |
+| Preflight check for API key | MEDIUM | LOW | P1 |
+| Dry-run credit estimate | MEDIUM | LOW | P1 |
+| Graceful error handling | MEDIUM | LOW | P1 |
+| Avatar/voice discovery commands | HIGH | MEDIUM | P2 |
+| Pre-generated audio passthrough | MEDIUM | HIGH | P2 |
+| Scene chunking (>10 beats) | MEDIUM | MEDIUM | P2 |
+| Background color from beat type | LOW | LOW | P2 |
+| SRT from audio timing | MEDIUM | LOW | P2 (if audio passthrough is P2) |
+| Digital twin support | LOW | HIGH | P3 (enterprise-only prerequisite) |
+| Multi-language translation | LOW | HIGH | P3 |
+| Hybrid Remotion+HeyGen mode | LOW | HIGH | P3 |
 
-**Priority key:**
-- P1: Must have for launch
-- P2: Should have, add when possible
-- P3: Nice to have, future consideration
-
-## Competitor Feature Analysis
-
-| Feature | Gource | git-story / GitStory | Narakeet | BuildStory |
-|---------|--------|----------------------|----------|------------|
-| Planning artifact ingestion | No | No | No | YES — unique differentiator |
-| Git history ingestion | YES | YES | No | YES |
-| LLM-generated narrative | No | YES (commit-level) | No | YES (project-arc level) |
-| Multiple narrative styles | No | YES (6 styles, commit-level) | No | YES (4 styles, planning-level) |
-| TTS audio narration | No | Limited | YES (900+ voices) | YES (OpenAI default; pluggable) |
-| Subtitle/SRT generation | No | No | YES | YES |
-| Structured JSON output | No (custom log only) | No | No | YES — enables n8n/MCP/CI |
-| Local rendering (no cloud) | YES | YES | No (cloud-based) | YES |
-| CLI composability | YES | YES | No | YES |
-| n8n / automation integration | No | No | API only | YES (planned node wrapper) |
-| Source event audit trail | No | No | No | YES (scene.source_events[]) |
-| Scene visual type assignments | No | No | Slide-based | YES (timeline/diff/card/quote) |
-| Configurable artifact patterns | No | No | No | YES |
-
-**Key gap in market:** No tool combines planning artifact ingestion with LLM narrative generation, TTS, and structured JSON output in a locally-runnable CLI. Gource and git-story are commit-visualization tools with no narrative layer. GitStory is commit-level and cloud-based. Narakeet requires the user to write the script; it does not generate it.
+---
 
 ## Sources
 
-- [Gource - software version control visualization](https://gource.io/) — commit visualization feature set
-- [git-story: Create mp4 Video Animations of Your Git Commit History](https://initialcommit.com/blog/git-story) — git-to-video feature set
-- [GitStory Review: Turning Your GitHub Commits into a Cinematic Journey](https://www.funblocks.net/aitools/reviews/gitstory-2) — narrative style features, target users
-- [Narakeet: From Markdown to Video](https://www.narakeet.com/docs/script/) — markdown-driven narrated video features
-- [Narakeet Formatting Reference](https://www.narakeet.com/docs/format/) — voice/scene/timing controls
-- [Generate AI videos from scripts with DeepSeek, TTS, and Together.ai — n8n workflow](https://n8n.io/workflows/6777-generate-ai-videos-from-scripts-with-deepseek-tts-and-togetherai/) — pipeline stage patterns
-- [Automate Your Entire Video Pipeline: n8n Storytelling Workflow](https://medium.com/deep-tech-insights/automate-your-entire-video-pipeline-a-technical-deep-dive-into-a-custom-n8n-storytelling-workflow-4286201382db) — end-to-end pipeline feature patterns
-- [GitStory Devpost](https://devpost.com/software/gitstory) — commit-to-narrative feature set
-- [Gitlogue: Turning Your Commit History into a Cinematic Terminal Experience](https://dev.to/githubopensource/gitlogue-turning-your-commit-history-into-a-cinematic-terminal-experience-3592) — animated commit history features
-- [SmartNote: LLM-Powered Release Notes Generator](https://arxiv.org/html/2505.17977v1) — structured LLM script generation patterns
-- [CLI subtitle workflow: generate, convert, and burn | Transloadit](https://transloadit.com/devtips/cli-subtitle-workflow-generate-convert-and-burn/) — subtitle/SRT pipeline patterns
-- [7 best software documentation tools in 2026 — Mintlify](https://www.mintlify.com/library/7-best-software-documentation-tools-in-2026) — doc-gen tool feature baselines
-- [6 Best AI Tools for Coding Documentation in 2026](https://www.index.dev/blog/best-ai-tools-for-coding-documentation) — AI doc generation feature expectations
+**v1.0 sources (original research):**
+- [Gource](https://gource.io/), [git-story](https://initialcommit.com/blog/git-story), [GitStory](https://www.funblocks.net/aitools/reviews/gitstory-2), [Narakeet](https://www.narakeet.com/docs/script/)
+
+**v1.1 HeyGen sources:**
+- [HeyGen API Documentation](https://docs.heygen.com/) — primary reference
+- [HeyGen Developers Portal](https://developers.heygen.com) — SDK and quick-start
+- [Create Videos with Photo Avatars Using HeyGen API](https://docs.heygen.com/docs/create-videos-with-avatars) — avatar types
+- [Generate Studio Video (Create Avatar Video V2)](https://docs.heygen.com/docs/create-video) — request structure
+- [Using Audio Files as Voice in HeyGen Avatar Videos](https://docs.heygen.com/docs/using-audio-source-as-voice) — audio passthrough
+- [Get Video Status/Details](https://docs.heygen.com/reference/video-status) — polling workflow
+- [List Available Voices V2](https://docs.heygen.com/reference/list-voices-v2) — voice enumeration
+- [List All Avatars](https://docs.heygen.com/reference/list-avatars-v2) — avatar enumeration
+- [Upload Asset API](https://docs.heygen.com/reference/upload-asset) — audio asset upload
+- [HeyGen API Pricing Explained](https://help.heygen.com/en/articles/10060327-heygen-api-pricing-explained) — credit model
+- [HeyGen Video Processing Times](https://help.heygen.com/en/articles/9655503-heygen-video-processing-times) — processing time benchmarks
+- [HeyGen Avatar IV Complete Guide 2026](https://wavespeed.ai/blog/posts/heygen-avatar-iv-complete-guide-2026/) — Avatar IV capabilities
+- [teamduality/heygen-typescript-sdk](https://github.com/teamduality/heygen-typescript-sdk) — community TypeScript SDK reference
+- [n8n HeyGen workflow](https://n8n.io/workflows/8622-generate-ai-avatar-videos-from-text-with-heygen-and-upload-to-youtube/) — integration patterns
 
 ---
-*Feature research for: developer artifact scanning and narrative video generation toolkit (BuildStory)*
-*Researched: 2026-04-05*
+*Feature research for: BuildStory — HeyGen renderer milestone (v1.1)*
+*Researched: 2026-04-14*

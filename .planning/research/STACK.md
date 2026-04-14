@@ -224,3 +224,243 @@ The unified/remark ecosystem (remark, remark-parse, unified, mdast-util-from-mar
 
 *Stack research for: BuildStory — TypeScript monorepo toolkit*
 *Researched: 2026-04-05*
+
+---
+
+## v1.1 Addendum: HeyGen Renderer Integration
+
+**Researched:** 2026-04-14
+**Scope:** New additions only for the HeyGen async video renderer milestone.
+
+### Executive Summary
+
+HeyGen has no official Node.js SDK for async video generation. The REST API is the integration surface. All HeyGen calls should use Node 22's native `fetch` global (already required by the project) — no new HTTP client dependency. The one community TypeScript SDK (`@teamduality/heygen-typescript-sdk`) was last substantially updated January 2025 and is not HeyGen-official; avoid it.
+
+The correct package home is a new `packages/heygen/` workspace package. This isolates it from `@buildstory/video` (Remotion-heavy) and respects the existing `@buildstory/core` boundary rule (core knows nothing of renderers).
+
+### What Changes vs. v1.0
+
+| Area | v1.0 | v1.1 Change |
+|------|------|-------------|
+| Packages | core, video, cli | Add `@buildstory/heygen` package |
+| HTTP client | SDK-managed | Native `fetch` (Node 22 built-in) — zero new dep |
+| Renderer abstraction | None (Remotion implicit) | `RendererProvider` interface in `@buildstory/core/types/` |
+| CLI flag | `--renderer` not present | Add `--renderer=heygen` (default: `remotion`) |
+| Config keys | `[video.*]` only | Add `[heygen.*]` section in `buildstory.toml` |
+| Env vars | `OPENAI_API_KEY` | Add `HEYGEN_API_KEY` |
+| New dependencies | — | `p-retry ^6.2.1` (polling resilience) |
+
+### New Package: `@buildstory/heygen`
+
+Create at `packages/heygen/`. Same tsup/vitest/tsconfig scaffold as the other packages.
+
+```json
+{
+  "name": "@buildstory/heygen",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@buildstory/core": "workspace:*",
+    "zod": "^4.3.6",
+    "p-retry": "^6.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsup": "^8.5.1",
+    "vitest": "^4.1.2"
+  }
+}
+```
+
+`zod` is already a workspace dependency — pulling it here adds no meaningful install cost. `p-retry` is the only genuinely new transitive dependency for the project.
+
+### HeyGen REST API — Integration Surface
+
+**Confidence:** MEDIUM — verified from official HeyGen docs and community examples. No SDK to confirm exact type shapes against; shapes below are derived from docs and community integrations.
+
+#### Authentication
+
+All requests require a single header. No OAuth, no session negotiation.
+
+```
+X-Api-Key: <value of HEYGEN_API_KEY env var>
+Content-Type: application/json
+```
+
+#### Key Endpoints
+
+Use v2 endpoints. HeyGen's engineering focus has shifted to v3 ("Video Agents" — prompt-driven, less control), but v3 does not support multi-scene structured video with explicit avatar/voice selection, which is what BuildStory needs. v2 remains fully supported through October 31, 2026.
+
+| Operation | Method | URL |
+|-----------|--------|-----|
+| List avatars | GET | `https://api.heygen.com/v2/avatars` |
+| List voices | GET | `https://api.heygen.com/v2/voices` |
+| Generate video | POST | `https://api.heygen.com/v2/video/generate` |
+| Poll video status | GET | `https://api.heygen.com/v2/videos/{video_id}` |
+
+#### Video generation request shape
+
+```typescript
+interface HeyGenVideoGenerateRequest {
+  video_inputs: Array<{
+    character: {
+      type: 'avatar'
+      avatar_id: string
+      avatar_style?: 'normal' | 'circle' | 'closeUp'
+    }
+    voice: {
+      type: 'text'
+      input_text: string  // the narration text for this scene
+      voice_id: string
+      speed?: number      // 0.5 to 2.0
+    }
+    background?: {
+      type: 'color'
+      value: string       // hex e.g. "#1a1a2e"
+    }
+  }>
+  dimension?: { width: number; height: number }  // default 1280x720
+  caption?: boolean
+}
+
+interface HeyGenVideoGenerateResponse {
+  data: { video_id: string }
+  error: null | { code: string; message: string }
+}
+```
+
+Each element of `video_inputs` maps to one StoryBeat — HeyGen concatenates them into a single video, which aligns naturally with the existing `StoryArc.beats` structure.
+
+#### Video status response shape
+
+```typescript
+interface HeyGenVideoStatusResponse {
+  data: {
+    video_id: string
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    video_url?: string       // present only when status === 'completed'
+    thumbnail_url?: string
+    duration?: number        // seconds
+    error?: { code: string; message: string }
+  }
+}
+```
+
+#### Polling strategy
+
+- Poll `GET /v2/videos/{video_id}` every 5 seconds (community-observed safe interval)
+- Timeout after 10 minutes (avatar video generation for a 3–10 minute script typically takes 2–5 minutes)
+- Use `p-retry` for exponential backoff on network errors only — not on `pending`/`processing` status (those are normal state, not errors)
+- Webhooks exist but require a publicly-reachable URL — not viable for a local CLI tool
+
+### RendererProvider Interface (new addition to `@buildstory/core`)
+
+Model HeyGen on the same provider pattern as `LLMProvider` in `packages/core/src/narrate/providers/interface.ts`. Add to `packages/core/src/types/`:
+
+```typescript
+// packages/core/src/types/renderer.ts
+export interface RendererCostEstimate {
+  sceneCount: number
+  estimatedMinutes: number
+  estimatedCostUSD: number
+  currency: 'credits'
+  creditsRequired: number
+}
+
+export interface RendererOptions {
+  outputDir: string
+  onProgress?: (message: string) => void
+}
+
+export interface RendererResult {
+  videoPath: string       // local path to downloaded MP4
+  durationSeconds: number
+}
+
+export interface RendererProvider {
+  render(storyArc: StoryArc, options: RendererOptions): Promise<RendererResult>
+  estimateCost(storyArc: StoryArc): RendererCostEstimate
+  preflight(): Promise<PreflightResult>
+}
+```
+
+Both `@buildstory/video` (Remotion) and `@buildstory/heygen` implement this interface. The CLI selects the implementation based on `--renderer` flag or `buildstory.toml` `video.renderer` setting, then lazy-imports the appropriate package.
+
+### New `p-retry ^6.2.1`
+
+**Purpose:** Exponential backoff on network errors in the polling loop.
+**Why:** Polling over 5-10 minutes will encounter transient network failures. Hand-rolling retry logic is boilerplate. `p-retry` is Sindre Sorhus's canonical retry utility, ESM-native, TypeScript types bundled, 7M+ weekly downloads.
+**Confidence:** HIGH — confirmed active maintenance, ESM compatibility.
+
+**If zero new deps is preferred:** Replace with a plain `while` loop + `try/catch` + `setTimeout`. `p-retry` is convenience, not a hard requirement.
+
+### Config Schema Additions
+
+New `[heygen]` section in `buildstory.toml`. Parsed in CLI, passed to `@buildstory/heygen` as a typed object:
+
+```toml
+[video]
+renderer = "heygen"   # "remotion" (default) | "heygen"
+
+[heygen]
+avatar_id = "Monica_chair_front_public"
+voice_id  = "2d5b0e6cf36f460aa7fc47e3eee4ba54"
+avatar_style = "normal"   # "normal" | "circle" | "closeUp"
+width  = 1280
+height = 720
+caption = false
+```
+
+`HEYGEN_API_KEY` is never written to config — env var only, same pattern as `OPENAI_API_KEY`.
+
+### API Pricing (for `estimateCost()`)
+
+| Tier | Cost per credit | 1 credit = |
+|------|----------------|------------|
+| Pro (pay-as-you-go) | ~$0.99/credit | 1 minute of avatar video |
+| Scale | ~$0.50/credit | 1 minute of avatar video |
+
+A 5-minute BuildStory story costs approximately $0.50–$0.99 at scale tier. The `estimateCost()` method surfaces this before rendering begins, matching the UX pattern of `estimateTTSCost()` in `@buildstory/video`.
+
+Note: HeyGen removed free API credits as of February 2026. Any API key will require a paid plan.
+
+### What NOT to Add for HeyGen
+
+| Package | Why to avoid |
+|---------|--------------|
+| `@teamduality/heygen-typescript-sdk` | Community SDK, last major update January 2025, not HeyGen-official. 4 endpoints don't justify the dependency. |
+| `@heygen/streaming-avatar` | Browser SDK for real-time interactive avatars — completely different product from async video generation |
+| `@heygen/liveavatar-web-sdk` | Same — browser/real-time, wrong fit |
+| `axios` / `got` / `node-fetch` / `undici` | Redundant — Node 22 native `fetch` covers all HeyGen API calls |
+| `fluent-ffmpeg` in heygen package | HeyGen returns a finished MP4 URL — no local assembly needed |
+| `canvas` / `sharp` in heygen package | No frame generation — HeyGen renders server-side |
+| `openai` in heygen package | HeyGen has its own TTS built in — OpenAI TTS is not needed when using the HeyGen renderer |
+
+### Installation (HeyGen additions only)
+
+```bash
+# New workspace package
+mkdir packages/heygen
+# (scaffold package.json, tsup.config.ts, tsconfig.json per existing package pattern)
+
+# @buildstory/heygen dependencies
+pnpm add --filter @buildstory/heygen p-retry@^6
+
+# zod is already in workspace — add as workspace dep if not already shared
+pnpm add --filter @buildstory/heygen zod@^4
+```
+
+### Sources (v1.1 additions)
+
+- [HeyGen API Documentation](https://docs.heygen.com/) — main docs hub
+- [HeyGen API Reference](https://docs.heygen.com/reference) — endpoint reference
+- [Generate Studio Video (v2)](https://docs.heygen.com/docs/create-video) — video generation endpoint and payload shape
+- [Get Video Status/Details](https://docs.heygen.com/reference/video-status) — polling endpoint, status values
+- [List All Avatars v2](https://docs.heygen.com/reference/list-avatars-v2)
+- [List Available Voices v2](https://docs.heygen.com/reference/list-voices-v2)
+- [HeyGen API Pricing](https://www.heygen.com/api-pricing) — credit cost structure
+- [HeyGen Developers](https://developers.heygen.com) — v2 vs v3 versioning policy, October 2026 support deadline
+- [@teamduality/heygen-typescript-sdk on GitHub](https://github.com/teamduality/heygen-typescript-sdk) — reviewed and rejected (community, not official)
+- [HeyGen Official GitHub](https://github.com/heygen-com) — confirms streaming/liveavatar SDKs are browser-targeted
+- [p-retry on npm](https://www.npmjs.com/package/p-retry) — ESM, TypeScript types bundled
+- [HeyGen API Pricing Help Article](https://help.heygen.com/en/articles/10060327-heygen-api-liveavatar-pricing-subscriptions-explained) — no free credits from Feb 2026
