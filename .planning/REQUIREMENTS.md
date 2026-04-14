@@ -67,6 +67,37 @@
 - [ ] **CLI-06**: Progress indicators during long-running operations including Remotion render frame count
 - [ ] **CLI-07**: Video mode skips text format generation; --include-text flag to add them back
 
+## v1.1 Requirements
+
+Requirements for HeyGen Renderer Exploration milestone.
+
+### Renderer Infrastructure
+
+- [ ] **REND-12**: Pluggable VideoRenderer interface exists so CLI can dispatch to Remotion or HeyGen by name
+- [ ] **REND-13**: `@buildstory/heygen` is a standalone workspace package with no imports from `@buildstory/video`
+
+### HeyGen Core
+
+- [ ] **HGVR-01**: User can configure `HEYGEN_API_KEY` via environment variable
+- [ ] **HGVR-02**: HeyGen renderer submits a video generation request to HeyGen v2 API from a StoryArc
+- [ ] **HGVR-03**: HeyGen renderer polls for video completion with exponential backoff and configurable timeout
+- [ ] **HGVR-04**: HeyGen renderer downloads completed MP4 to the standard output directory
+- [ ] **HGVR-05**: StoryArc beats are mapped to HeyGen video_inputs via an adapter (Strategy A: concatenated narration)
+- [ ] **HGVR-06**: Beat types (idea, pivot, obstacle, etc.) map to distinct background colors in HeyGen scenes
+- [ ] **HGVR-07**: Story arcs with more than 10 beats are chunked into multiple API calls and output is concatenated
+
+### CLI & Config
+
+- [ ] **CLI-08**: `--renderer=heygen` flag selects HeyGen renderer for render and run commands
+- [ ] **CLI-09**: `buildstory.toml` supports `[video] renderer` and `[heygen]` section with avatar_id, voice_id
+
+### Safety & Cost
+
+- [ ] **SAFE-01**: Preflight check validates HEYGEN_API_KEY is set and valid before any API call
+- [ ] **SAFE-02**: Cost estimation displays estimated credits and USD before submitting to HeyGen
+- [ ] **SAFE-03**: `--dry-run` mode shows full plan (scenes, cost, avatar, voice) without calling HeyGen API
+- [ ] **SAFE-04**: Missing API key or invalid configuration fails with an actionable error message
+
 ## v2 Requirements
 
 ### n8n Integration
@@ -82,6 +113,13 @@
 - **TTS-01**: Piper (local/free/offline) TTS engine support
 - **TTS-02**: ElevenLabs TTS engine support with voice cloning
 - **TTS-03**: TTS checkpoint/resume — persist manifest of completed segments for partial failure recovery
+
+### HeyGen Extensions (v1.2+)
+
+- **CLI-10**: `--avatar` and `--voice` CLI flags override config per-run
+- **CLI-11**: `buildstory heygen list-avatars` and `list-voices` discovery commands
+- **HGVR-08**: Pre-generated audio passthrough (upload BuildStory TTS audio to HeyGen)
+- **HGVR-09**: SRT subtitle generation from audio timing for HeyGen videos
 
 ### Advanced Features
 
@@ -110,6 +148,11 @@
 | TTS engine abstraction (v1) | OpenAI TTS only for v1; Piper/ElevenLabs deferred to v2 (TTS-01, TTS-02) |
 | Background music mixing (v1) | Deferred to v2 (ADV-07); focus on narration quality first |
 | buildstory config command | Deferred; users edit buildstory.toml directly |
+| Hybrid composite mode (HeyGen + Remotion) | Explore standalone HeyGen first before combining |
+| Digital twin training | Enterprise-only HeyGen feature; out of scope for exploration |
+| Multi-language translation via HeyGen | Future milestone if HeyGen proves valuable |
+| Voice cloning via HeyGen | Enterprise/Business tier feature |
+| Advanced HeyGen features (interactive, branding) | Future if HeyGen proves valuable |
 
 ## Traceability
 
@@ -172,4 +215,4 @@
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-06 after Remotion MVP design review — replaced REND requirements, added NARR-10/11/12, updated CLI requirements*
+*Last updated: 2026-04-14 after milestone v1.1 requirements definition — added REND-12/13, HGVR-01-07, CLI-08/09, SAFE-01-04*
