@@ -8,16 +8,17 @@ BuildStory is a TypeScript monorepo toolkit that scans GStack/GSD planning artif
 
 Extract the build story from planning artifacts and make it consumable — the structured narrative script is the product; video is one output format among many.
 
-## Current Milestone: v1.1 HeyGen Renderer Exploration
+## Current State
 
-**Goal:** Add HeyGen as a standalone alternative video renderer to explore whether avatar-narrated build stories are compelling, without touching the existing Remotion pipeline.
+**Shipped:** v1.1 HeyGen Renderer Exploration (2026-04-15)
 
-**Target features:**
-- HeyGen renderer module (pluggable provider alongside Remotion)
-- CLI flag `--renderer=heygen` and config option
-- Avatar and voice selection, cost estimation, graceful fallback
+BuildStory now supports two video renderers:
+- **Remotion** (default) — programmatic React-based video with custom scene components
+- **HeyGen** (`--renderer=heygen`) — avatar-narrated video via HeyGen v2 API
 
-**Open question:** The current story arc format may not lend itself well to avatar videos — this milestone will surface what needs to change.
+The full pipeline works end-to-end: `buildstory run --renderer=heygen <path>` scans artifacts, narrates via LLM, adapts beats to HeyGen scenes with beat-type colors, submits to HeyGen API, polls for completion, downloads MP4, and concatenates chunks for large arcs.
+
+**Packages:** `@buildstory/core`, `@buildstory/video` (Remotion), `@buildstory/heygen`, `buildstory` (CLI)
 
 ## Requirements
 
@@ -43,13 +44,7 @@ Extract the build story from planning artifacts and make it consumable — the s
 
 ### Active
 
-- [ ] HeyGen renderer module with pluggable provider interface
-- [ ] CLI `--renderer=heygen` flag and `video.renderer` config option
-- [ ] HeyGen API key configuration (env var HEYGEN_API_KEY or config)
-- [ ] Avatar and voice selection via config or CLI flags
-- [ ] Video completion polling and download
-- [ ] Cost estimation and duration logging
-- [ ] Graceful error when HeyGen key is missing
+(No active requirements — next milestone TBD)
 
 ### Out of Scope
 
@@ -89,18 +84,24 @@ Extract the build story from planning artifacts and make it consumable — the s
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| TypeScript over Rust | Monorepo consumers (n8n, MCP, future wrappers) are all JS/TS; single-language ecosystem | — Pending |
-| Core library + thin wrappers | Same business logic across CLI, n8n, MCP, GitHub Actions — no duplication | — Pending |
-| pnpm workspaces | Fast, strict, good monorepo support with workspace protocol | — Pending |
-| Anthropic + OpenAI for narrator | Two most capable LLM providers; user wants both from the start | — Pending |
-| OpenAI TTS as default | Good quality/cost balance; abstract engine so Piper/ElevenLabs plug in later | — Pending |
-| Scan + narrate + render = v1 | Full pipeline through video output is the first milestone | — Pending |
+| TypeScript over Rust | Monorepo consumers (n8n, MCP, future wrappers) are all JS/TS; single-language ecosystem | ✓ Good — 4 packages share types seamlessly |
+| Core library + thin wrappers | Same business logic across CLI, n8n, MCP, GitHub Actions — no duplication | ✓ Good — CLI is thin, core stays pure |
+| pnpm workspaces | Fast, strict, good monorepo support with workspace protocol | ✓ Good — workspace:* protocol works well |
+| Anthropic + OpenAI for narrator | Two most capable LLM providers; user wants both from the start | ✓ Good — both providers shipped in v1.0 |
+| OpenAI TTS as default | Good quality/cost balance; abstract engine so Piper/ElevenLabs plug in later | ✓ Good — quality is solid |
+| Scan + narrate + render = v1 | Full pipeline through video output is the first milestone | ✓ Good — shipped v1.0 |
 | n8n deferred to later milestone | Ship core + CLI first; n8n wraps the same core functions after they're solid | — Pending |
-| GStack/GSD + generic artifacts | Also detect ADRs, CHANGELOG, README, docs/ — not just GStack/GSD-specific files | — Pending |
+| GStack/GSD + generic artifacts | Also detect ADRs, CHANGELOG, README, docs/ — not just GStack/GSD-specific files | ✓ Good — shipped in v1.0 Phase 2 |
+| HeyGen as standalone package | Separate @buildstory/heygen with zero imports from @buildstory/video | ✓ Good — clean separation, independent build |
+| child_process.spawn over fluent-ffmpeg | fluent-ffmpeg archived May 2025; direct spawn with concat demuxer is simpler | ✓ Good — no deprecated dependency |
+| Narrative arc color palette | Beat types map to story-energy colors (cool→warm→green) for HeyGen backgrounds | — Pending human testing |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
+
+---
+*Last updated: 2026-04-15 after v1.1 milestone*
 
 **After each phase transition** (via `/gsd-transition`):
 1. Requirements invalidated? → Move to Out of Scope with reason
