@@ -142,6 +142,18 @@ export async function run(
         voiceId: config.heygen?.voiceId ?? '',
       }
 
+      // Validate required fields and surface clear errors before preflight
+      const missingFields: string[] = []
+      if (!heygenOpts.apiKey) missingFields.push('HEYGEN_API_KEY env var')
+      if (!heygenOpts.avatarId) missingFields.push('heygen.avatarId in buildstory.toml')
+      if (!heygenOpts.voiceId) missingFields.push('heygen.voiceId in buildstory.toml')
+      if (missingFields.length > 0) {
+        console.error(chalk.red('\n  HeyGen configuration missing:\n'))
+        missingFields.forEach((f) => console.error(chalk.red(`    - ${f}`)))
+        console.error()
+        process.exit(1)
+      }
+
       const preflight = await heygen.preflightHeyGenCheck(heygenOpts)
       if (!preflight.ok) {
         console.error(chalk.red('\n  Preflight check failed:\n'))
