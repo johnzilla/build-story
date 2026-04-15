@@ -137,13 +137,13 @@ buildstory CLI (render.ts)
              dynamic import('@buildstory/heygen')                                              │
                      │                                                                         │
                      ▼                                                                         │
-             preflightHeyGenCheck(HeyGenOptions)                                               │
+             preflightHeyGenCheck(HeyGenConfig)                                                │
                      │  checks: HEYGEN_API_KEY present, avatar_id set, voice_id set           │
                      │  returns { ok, failures }                                               │
                      │  on failure → print failures + exit(1)                                  │
                      │                                                                         │
                      ▼                                                                         │
-             estimateHeyGenCost(beats, HeyGenOptions)                                          │
+             estimateHeyGenCost(beats, HeyGenConfig)                                           │
                      │  returns { credits, estimatedUSD, sceneCount, avatarId, voiceId }       │
                      │  CLI prints: "~N credits (~$X.XX estimated)"                            │
                      │                                                                         │
@@ -158,9 +158,9 @@ buildstory CLI (render.ts)
 ```
 packages/heygen/
 ├── src/
-│   ├── types.ts        # HeyGenOptions, HeyGenConfig, HeyGenCostEstimate, API Zod schemas
-│   ├── preflight.ts    # preflightHeyGenCheck() — returns PreflightResult-compatible shape
-│   ├── cost.ts         # estimateHeyGenCost() — credits + USD from beats + avatar tier
+│   ├── types.ts        # HeyGenOptionsSchema, HeyGenOptions, HeyGenConfig, HeyGenCostEstimate, PreflightResult
+│   ├── preflight.ts    # preflightHeyGenCheck(HeyGenConfig) — returns PreflightResult
+│   ├── cost.ts         # estimateHeyGenCost(beats, HeyGenConfig) — credits + USD
 │   └── index.ts        # exports: preflightHeyGenCheck, estimateHeyGenCost, types
 ├── package.json        # @buildstory/heygen 0.1.0
 ├── tsup.config.ts      # mirrors @buildstory/video tsup config
@@ -188,7 +188,7 @@ export interface PreflightResult {
   failures: string[]
 }
 
-export async function preflightHeyGenCheck(opts: HeyGenOptions): Promise<PreflightResult> {
+export async function preflightHeyGenCheck(opts: HeyGenConfig): Promise<PreflightResult> {
   const failures: string[] = []
 
   if (!opts.apiKey) {
@@ -240,7 +240,7 @@ const USD_PER_CREDIT = 0.99
 
 export function estimateHeyGenCost(
   beats: StoryBeat[],
-  opts: HeyGenOptions
+  opts: HeyGenConfig
 ): HeyGenCostEstimate {
   // Use duration_seconds if present; fall back to word-count estimate (150 wpm)
   const totalSeconds = beats.reduce((sum, b) => {
@@ -338,7 +338,8 @@ if (renderer === 'heygen') {
   const heygen = await import('@buildstory/heygen')
 
   const apiKey = process.env['HEYGEN_API_KEY'] ?? ''
-  const heygenOpts: HeyGenOptions = {
+  // HeyGenConfig (z.input type) -- defaulted fields (width, height, speed, timeoutSeconds) are optional
+  const heygenOpts = {
     apiKey,
     avatarId: config.heygen?.avatarId ?? '',
     voiceId: config.heygen?.voiceId ?? '',
@@ -577,7 +578,11 @@ export const HeyGenOptionsSchema = z.object({
   timeoutSeconds: z.number().default(600),
 })
 
+/** Full output type -- all fields required (after Zod defaults applied). Used for Phase 7 API submission. */
 export type HeyGenOptions = z.infer<typeof HeyGenOptionsSchema>
+
+/** Input type -- fields with Zod defaults are optional. Used by preflight and cost estimation. */
+export type HeyGenConfig = z.input<typeof HeyGenOptionsSchema>
 
 export interface HeyGenCostEstimate {
   sceneCount: number
@@ -600,7 +605,8 @@ export interface PreflightResult {
 // packages/heygen/src/index.ts
 export { preflightHeyGenCheck } from './preflight.js'
 export { estimateHeyGenCost } from './cost.js'
-export type { HeyGenOptions, HeyGenCostEstimate, PreflightResult } from './types.js'
+export { HeyGenOptionsSchema } from './types.js'
+export type { HeyGenOptions, HeyGenConfig, HeyGenCostEstimate, PreflightResult } from './types.js'
 ```
 
 ---
@@ -626,17 +632,19 @@ export type { HeyGenOptions, HeyGenCostEstimate, PreflightResult } from './types
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `--renderer` be added to `buildstory run` in Phase 5 or deferred to Phase 7?**
    - What we know: CONTEXT.md lists `run.ts` as an integration point. The success criteria say "Running any HeyGen render command without `HEYGEN_API_KEY` set prints an actionable error."
    - What's unclear: Whether "any HeyGen render command" includes `buildstory run --renderer=heygen` or only `buildstory render --renderer=heygen`.
    - Recommendation: Add `--renderer` to both `render.ts` and `run.ts` in Phase 5. The flag addition is minimal effort and avoids an inconsistency where `render` supports `--renderer` but `run` does not. The actual HeyGen execution path in `run.ts` can throw a "not yet implemented" error (same as `render.ts`) until Phase 7.
+   - **RESOLVED:** Added to both `render` and `run` in Phase 5 per CONTEXT.md integration points listing both `render.ts` and `run.ts`. Plan 05-02 Task 2 implements `--renderer` on both commands.
 
 2. **`p-retry` dependency in Phase 5 package.json vs. Phase 7?**
    - What we know: Phase 5 does not call HeyGen API. `p-retry` is needed for the polling loop in Phase 7.
    - What's unclear: Whether to declare `p-retry` now or defer to Phase 7.
    - Recommendation: Declare it now in `package.json` during the Phase 5 scaffold. Adding a dependency later requires re-running `pnpm install` at an unexpected moment. The package.json is written once; adding a dep in Phase 5 is cheap.
+   - **RESOLVED:** `p-retry` declared in Phase 5 `package.json` during scaffold. Plan 05-01 Task 1 includes `"p-retry": "^6.2.1"` in dependencies.
 
 ---
 
