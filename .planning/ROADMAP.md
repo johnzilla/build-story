@@ -114,7 +114,7 @@ Plans:
 
 Plans:
 - [x] 06-01-PLAN.md — TDD: adapter types, unit tests, and adaptStoryArc implementation (color map, truncation, chunking)
-- [ ] 06-02-PLAN.md — Wire adapter exports into @buildstory/heygen public API and verify build
+- [x] 06-02-PLAN.md — Wire adapter exports into @buildstory/heygen public API and verify build
 
 #### Phase 7: HeyGen API + CLI Integration
 **Goal**: Users can submit a StoryArc to HeyGen, wait for completion with visible polling progress, download the MP4, and select this path via `--renderer=heygen` — the full end-to-end flow works
