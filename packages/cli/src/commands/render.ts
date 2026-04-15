@@ -2,10 +2,17 @@ import { readFile, mkdir } from 'node:fs/promises'
 import { resolve, dirname, basename } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
-import type { StoryArc } from '@buildstory/core'
+import type { StoryArc, StoryBeat } from '@buildstory/core'
 import { StoryArcSchema } from '@buildstory/core'
 import { loadConfig } from '../config.js'
 import { ensureVideoPackage, ensureHeyGenPackage } from '../lazy.js'
+
+/** Pluggable renderer contract (REND-12). Inline per D-02 — no plugin registry. */
+interface VideoRenderer {
+  readonly name: string
+  preflight(opts: unknown): Promise<{ ok: boolean; failures: string[] }>
+  estimateCost(beats: StoryBeat[]): { label: string; creditsRequired?: number; estimatedCostUSD?: number }
+}
 
 export async function renderCommand(
   storyArcPath: string,
