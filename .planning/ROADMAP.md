@@ -82,7 +82,7 @@ Plans:
 
 </details>
 
-### 🚧 v1.1 HeyGen Renderer Exploration (In Progress)
+### v1.1 HeyGen Renderer Exploration (In Progress)
 
 **Milestone Goal:** Add HeyGen as a standalone alternative video renderer — avatar-narrated build stories via a pluggable provider interface — without touching the existing Remotion pipeline.
 
@@ -110,8 +110,11 @@ Plans:
   2. Each beat type (idea, pivot, obstacle, decision, etc.) maps to a visually distinct background color in the HeyGen scene
   3. A StoryArc with 15 beats is split into two chunked calls (≤10 beats each) with no narration text dropped
   4. The adapter function is fully unit-tested without any network calls or HeyGen credentials
-**Plans**: TBD
-**UI hint**: no
+**Plans:** 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — TDD: adapter types, unit tests, and adaptStoryArc implementation (color map, truncation, chunking)
+- [ ] 06-02-PLAN.md — Wire adapter exports into @buildstory/heygen public API and verify build
 
 #### Phase 7: HeyGen API + CLI Integration
 **Goal**: Users can submit a StoryArc to HeyGen, wait for completion with visible polling progress, download the MP4, and select this path via `--renderer=heygen` — the full end-to-end flow works
@@ -136,6 +139,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 2. Scanner | v1.0 | 3/3 | Complete | 2026-04-05 |
 | 3. Narrator | v1.0 | 3/3 | Complete | - |
 | 4. Renderer | v1.0 | 4/4 | Complete | 2026-04-14 |
-| 5. HeyGen Package | v1.1 | 0/2 | Planned | - |
-| 6. StoryArc Adapter | v1.1 | 0/TBD | Not started | - |
+| 5. HeyGen Package | v1.1 | 2/2 | Complete | - |
+| 6. StoryArc Adapter | v1.1 | 0/2 | Planned | - |
 | 7. HeyGen API + CLI Integration | v1.1 | 0/TBD | Not started | - |
