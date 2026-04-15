@@ -64,6 +64,7 @@ export async function run(
 
   const skipVideo = opts.skipVideo ?? false
   const includeText = opts.includeText ?? false
+  const heygenRenderer = (opts.renderer ?? config.video?.renderer ?? 'remotion') === 'heygen'
 
   console.log(
     chalk.dim(`  Project: ${projectName} | Provider: ${provider} | Style: ${style}\n`),
@@ -71,14 +72,15 @@ export async function run(
 
   const formatTypes: FormatType[] = ['outline', 'thread', 'blog', 'video-script']
 
-  // Step numbering depends on mode
-  // Video mode: scan(1) + narrate(2) + TTS(3) + render(4) [+ format steps if --include-text]
+  // Step numbering depends on mode and renderer
+  // Remotion video mode: scan(1) + narrate(2) + TTS(3) + render(4) [+ format steps if --include-text]
+  // HeyGen video mode: scan(1) + narrate(2) + HeyGen(3) [+ format steps if --include-text]
   // Skip-video mode: scan(1) + narrate(2) + 4 formats(3-6)
   const totalSteps = skipVideo
     ? 2 + formatTypes.length
     : includeText
-      ? 2 + 2 + formatTypes.length
-      : 4 // scan + narrate + TTS + render
+      ? 2 + (heygenRenderer ? 1 : 2) + formatTypes.length
+      : heygenRenderer ? 3 : 4
 
   // Step 1: Scan
   const source = createFsSource(resolve(rootDir))
@@ -260,7 +262,7 @@ export async function run(
   // Text format generation: always in skip-video mode; only with --include-text in video mode
   const outputs: Record<string, string> = {}
   if (skipVideo || includeText) {
-    const stepOffset = skipVideo ? 2 : 4 // after scan+narrate or after scan+narrate+TTS+render
+    const stepOffset = skipVideo ? 2 : heygenRenderer ? 3 : 4 // after scan+narrate, scan+narrate+HeyGen, or scan+narrate+TTS+render
     for (let i = 0; i < formatTypes.length; i++) {
       const ft = formatTypes[i]!
       const step = stepOffset + i + 1
