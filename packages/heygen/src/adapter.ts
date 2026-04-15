@@ -40,7 +40,7 @@ function truncateSummary(text: string): { text: string; truncated: boolean } {
     lastBoundaryPos = match.index
   }
 
-  if (lastBoundaryPos > 0) {
+  if (lastBoundaryPos >= 0) {
     // Include the punctuation character (lastBoundaryPos + 1), trim trailing whitespace
     const truncated = slice.slice(0, lastBoundaryPos + 1).trimEnd()
     return { text: truncated, truncated: true }
