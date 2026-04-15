@@ -42,3 +42,35 @@ export async function ensureVideoPackage(): Promise<void> {
     process.exit(1)
   }
 }
+
+export async function detectHeyGenPackage(): Promise<boolean> {
+  try {
+    await import('@buildstory/heygen')
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function ensureHeyGenPackage(): Promise<void> {
+  const installed = await detectHeyGenPackage()
+  if (installed) return
+
+  const proceed = await askYesNo(
+    'HeyGen renderer requires installing @buildstory/heygen. Install now? [Y/n] ',
+  )
+  if (!proceed) {
+    console.log('Skipping HeyGen install.')
+    process.exit(0)
+  }
+
+  console.log('Installing @buildstory/heygen...')
+  const result = spawnSync('pnpm', ['install', '--filter', '@buildstory/heygen'], {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+  })
+  if (result.status !== 0) {
+    console.error('Failed to install @buildstory/heygen.')
+    process.exit(1)
+  }
+}

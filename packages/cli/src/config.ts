@@ -21,6 +21,13 @@ export interface BuildStoryConfig {
     titleCard?: boolean
     statsCard?: boolean
   }
+  video?: {
+    renderer?: 'remotion' | 'heygen'
+  }
+  heygen?: {
+    avatarId?: string
+    voiceId?: string
+  }
 }
 
 export function loadConfig(projectRoot: string): BuildStoryConfig {
@@ -58,5 +65,7 @@ export function loadConfig(projectRoot: string): BuildStoryConfig {
     scan: { ...globalConfig.scan, ...projectConfig.scan },
     tts: { ...globalConfig.tts, ...projectConfig.tts },
     render: { ...globalConfig.render, ...projectConfig.render },
+    video: { ...globalConfig.video, ...projectConfig.video },
+    heygen: { ...globalConfig.heygen, ...projectConfig.heygen },
   }
 }
