@@ -1,6 +1,8 @@
 export { preflightHeyGenCheck } from './preflight.js'
 export { estimateHeyGenCost } from './cost.js'
 export { adaptStoryArc } from './adapter.js'
+export { renderWithHeyGen, HeyGenApiError, HeyGenTimeoutError, HeyGenVideoError } from './api.js'
+export type { HeyGenRenderResult } from './api.js'
 export { HeyGenOptionsSchema, AdaptOptionsSchema } from './types.js'
 export type { HeyGenOptions, HeyGenConfig, HeyGenCostEstimate, PreflightResult } from './types.js'
 export type { HeyGenScene, AdaptOptions, AdaptResult } from './types.js'
