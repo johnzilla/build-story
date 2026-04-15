@@ -125,8 +125,11 @@ Plans:
   2. If HeyGen does not complete within the configured timeout, the command exits with a clear error and the video ID so the user can check manually
   3. `buildstory run --renderer=heygen <paths>` runs the full scan → narrate → HeyGen render pipeline end-to-end
   4. `buildstory.toml` with `[video] renderer = "heygen"` and `[heygen] avatar_id` / `voice_id` is respected without any CLI flags
-**Plans**: TBD
-**UI hint**: no
+**Plans:** 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — HeyGen API client: submit, poll, download, concat, renderWithHeyGen function + unit tests
+- [ ] 07-02-PLAN.md — CLI wiring: replace render.ts and run.ts placeholders with renderWithHeyGen calls
 
 ## Progress
 
@@ -141,4 +144,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 4. Renderer | v1.0 | 4/4 | Complete | 2026-04-14 |
 | 5. HeyGen Package | v1.1 | 2/2 | Complete | - |
 | 6. StoryArc Adapter | v1.1 | 0/2 | Planned | - |
-| 7. HeyGen API + CLI Integration | v1.1 | 0/TBD | Not started | - |
+| 7. HeyGen API + CLI Integration | v1.1 | 0/2 | Planned | - |
