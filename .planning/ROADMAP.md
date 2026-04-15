@@ -99,7 +99,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — @buildstory/heygen package scaffold with types, preflight validation, and cost estimation
-- [ ] 05-02-PLAN.md — CLI integration: config schema, lazy install, --renderer flag, renderer dispatch
+- [x] 05-02-PLAN.md — CLI integration: config schema, lazy install, --renderer flag, renderer dispatch
 
 #### Phase 6: StoryArc Adapter
 **Goal**: StoryArc beats are faithfully translated into HeyGen video_inputs — with beat-type background colors and automatic chunking for large arcs — as a pure, unit-tested function that never calls the HeyGen API
