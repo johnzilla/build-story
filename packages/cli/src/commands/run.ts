@@ -7,7 +7,7 @@ import type { FormatType } from '@buildstory/core'
 import { loadConfig } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
-import { ensureVideoPackage } from '../lazy.js'
+import { ensureVideoPackage, ensureHeyGenPackage } from '../lazy.js'
 
 function formatDuration(ms: number): string {
   const secs = Math.round(ms / 1000)
@@ -35,6 +35,7 @@ export async function run(
     dryRun?: boolean
     noTitleCard?: boolean
     noStatsCard?: boolean
+    renderer?: string
   },
 ) {
   const pipelineStart = Date.now()
@@ -126,69 +127,107 @@ export async function run(
   let srtPath: string | undefined
 
   if (!skipVideo) {
-    // Lazy install check (REND-10, D-10)
-    await ensureVideoPackage()
+    const renderer = opts.renderer ?? config.video?.renderer ?? 'remotion'
 
-    // Dynamic import after install confirmed
-    const video = await import('@buildstory/video')
+    if (renderer === 'heygen') {
+      await ensureHeyGenPackage()
+      const heygen = await import('@buildstory/heygen')
 
-    // Preflight check (REND-11, D-12)
-    const openaiKey = process.env['OPENAI_API_KEY'] ?? ''
-    const preflight = await video.preflightCheck({ openaiApiKey: openaiKey })
-    if (!preflight.ok) {
-      console.error(chalk.red('\n  Preflight check failed:\n'))
-      preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
-      console.error()
+      // Satisfies HeyGenConfig -- defaulted fields are optional
+      const heygenOpts = {
+        apiKey: process.env['HEYGEN_API_KEY'] ?? '',
+        avatarId: config.heygen?.avatarId ?? '',
+        voiceId: config.heygen?.voiceId ?? '',
+      }
+
+      const preflight = await heygen.preflightHeyGenCheck(heygenOpts)
+      if (!preflight.ok) {
+        console.error(chalk.red('\n  Preflight check failed:\n'))
+        preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
+        console.error()
+        process.exit(1)
+      }
+
+      const cost = heygen.estimateHeyGenCost(arc.beats, heygenOpts)
+      console.log(
+        chalk.dim(
+          `  ${cost.sceneCount} scenes | avatar: ${cost.avatarId} | ~${cost.creditsRequired} credits (~$${cost.estimatedCostUSD.toFixed(2)} estimated)\n`,
+        ),
+      )
+
+      if (opts.dryRun) {
+        console.log(chalk.yellow('  --dry-run: Skipping HeyGen submission.\n'))
+        return
+      }
+
+      console.error(chalk.red('  HeyGen video submission not yet implemented (Phase 7).'))
       process.exit(1)
+    } else {
+      // === Existing Remotion path (unchanged) ===
+      // Lazy install check (REND-10, D-10)
+      await ensureVideoPackage()
+
+      // Dynamic import after install confirmed
+      const video = await import('@buildstory/video')
+
+      // Preflight check (REND-11, D-12)
+      const openaiKey = process.env['OPENAI_API_KEY'] ?? ''
+      const preflight = await video.preflightCheck({ openaiApiKey: openaiKey })
+      if (!preflight.ok) {
+        console.error(chalk.red('\n  Preflight check failed:\n'))
+        preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
+        console.error()
+        process.exit(1)
+      }
+
+      // TTS cost estimate (REND-03, D-16)
+      const costEstimate = video.estimateTTSCost(arc.beats)
+      console.log(
+        chalk.dim(
+          `  Generating audio for ${costEstimate.sceneCount} scenes (~$${costEstimate.estimatedCostUSD.toFixed(2)} estimated)\n`,
+        ),
+      )
+
+      if (opts.dryRun) {
+        console.log(chalk.yellow('  --dry-run: Skipping TTS and render. Cost estimate above.\n'))
+        return
+      }
+
+      // TTS (REND-02)
+      const ttsVoice = config.tts?.voice ?? 'nova'
+      const ttsSpeed = config.tts?.speed ?? 1.0
+      const ttsConcurrency = config.tts?.concurrency ?? 2
+
+      const ttsSpinner = ora(`[3/${totalSteps}] Generating TTS audio...`).start()
+      const audioManifest = await video.orchestrateTTS(
+        arc.beats,
+        outputDir,
+        { voice: ttsVoice, speed: ttsSpeed, apiKey: openaiKey, concurrency: ttsConcurrency },
+        (completed: number, total: number) => {
+          ttsSpinner.text = `[3/${totalSteps}] Generating TTS audio... ${completed}/${total} scenes`
+        },
+      )
+      ttsSpinner.succeed(
+        chalk.green(
+          `[3/${totalSteps}] TTS complete — ${audioManifest.scenes.length} scenes (${audioManifest.totalDurationSeconds.toFixed(1)}s total)`,
+        ),
+      )
+
+      // Render (REND-04, REND-05, D-25)
+      mp4Path = resolve(outputDir, `${projectName}.mp4`)
+      srtPath = resolve(outputDir, `${projectName}.srt`)
+
+      const renderSpinner = ora(`[4/${totalSteps}] Rendering video...`).start()
+      await video.renderVideo(arc, audioManifest, {
+        outputPath: mp4Path,
+        srtPath,
+        onProgress: (p: { renderedFrames: number; totalFrames: number; progress: number }) => {
+          const pct = Math.round(p.progress * 100)
+          renderSpinner.text = `[4/${totalSteps}] Rendering video... ${pct}% (frame ${p.renderedFrames}/${p.totalFrames})`
+        },
+      })
+      renderSpinner.succeed(chalk.green(`[4/${totalSteps}] Render complete`))
     }
-
-    // TTS cost estimate (REND-03, D-16)
-    const costEstimate = video.estimateTTSCost(arc.beats)
-    console.log(
-      chalk.dim(
-        `  Generating audio for ${costEstimate.sceneCount} scenes (~$${costEstimate.estimatedCostUSD.toFixed(2)} estimated)\n`,
-      ),
-    )
-
-    if (opts.dryRun) {
-      console.log(chalk.yellow('  --dry-run: Skipping TTS and render. Cost estimate above.\n'))
-      return
-    }
-
-    // TTS (REND-02)
-    const ttsVoice = config.tts?.voice ?? 'nova'
-    const ttsSpeed = config.tts?.speed ?? 1.0
-    const ttsConcurrency = config.tts?.concurrency ?? 2
-
-    const ttsSpinner = ora(`[3/${totalSteps}] Generating TTS audio...`).start()
-    const audioManifest = await video.orchestrateTTS(
-      arc.beats,
-      outputDir,
-      { voice: ttsVoice, speed: ttsSpeed, apiKey: openaiKey, concurrency: ttsConcurrency },
-      (completed: number, total: number) => {
-        ttsSpinner.text = `[3/${totalSteps}] Generating TTS audio... ${completed}/${total} scenes`
-      },
-    )
-    ttsSpinner.succeed(
-      chalk.green(
-        `[3/${totalSteps}] TTS complete — ${audioManifest.scenes.length} scenes (${audioManifest.totalDurationSeconds.toFixed(1)}s total)`,
-      ),
-    )
-
-    // Render (REND-04, REND-05, D-25)
-    mp4Path = resolve(outputDir, `${projectName}.mp4`)
-    srtPath = resolve(outputDir, `${projectName}.srt`)
-
-    const renderSpinner = ora(`[4/${totalSteps}] Rendering video...`).start()
-    await video.renderVideo(arc, audioManifest, {
-      outputPath: mp4Path,
-      srtPath,
-      onProgress: (p: { renderedFrames: number; totalFrames: number; progress: number }) => {
-        const pct = Math.round(p.progress * 100)
-        renderSpinner.text = `[4/${totalSteps}] Rendering video... ${pct}% (frame ${p.renderedFrames}/${p.totalFrames})`
-      },
-    })
-    renderSpinner.succeed(chalk.green(`[4/${totalSteps}] Render complete`))
   }
 
   // Text format generation: always in skip-video mode; only with --include-text in video mode

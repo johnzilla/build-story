@@ -27,6 +27,7 @@ program
   .option('--dry-run', 'Show cost estimates without calling APIs')
   .option('--no-title-card', 'Disable auto-inserted title card')
   .option('--no-stats-card', 'Disable auto-inserted stats card')
+  .option('--renderer <renderer>', 'Video renderer (remotion|heygen)', 'remotion')
   .action(run)
 
 program
@@ -61,6 +62,7 @@ program
   .option('--dry-run', 'Show TTS cost estimate without calling APIs')
   .option('--no-title-card', 'Disable auto-inserted title card')
   .option('--no-stats-card', 'Disable auto-inserted stats card')
+  .option('--renderer <renderer>', 'Video renderer (remotion|heygen)', 'remotion')
   .action(async (storyArc: string, opts) => {
     await renderCommand(storyArc, opts)
   })
