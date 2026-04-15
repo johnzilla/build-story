@@ -98,7 +98,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — @buildstory/heygen package scaffold with types, preflight validation, and cost estimation
+- [x] 05-01-PLAN.md — @buildstory/heygen package scaffold with types, preflight validation, and cost estimation
 - [ ] 05-02-PLAN.md — CLI integration: config schema, lazy install, --renderer flag, renderer dispatch
 
 #### Phase 6: StoryArc Adapter
