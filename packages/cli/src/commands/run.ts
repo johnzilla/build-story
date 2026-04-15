@@ -160,8 +160,35 @@ export async function run(
         return
       }
 
-      console.error(chalk.red('  HeyGen video submission not yet implemented (Phase 7).'))
-      process.exit(1)
+      // HeyGen submission (HGVR-02, HGVR-03, HGVR-04)
+      const { renderWithHeyGen } = heygen
+
+      mp4Path = resolve(outputDir, `${projectName}.mp4`)
+
+      const heygenSpinner = ora(`[3/${totalSteps}] Submitting to HeyGen...`).start()
+
+      try {
+        const heygenResult = await renderWithHeyGen(
+          arc,
+          heygenOpts,
+          mp4Path,
+          (msg: string) => { heygenSpinner.text = `[3/${totalSteps}] ${msg}` },
+        )
+
+        heygenSpinner.succeed(chalk.green(`[3/${totalSteps}] HeyGen render complete`))
+        mp4Path = heygenResult.videoPath
+
+        if (heygenResult.warnings.length > 0) {
+          console.log(chalk.yellow('\n  Warnings:'))
+          heygenResult.warnings.forEach((w: string) => console.log(chalk.yellow(`    - ${w}`)))
+        }
+      } catch (err) {
+        heygenSpinner.fail(chalk.red(`[3/${totalSteps}] HeyGen render failed`))
+        if (err instanceof Error) {
+          console.error(chalk.red(`\n  ${err.message}\n`))
+        }
+        process.exit(1)
+      }
     } else {
       // === Existing Remotion path (unchanged) ===
       // Lazy install check (REND-10, D-10)
