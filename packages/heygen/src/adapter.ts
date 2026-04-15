@@ -1,5 +1,7 @@
 import type { StoryArc, StoryBeat, BeatType } from '@buildstory/core'
+import { StoryArcSchema } from '@buildstory/core'
 import type { AdaptOptions, AdaptResult, HeyGenScene } from './types.js'
+import { AdaptOptionsSchema } from './types.js'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -94,11 +96,15 @@ function beatToScene(
 // ---------------------------------------------------------------------------
 
 export function adaptStoryArc(arc: StoryArc, opts: AdaptOptions): AdaptResult {
+  // Validate at the boundary — throws ZodError on invalid input
+  const validatedArc = StoryArcSchema.parse(arc)
+  const validatedOpts = AdaptOptionsSchema.parse(opts)
+
   const warnings: string[] = []
   const scenes: HeyGenScene[] = []
 
-  for (const beat of arc.beats) {
-    const { scene, warning } = beatToScene(beat, opts)
+  for (const beat of validatedArc.beats) {
+    const { scene, warning } = beatToScene(beat, validatedOpts)
     scenes.push(scene)
     if (warning !== null) {
       warnings.push(warning)
