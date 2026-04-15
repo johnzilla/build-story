@@ -29,3 +29,35 @@ export interface PreflightResult {
   ok: boolean
   failures: string[]
 }
+
+export interface HeyGenScene {
+  character: {
+    type: 'avatar'
+    avatar_id: string
+    avatar_style?: 'normal' | 'circle' | 'closeUp'
+  }
+  voice: {
+    type: 'text'
+    input_text: string
+    voice_id: string
+    speed?: number
+  }
+  background: {
+    type: 'color'
+    value: string // hex e.g. "#1E3A5F"
+  }
+}
+
+export const AdaptOptionsSchema = z.object({
+  avatarId: z.string().min(1),
+  voiceId: z.string().min(1),
+  speed: z.number().min(0.5).max(2.0).optional(),
+  avatarStyle: z.enum(['normal', 'circle', 'closeUp']).optional(),
+})
+
+export type AdaptOptions = z.infer<typeof AdaptOptionsSchema>
+
+export interface AdaptResult {
+  chunks: HeyGenScene[][] // one sub-array per API call (max 10 scenes each)
+  warnings: string[] // non-fatal notices (e.g., truncation)
+}
