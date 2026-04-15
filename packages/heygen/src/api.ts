@@ -161,7 +161,13 @@ async function pollUntilComplete(
   let attempt = 0
   let firstPoll = true
 
-  while (Date.now() < deadline) {
+  while (true) {
+    if (Date.now() >= deadline) {
+      throw new HeyGenTimeoutError(
+        `Timeout after ${opts.timeoutSeconds}s. Video ID: ${videoId} -- check status at https://app.heygen.com/videos/${videoId}`,
+        videoId,
+      )
+    }
     const delay = intervals[Math.min(attempt, intervals.length - 1)] ?? 120_000
     await sleep(delay)
     attempt++
@@ -200,11 +206,6 @@ async function pollUntilComplete(
       )
     }
   }
-
-  throw new HeyGenTimeoutError(
-    `Timeout after ${opts.timeoutSeconds}s. Video ID: ${videoId} -- check status at https://app.heygen.com/videos/${videoId}`,
-    videoId,
-  )
 }
 
 // ---------------------------------------------------------------------------
