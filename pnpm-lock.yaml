@@ -39,6 +39,9 @@ importers:
       '@buildstory/core':
         specifier: workspace:*
         version: link:../core
+      '@buildstory/heygen':
+        specifier: workspace:*
+        version: link:../heygen
       '@buildstory/video':
         specifier: workspace:*
         version: link:../video
