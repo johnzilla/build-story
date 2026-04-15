@@ -191,10 +191,9 @@ describe('chunking', () => {
     expect(result.chunks.flat()).toHaveLength(21)
   })
 
-  it('0-beat arc produces 1 empty chunk, no warnings', () => {
+  it('0-beat arc produces no chunks, no warnings', () => {
     const result = adaptStoryArc(makeArc([]), defaultOpts)
-    expect(result.chunks).toHaveLength(1)
-    expect(result.chunks[0]).toHaveLength(0)
+    expect(result.chunks).toHaveLength(0)
     expect(result.warnings).toEqual([])
   })
 })
