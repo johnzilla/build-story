@@ -113,7 +113,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — TDD: adapter types, unit tests, and adaptStoryArc implementation (color map, truncation, chunking)
+- [x] 06-01-PLAN.md — TDD: adapter types, unit tests, and adaptStoryArc implementation (color map, truncation, chunking)
 - [ ] 06-02-PLAN.md — Wire adapter exports into @buildstory/heygen public API and verify build
 
 #### Phase 7: HeyGen API + CLI Integration
