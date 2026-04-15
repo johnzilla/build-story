@@ -128,7 +128,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — HeyGen API client: submit, poll, download, concat, renderWithHeyGen function + unit tests
+- [x] 07-01-PLAN.md — HeyGen API client: submit, poll, download, concat, renderWithHeyGen function + unit tests
 - [ ] 07-02-PLAN.md — CLI wiring: replace render.ts and run.ts placeholders with renderWithHeyGen calls
 
 ## Progress
