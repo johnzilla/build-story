@@ -1,10 +1,14 @@
 # BuildStory
 
-Turn planning artifacts into narrated video documentaries. BuildStory scans your GStack/GSD planning files, extracts the decision arc via LLM, generates narration audio, and renders an MP4 video with visual timeline, decision callouts, and TTS voice-over.
+Turn planning artifacts into narrated video documentaries. BuildStory scans your GStack/GSD planning files, extracts the decision arc via LLM, generates narration audio, and renders video — either programmatic Remotion compositions or avatar-narrated HeyGen videos.
 
 **[Watch an example: BuildStory narrating its own build journey](https://youtu.be/OtYFP66iI9s)**
 
 Also produces text formats: X threads, blog drafts, story outlines, and video scripts.
+
+**Two renderers:**
+- **Remotion** (default) — programmatic React video with timeline bars, decision callouts, and stats cards
+- **HeyGen** (`--renderer=heygen`) — AI avatar narrates your build story with beat-type colored backgrounds
 
 ## Quick Start
 
@@ -67,9 +71,10 @@ buildstory render <story-arc>   Render video from an existing story arc
 - `-o, --output <path>` -- Output directory (default: ./buildstory-out)
 
 **render**
-- `--dry-run` -- Show TTS cost estimate without calling APIs
-- `--no-title-card` -- Disable auto-inserted title card
-- `--no-stats-card` -- Disable auto-inserted stats card
+- `--renderer <renderer>` -- Video renderer: remotion or heygen (default: remotion)
+- `--dry-run` -- Show cost estimate without calling APIs
+- `--no-title-card` -- Disable auto-inserted title card (Remotion only)
+- `--no-stats-card` -- Disable auto-inserted stats card (Remotion only)
 - `-o, --output <path>` -- Output directory (default: ./buildstory-out)
 
 ### Configuration
@@ -90,6 +95,13 @@ maxDepth = 5
 voice = "nova"         # OpenAI TTS voice: nova, alloy, echo, fable, onyx, shimmer
 speed = 1.0            # Playback speed (0.25 - 4.0)
 concurrency = 2        # Parallel TTS requests
+
+[video]
+renderer = "remotion"  # "remotion" (default) or "heygen"
+
+[heygen]
+avatarId = "your_avatar_id"   # Required for HeyGen renderer
+voiceId = "your_voice_id"     # Required for HeyGen renderer
 ```
 
 Global defaults at `~/.config/buildstory/config.toml` (project config overrides global).
@@ -97,6 +109,7 @@ Global defaults at `~/.config/buildstory/config.toml` (project config overrides 
 API keys via `.env` file (recommended) or environment variables:
 - `ANTHROPIC_API_KEY` -- for Claude (narration)
 - `OPENAI_API_KEY` -- for GPT (narration) and TTS (audio generation)
+- `HEYGEN_API_KEY` -- for HeyGen avatar video rendering
 
 The CLI automatically loads `.env` from the current working directory.
 
@@ -151,16 +164,22 @@ Default palette: dark navy (#1a1a2e) + warm red (#e94560) + off-white text (#eae
   format(arc, type, llm)    Text output per format via LLM
   createProvider(opts)      LLM provider factory (Anthropic or OpenAI)
 
-@buildstory/video         Video rendering + TTS (optional, lazy-installed)
+@buildstory/video         Remotion rendering + TTS (optional, lazy-installed)
   orchestrateTTS(...)       Per-scene audio via OpenAI TTS
   renderVideo(...)          Remotion composition → MP4
   preflightCheck(...)       Verify all dependencies before rendering
   estimateTTSCost(...)      Cost estimation before API calls
 
+@buildstory/heygen        HeyGen avatar rendering (optional, lazy-installed)
+  adaptStoryArc(...)        StoryArc → HeyGen video_inputs with beat-type colors
+  renderWithHeyGen(...)     Submit, poll, download, concat chunks → MP4
+  preflightHeyGenCheck(...) Validate API key, avatar, voice config
+  estimateHeyGenCost(...)   Credit/USD cost estimation
+
 buildstory CLI            Thin wrapper
-  run, scan, narrate, render  Commands mapping to core/video functions
+  run, scan, narrate, render  Commands mapping to core/video/heygen functions
   config.ts                   TOML config loader
-  lazy.ts                     Lazy @buildstory/video install
+  lazy.ts                     Lazy @buildstory/video and @buildstory/heygen install
   adapters/                   ArtifactSource (fs + redaction), GitSource
 ```
 
@@ -171,7 +190,8 @@ Core never imports `fs`, `process`, or config libraries. All filesystem access g
 | Package | Description |
 |---------|-------------|
 | `@buildstory/core` | Core library: scan, narrate, format |
-| `@buildstory/video` | Video rendering: TTS, Remotion composition, ffprobe |
+| `@buildstory/video` | Remotion rendering: TTS, composition, ffprobe |
+| `@buildstory/heygen` | HeyGen rendering: adapter, API client, polling, concat |
 | `buildstory` | CLI wrapper |
 
 ## Development
@@ -188,8 +208,10 @@ pnpm format           # Prettier
 
 Typical run on a project with 50-200 events:
 - **LLM narration**: ~$0.05-0.20 (Claude Sonnet) or ~$0.02-0.10 (GPT-4o)
-- **TTS audio**: ~$0.05-0.15 (OpenAI TTS HD, ~$0.03/1000 chars)
-- **Total**: ~$0.10-0.35 per video
+- **TTS audio** (Remotion): ~$0.05-0.15 (OpenAI TTS HD, ~$0.03/1000 chars)
+- **HeyGen rendering**: ~$0.99/credit/minute of video (~$5-15 per project)
+- **Total (Remotion)**: ~$0.10-0.35 per video
+- **Total (HeyGen)**: ~$5-15 per video (avatar rendering is the main cost)
 
 Use `--dry-run` to see cost estimates before any API calls.
 
