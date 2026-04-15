@@ -134,6 +134,12 @@ async function fetchVideoStatus(videoId: string, apiKey: string) {
   const response = await fetch(`https://api.heygen.com/v2/videos/${videoId}`, {
     headers: { 'X-Api-Key': apiKey },
   })
+  if (!response.ok) {
+    throw new HeyGenApiError(
+      String(response.status),
+      `Status poll failed: HTTP ${response.status} ${response.statusText}`,
+    )
+  }
   const json = await response.json()
   return HeyGenStatusResponseSchema.parse(json).data
 }
