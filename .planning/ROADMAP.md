@@ -95,8 +95,11 @@ Plans:
   2. Running any HeyGen render command without `HEYGEN_API_KEY` set prints an actionable error and exits — no API call is made
   3. `buildstory render --renderer=heygen --dry-run <story-arc.json>` prints the full plan (scene count, estimated credits, avatar, voice) and exits without calling HeyGen
   4. Cost estimation output shows estimated credits and USD before any submission prompt
-**Plans**: TBD
-**UI hint**: no
+**Plans:** 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — @buildstory/heygen package scaffold with types, preflight validation, and cost estimation
+- [ ] 05-02-PLAN.md — CLI integration: config schema, lazy install, --renderer flag, renderer dispatch
 
 #### Phase 6: StoryArc Adapter
 **Goal**: StoryArc beats are faithfully translated into HeyGen video_inputs — with beat-type background colors and automatic chunking for large arcs — as a pure, unit-tested function that never calls the HeyGen API
@@ -133,6 +136,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 2. Scanner | v1.0 | 3/3 | Complete | 2026-04-05 |
 | 3. Narrator | v1.0 | 3/3 | Complete | - |
 | 4. Renderer | v1.0 | 4/4 | Complete | 2026-04-14 |
-| 5. HeyGen Package | v1.1 | 0/TBD | Not started | - |
+| 5. HeyGen Package | v1.1 | 0/2 | Planned | - |
 | 6. StoryArc Adapter | v1.1 | 0/TBD | Not started | - |
 | 7. HeyGen API + CLI Integration | v1.1 | 0/TBD | Not started | - |
