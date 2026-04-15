@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: HeyGen Renderer Exploration
-status: defining
-stopped_at: Defining requirements
+status: ready_to_plan
+stopped_at: Roadmap created — ready to plan Phase 5
 last_updated: "2026-04-14"
 last_activity: 2026-04-14
 progress:
-  total_phases: 0
-  completed_phases: 0
+  total_phases: 7
+  completed_phases: 4
   total_plans: 0
   completed_plans: 0
   percent: 0
@@ -21,22 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-14)
 
 **Core value:** Extract the build story from planning artifacts and make it consumable
-**Current focus:** Defining requirements for v1.1
+**Current focus:** Phase 5 — HeyGen Package scaffold, preflight, cost estimation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-14 — Milestone v1.1 started
+Phase: 5 of 7 (HeyGen Package)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-04-14 — v1.1 roadmap created (Phases 5-7)
+
+Progress: [████████░░░░░░░░░░░░] ~40% (v1.0 complete, v1.1 not started)
 
 ## Performance Metrics
 
 **Velocity:**
-
-- Total plans completed: 12
+- Total plans completed: 12 (v1.0)
 - Average duration: —
-- Total execution time: 0 hours
+- Total execution time: —
 
 **By Phase:**
 
@@ -47,10 +48,7 @@ Last activity: 2026-04-14 — Milestone v1.1 started
 | 03 | 3 | - | - |
 | 04 | 4 | - | - |
 
-**Recent Trend:**
-
-- Last 5 plans: —
-- Trend: —
+**Recent Trend:** —
 
 *Updated after each plan completion*
 
@@ -63,8 +61,10 @@ Recent decisions affecting current work:
 
 - Init: TypeScript over Rust — monorepo consumers are all JS/TS
 - Init: Core library + thin wrappers — same logic across CLI, n8n, MCP
-- Init: fluent-ffmpeg is archived — use child_process.spawn directly
-- Init: ESLint boundary rule must be enforced at scaffold time (Phase 1)
+- v1.1: HeyGen standalone — no Remotion deps; `@buildstory/heygen` is isolated
+- v1.1: Strategy A adapter — concatenate all beat narration into single video_inputs item
+- v1.1: VideoRenderer interface dispatch in CLI render.ts (simple if/else, not plugin registry)
+- v1.1: Native fetch (Node 22) + p-retry for polling — only new dep
 
 ### Pending Todos
 
@@ -76,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T11:37:00.293Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-renderer/04-CONTEXT.md
+Last session: 2026-04-14
+Stopped at: Roadmap written — Phase 5 ready for /gsd-plan-phase 5
+Resume file: None

@@ -1,23 +1,16 @@
 # Roadmap: BuildStory
 
-## Overview
+## Milestones
 
-BuildStory goes from zero to narrated MP4 in four phases. Phase 1 locks in the monorepo scaffold and package boundaries — the ESLint enforcement and core/CLI separation that make everything else safe to build. Phase 2 delivers the scanner: artifact-aware markdown extraction combined with git history produces the Timeline JSON that all downstream phases consume. Phase 3 turns Timeline into StoryArc via LLM narration with style presets, beat classification, and cost guards, then formats it into multiple text outputs. Phase 4 closes the loop with frame generation, TTS, FFmpeg assembly, and a complete CLI surface — producing a watchable MP4 from real planning artifacts.
+- ✅ **v1.0 MVP** - Phases 1-4 (shipped 2026-04-14)
+- 🚧 **v1.1 HeyGen Renderer Exploration** - Phases 5-7 (in progress)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+<details>
+<summary>✅ v1.0 MVP (Phases 1-4) - SHIPPED 2026-04-14</summary>
 
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [ ] **Phase 1: Scaffold** - Monorepo foundation with enforced core/CLI boundary and typed pipeline stubs
-- [ ] **Phase 2: Scanner** - Artifact-aware timeline extraction from planning files and git history
-- [ ] **Phase 3: Narrator** - LLM narration with style presets, beat classification, format generation, and cost guards
-- [ ] **Phase 4: Renderer** - Story voice, TTS audio, Remotion video composition, and complete CLI surface
-
-## Phase Details
+BuildStory goes from zero to narrated MP4 in four phases. Phase 1 locks in the monorepo scaffold and package boundaries — the ESLint enforcement and core/CLI separation that make everything else safe to build. Phase 2 delivers the scanner: artifact-aware markdown extraction combined with git history produces the Timeline JSON that all downstream phases consume. Phase 3 turns Timeline into StoryArc via LLM narration with style presets, beat classification, and cost guards, then formats it into multiple text outputs. Phase 4 closes the loop with frame generation, TTS, FFmpeg assembly, and a complete CLI surface — producing a watchable MP4 from real planning artifacts.
 
 ### Phase 1: Scaffold
 **Goal**: The monorepo is set up with enforced boundaries so all subsequent phases build on a safe, consistent foundation
@@ -29,6 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. ESLint reports an error if any file in `packages/core/src/` imports `fs`, `process.env`, or config libraries
   4. `buildstory.toml` is loaded by the CLI and surfaced as typed options passed to core functions
 **Plans:** 2 plans
+
 Plans:
 - [x] 01-01-PLAN.md — Monorepo scaffold with core package, typed stubs, and ESLint boundary rule
 - [x] 01-02-PLAN.md — CLI wrapper with Commander, TOML config, and buildstory run end-to-end
@@ -44,6 +38,7 @@ Plans:
   4. Cross-references between artifacts are detected and represented in the timeline event graph
   5. Custom artifact include/exclude patterns in `buildstory.toml` or ScanOptions are respected by the walker
 **Plans:** 3 plans
+
 Plans:
 - [x] 02-01-PLAN.md — Extend type contracts (GitSource, ArtifactSource, TimelineEvent) and install scanner dependencies
 - [x] 02-02-PLAN.md — Core scan implementation (file-walker, artifact-parser, timeline-builder, scan orchestrator)
@@ -59,6 +54,7 @@ Plans:
   3. Running narrate twice with the same input and `temperature: 0` produces equivalent output (deterministic prompts)
   4. Narrate fails with a clear error message when estimated input tokens exceed the configured `maxInputTokens` limit
 **Plans:** 3 plans
+
 Plans:
 - [x] 03-01-PLAN.md — Install LLM SDKs, LLMProvider interface, style/format prompts, token guard, chunker
 - [x] 03-02-PLAN.md — Anthropic and OpenAI provider implementations, narrate() and format() orchestration
@@ -77,20 +73,66 @@ Plans:
   5. Running render before Remotion is installed, Chrome is available, or API keys are set fails immediately with actionable error messages
   6. Total pipeline time under 10 minutes for a typical project (100-200 events)
 **Plans:** 4 plans
+
 Plans:
 - [x] 04-01-PLAN.md — Core type extensions (StoryBeat schema, "story" style prompt, warning accumulation)
 - [x] 04-02-PLAN.md — @buildstory/video package scaffold, TTS orchestration, ffprobe measurement, preflight checks
 - [x] 04-03-PLAN.md — Remotion composition, 4 scene components, renderVideo() orchestrator, SRT generation
 - [x] 04-04-PLAN.md — CLI wiring (render command, run pipeline extension, lazy install, all flags)
 
+</details>
+
+### 🚧 v1.1 HeyGen Renderer Exploration (In Progress)
+
+**Milestone Goal:** Add HeyGen as a standalone alternative video renderer — avatar-narrated build stories via a pluggable provider interface — without touching the existing Remotion pipeline.
+
+#### Phase 5: HeyGen Package
+**Goal**: The `@buildstory/heygen` package exists with a VideoRenderer interface, API key configuration, preflight validation, cost estimation, and dry-run support — so no HeyGen credits are spent before the user has verified intent
+**Depends on**: Phase 4
+**Requirements**: REND-12, REND-13, HGVR-01, SAFE-01, SAFE-02, SAFE-03, SAFE-04
+**Success Criteria** (what must be TRUE):
+  1. `@buildstory/heygen` builds independently as a workspace package with zero imports from `@buildstory/video`
+  2. Running any HeyGen render command without `HEYGEN_API_KEY` set prints an actionable error and exits — no API call is made
+  3. `buildstory render --renderer=heygen --dry-run <story-arc.json>` prints the full plan (scene count, estimated credits, avatar, voice) and exits without calling HeyGen
+  4. Cost estimation output shows estimated credits and USD before any submission prompt
+**Plans**: TBD
+**UI hint**: no
+
+#### Phase 6: StoryArc Adapter
+**Goal**: StoryArc beats are faithfully translated into HeyGen video_inputs — with beat-type background colors and automatic chunking for large arcs — as a pure, unit-tested function that never calls the HeyGen API
+**Depends on**: Phase 5
+**Requirements**: HGVR-05, HGVR-06, HGVR-07
+**Success Criteria** (what must be TRUE):
+  1. A StoryArc with 5 beats produces a single video_inputs array where each beat's narration text appears as the scene script
+  2. Each beat type (idea, pivot, obstacle, decision, etc.) maps to a visually distinct background color in the HeyGen scene
+  3. A StoryArc with 15 beats is split into two chunked calls (≤10 beats each) with no narration text dropped
+  4. The adapter function is fully unit-tested without any network calls or HeyGen credentials
+**Plans**: TBD
+**UI hint**: no
+
+#### Phase 7: HeyGen API + CLI Integration
+**Goal**: Users can submit a StoryArc to HeyGen, wait for completion with visible polling progress, download the MP4, and select this path via `--renderer=heygen` — the full end-to-end flow works
+**Depends on**: Phase 6
+**Requirements**: HGVR-02, HGVR-03, HGVR-04, CLI-08, CLI-09
+**Success Criteria** (what must be TRUE):
+  1. `buildstory render --renderer=heygen <story-arc.json>` submits to HeyGen, polls with progress output, and saves the downloaded MP4 to the output directory
+  2. If HeyGen does not complete within the configured timeout, the command exits with a clear error and the video ID so the user can check manually
+  3. `buildstory run --renderer=heygen <paths>` runs the full scan → narrate → HeyGen render pipeline end-to-end
+  4. `buildstory.toml` with `[video] renderer = "heygen"` and `[heygen] avatar_id` / `voice_id` is respected without any CLI flags
+**Plans**: TBD
+**UI hint**: no
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Scaffold | 2/2 | Complete | 2026-04-05 |
-| 2. Scanner | 3/3 | Complete | 2026-04-05 |
-| 3. Narrator | 0/3 | Executing | - |
-| 4. Renderer | 0/4 | Not started | - |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Scaffold | v1.0 | 2/2 | Complete | 2026-04-05 |
+| 2. Scanner | v1.0 | 3/3 | Complete | 2026-04-05 |
+| 3. Narrator | v1.0 | 3/3 | Complete | - |
+| 4. Renderer | v1.0 | 4/4 | Complete | 2026-04-14 |
+| 5. HeyGen Package | v1.1 | 0/TBD | Not started | - |
+| 6. StoryArc Adapter | v1.1 | 0/TBD | Not started | - |
+| 7. HeyGen API + CLI Integration | v1.1 | 0/TBD | Not started | - |

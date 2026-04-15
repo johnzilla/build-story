@@ -186,33 +186,50 @@ Requirements for HeyGen Renderer Exploration milestone.
 | NARR-08 | Phase 3 | Complete |
 | NARR-09 | Phase 3 | Complete |
 | CLI-02 | Phase 3 | Complete |
-| NARR-10 | Phase 4 | Pending |
-| NARR-11 | Phase 4 | Pending |
-| NARR-12 | Phase 4 | Pending |
-| REND-01 | Phase 4 | Pending |
-| REND-02 | Phase 4 | Pending |
-| REND-03 | Phase 4 | Pending |
-| REND-04 | Phase 4 | Pending |
-| REND-05 | Phase 4 | Pending |
-| REND-06 | Phase 4 | Pending |
-| REND-07 | Phase 4 | Pending |
-| REND-08 | Phase 4 | Pending |
-| REND-09 | Phase 4 | Pending |
-| REND-10 | Phase 4 | Pending |
-| REND-11 | Phase 4 | Pending |
-| CLI-03 | Phase 4 | Pending |
-| CLI-04 | Phase 4 | Pending |
-| CLI-05 | Phase 4 | Pending |
-| CLI-06 | Phase 4 | Pending |
-| CLI-07 | Phase 4 | Pending |
+| NARR-10 | Phase 4 | Complete |
+| NARR-11 | Phase 4 | Complete |
+| NARR-12 | Phase 4 | Complete |
+| REND-01 | Phase 4 | Complete |
+| REND-02 | Phase 4 | Complete |
+| REND-03 | Phase 4 | Complete |
+| REND-04 | Phase 4 | Complete |
+| REND-05 | Phase 4 | Complete |
+| REND-06 | Phase 4 | Complete |
+| REND-07 | Phase 4 | Complete |
+| REND-08 | Phase 4 | Complete |
+| REND-09 | Phase 4 | Complete |
+| REND-10 | Phase 4 | Complete |
+| REND-11 | Phase 4 | Complete |
+| CLI-03 | Phase 4 | Complete |
+| CLI-04 | Phase 4 | Complete |
+| CLI-05 | Phase 4 | Complete |
+| CLI-06 | Phase 4 | Complete |
+| CLI-07 | Phase 4 | Complete |
+| REND-12 | Phase 5 | Pending |
+| REND-13 | Phase 5 | Pending |
+| HGVR-01 | Phase 5 | Pending |
+| SAFE-01 | Phase 5 | Pending |
+| SAFE-02 | Phase 5 | Pending |
+| SAFE-03 | Phase 5 | Pending |
+| SAFE-04 | Phase 5 | Pending |
+| HGVR-05 | Phase 6 | Pending |
+| HGVR-06 | Phase 6 | Pending |
+| HGVR-07 | Phase 6 | Pending |
+| HGVR-02 | Phase 7 | Pending |
+| HGVR-03 | Phase 7 | Pending |
+| HGVR-04 | Phase 7 | Pending |
+| CLI-08 | Phase 7 | Pending |
+| CLI-09 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 47 total
-- Mapped to phases: 47
+- v1.0 requirements: 47 total — all mapped, all complete
+- v1.1 requirements: 15 total — all mapped, pending
 - Unmapped: 0
-- Phases 1-3: 28 Complete
-- Phase 4: 19 Pending
+- Phases 1-4: 47 Complete (v1.0)
+- Phase 5: 7 Pending (REND-12, REND-13, HGVR-01, SAFE-01-04)
+- Phase 6: 3 Pending (HGVR-05, HGVR-06, HGVR-07)
+- Phase 7: 5 Pending (HGVR-02, HGVR-03, HGVR-04, CLI-08, CLI-09)
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-14 after milestone v1.1 requirements definition — added REND-12/13, HGVR-01-07, CLI-08/09, SAFE-01-04*
+*Last updated: 2026-04-14 after v1.1 roadmap creation — added phase mappings for REND-12/13, HGVR-01-07, CLI-08/09, SAFE-01-04*
