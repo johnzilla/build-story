@@ -104,6 +104,53 @@ export async function run(
     ),
   )
 
+  // --dry-run: print a cost estimate from event count and exit BEFORE any
+  // paid API calls. Accurate per-beat estimates come from `buildstory render
+  // --dry-run` against an existing story-arc.json (where actual beats are
+  // known); in `run --dry-run` we deliberately trade accuracy for zero spend.
+  if (opts.dryRun) {
+    const events = timeline.events.length
+    // Empirical: scans typically yield ~1 beat per 3 events (e.g. 82 events
+    // → ~28 beats in the blindjoin reference run). Used only for display.
+    const estBeats = Math.max(1, Math.round(events / 3))
+    const TTS_PER_1000_CHARS = 0.015
+    const AVG_BEAT_CHARS = 150
+    const estTTSCost = (estBeats * AVG_BEAT_CHARS) / 1000 * TTS_PER_1000_CHARS
+
+    console.log(chalk.dim('\n  Estimated cost (no API calls made):\n'))
+    console.log(chalk.dim(`    Scan:          $0 (local filesystem) — done`))
+    console.log(
+      chalk.dim(
+        `    Narration:     ~$0.05–0.20 (1 ${provider} call; ${events} events → ~${estBeats} beats)`,
+      ),
+    )
+    if (!skipVideo) {
+      if (heygenRenderer) {
+        console.log(
+          chalk.dim(
+            `    HeyGen render: ~$${(estBeats * 0.5).toFixed(2)}–$${(estBeats * 1.0).toFixed(2)} (~${estBeats} scenes; depends on avatar & voice)`,
+          ),
+        )
+      } else {
+        console.log(
+          chalk.dim(
+            `    TTS:           ~$${estTTSCost.toFixed(2)} (OpenAI TTS, ~${estBeats} scenes × ~${AVG_BEAT_CHARS} chars)`,
+          ),
+        )
+        console.log(chalk.dim(`    Render:        $0 (local CPU + ffmpeg)`))
+      }
+    }
+    if (skipVideo || includeText) {
+      console.log(chalk.dim(`    Text formats:  ~$0.05–0.15 (4 ${provider} calls)`))
+    }
+    console.log(
+      chalk.yellow(
+        '\n  --dry-run: stopping before narrate. No LLM, TTS, or render calls made.\n',
+      ),
+    )
+    return
+  }
+
   const narrateOpts = { provider, style, apiKey }
 
   // Create ONE provider instance — pass to both narrate() and format() (no double instantiation)
@@ -169,10 +216,8 @@ export async function run(
         ),
       )
 
-      if (opts.dryRun) {
-        console.log(chalk.yellow('  --dry-run: Skipping HeyGen submission.\n'))
-        return
-      }
+      // Note: --dry-run is handled earlier (after scan, before narrate) so
+      // no LLM call is made. By the time we reach here, --dry-run is false.
 
       // HeyGen submission (HGVR-02, HGVR-03, HGVR-04)
       const { renderWithHeyGen } = heygen
@@ -229,10 +274,8 @@ export async function run(
         ),
       )
 
-      if (opts.dryRun) {
-        console.log(chalk.yellow('  --dry-run: Skipping TTS and render. Cost estimate above.\n'))
-        return
-      }
+      // Note: --dry-run is handled earlier (after scan, before narrate) so
+      // no LLM call is made. By the time we reach here, --dry-run is false.
 
       // TTS (REND-02)
       const ttsVoice = config.tts?.voice ?? 'nova'
