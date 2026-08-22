@@ -23,6 +23,11 @@ export interface ScanTranscriptOptions {
   since?: string
   /** Only sessions started at/before this ISO date. */
   until?: string
+  /**
+   * Attach session reasoning to the commits it produced (by timestamp), so each
+   * commit event carries its "why". Default: true (when transcripts are on).
+   */
+  correlate?: boolean
 }
 
 export interface ScanOptions {

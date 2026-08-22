@@ -30,6 +30,8 @@ export interface BuildStoryConfig {
     piPath?: string
     since?: string
     until?: string
+    /** Attach session reasoning to the commits it produced (default: true). */
+    correlate?: boolean
   }
   tts?: {
     voice?: string

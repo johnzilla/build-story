@@ -108,6 +108,7 @@ enabled = false        # opt-in: distill coding-agent sessions into events
 # piPath = "~/.pi/agent/sessions"       # override pi's session store
 # since = "2026-01-01"         # only sessions started at/after this ISO date
 # until = "2026-12-31"         # only sessions started at/before this ISO date
+# correlate = true             # attach each commit's "why" from session reasoning (default: true)
 
 [tts]
 voice = "nova"         # OpenAI TTS voice: nova, alloy, echo, fable, onyx, shimmer
@@ -167,7 +168,7 @@ Planning-file detection (when those files exist):
 | GSD | TASKS.md, TODO.md, SESSION_LOG.md, BLOCKERS.md, .planning/**/*.md |
 | Generic | ADR/, docs/, README.md |
 
-Custom file patterns and commit options are configured in `buildstory.toml` (see [Configuration](#configuration)). To narrate purely from commit history, set `scan.includeFiles = false`; commits themselves are scanned by default whenever the target is a git repo. Agent-session transcripts are **opt-in** — enable `[transcripts]` in `buildstory.toml`. They can contain secrets, which BuildStory redacts on a best-effort basis before they enter the timeline.
+Custom file patterns and commit options are configured in `buildstory.toml` (see [Configuration](#configuration)). To narrate purely from commit history, set `scan.includeFiles = false`; commits themselves are scanned by default whenever the target is a git repo. Agent-session transcripts are **opt-in** — enable `[transcripts]` in `buildstory.toml`. They can contain secrets, which BuildStory redacts on a best-effort basis before they enter the timeline. When both commits and transcripts are present, each commit is annotated with the session reasoning that led to it (the human asks in the window before it) — so the narrator gets each change's "why" explicitly.
 
 ## Video Output
 
@@ -245,7 +246,7 @@ Use `--dry-run` to see cost estimates before any API calls.
 ## Roadmap
 
 - **More agent-transcript adapters** — Claude Code and pi ship today (enable `[transcripts]`, see [Configuration](#configuration)); goose and other harnesses are next. Each is a thin adapter behind the harness-neutral `TranscriptSource` interface, so one shape covers every agent, and enabling several reads them all into one timeline. A future "capture mode" (recording sessions live via ACP) would drop the per-harness log parsing entirely.
-- **Transcript ↔ commit correlation** — tie a session's reasoning to the commits it produced (by timestamp) so each commit event carries its "why," rather than the narrator inferring it from a shared timeline.
+- **Sharper correlation** — commit ↔ transcript linking ships today (timestamp windows). Next: use the touched files and commit message, not just time, to pick the reasoning — and walk pi's active branch rather than all turns.
 
 ## License
 

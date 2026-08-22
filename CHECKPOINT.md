@@ -65,8 +65,21 @@ Shipped:
 pi format sourced from `github.com/earendil-works/pi`
 (`packages/coding-agent/docs/session-format.md`); pi.dev is egress-blocked here.
 
-**Next:** goose adapter (same pattern); validate pi on a real session;
-transcript↔commit correlation by timestamp so each commit carries its "why."
+## transcript ↔ commit correlation — shipped
+
+`correlateCommitsWithTranscripts()` (`packages/core/src/scan/correlate.ts`):
+for each commit, the human asks in the time window before it (since the prior
+commit, bounded by a 24h look-back) are appended to the commit's `summary` as a
+"Why (from agent session)" block, with `sourceSessionIds`/`correlatedAsks` in
+metadata. Supplement, not replace — standalone session events still emit.
+On by default when transcripts are on; `transcripts.correlate = false` to disable.
+`scan()` now fetches sessions once, correlates them into commit events, then
+also builds the session events. Verified on this repo: 5 of 58 commits (the
+ones made during a recorded session) carry their "why".
+
+**Next:** goose adapter (same pattern); validate pi on a real session; sharper
+correlation (use touched files + commit message, not only time; walk pi's active
+branch instead of all turns).
 
 ## Renderer decision (no code needed)
 

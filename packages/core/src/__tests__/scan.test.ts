@@ -363,6 +363,60 @@ describe('scan()', () => {
     expect(transcriptSource.listSessions).toHaveBeenCalledWith({ projectPath: '/project' })
   })
 
+  it('correlates session reasoning onto commits by default when both are present', async () => {
+    const source = makeMockSource({})
+    const gitSource = makeGitSource({
+      commits: [makeCommit({ date: '2026-02-01T10:00:00Z' })],
+    })
+    const transcriptSource = {
+      harness: 'claude-code',
+      listSessions: vi.fn().mockResolvedValue([
+        {
+          id: 's1',
+          harness: 'claude-code',
+          startedAt: '2026-02-01T09:55:00Z',
+          turns: [{ role: 'user', kind: 'message', text: 'why I made this change', timestamp: '2026-02-01T09:55:00Z' }],
+        },
+      ]),
+    }
+    const result = await scan(
+      source,
+      { rootDir: '/project', transcripts: { enabled: true } },
+      gitSource,
+      transcriptSource,
+    )
+    const commitEvent = result.events.find((e) => e.source === 'git-commit')
+    expect(commitEvent?.summary).toContain('Why (from agent session)')
+    expect(commitEvent?.summary).toContain('why I made this change')
+    expect(commitEvent?.metadata['sourceSessionIds']).toEqual(['s1'])
+  })
+
+  it('does not correlate when transcripts.correlate is false', async () => {
+    const source = makeMockSource({})
+    const gitSource = makeGitSource({
+      commits: [makeCommit({ date: '2026-02-01T10:00:00Z' })],
+    })
+    const transcriptSource = {
+      harness: 'claude-code',
+      listSessions: vi.fn().mockResolvedValue([
+        {
+          id: 's1',
+          harness: 'claude-code',
+          startedAt: '2026-02-01T09:55:00Z',
+          turns: [{ role: 'user', kind: 'message', text: 'reasoning here', timestamp: '2026-02-01T09:55:00Z' }],
+        },
+      ]),
+    }
+    const result = await scan(
+      source,
+      { rootDir: '/project', transcripts: { enabled: true, correlate: false } },
+      gitSource,
+      transcriptSource,
+    )
+    const commitEvent = result.events.find((e) => e.source === 'git-commit')
+    expect(commitEvent?.summary).not.toContain('Why (from agent session)')
+  })
+
   it('passes commit options through to the GitSource', async () => {
     const source = makeMockSource({})
     const getCommits = vi.fn().mockResolvedValue([makeCommit()])

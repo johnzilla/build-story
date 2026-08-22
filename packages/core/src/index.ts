@@ -7,6 +7,8 @@ export { StoryArcSchema, StoryBeatSchema, BeatTypeSchema, FormatTypeSchema } fro
 export type { StoryArc, StoryBeat, BeatType, FormatType } from './types/story.js'
 export { buildCommitEvents } from './scan/commit-source.js'
 export { buildTranscriptEvents } from './scan/transcript-source.js'
+export { correlateCommitsWithTranscripts } from './scan/correlate.js'
+export type { CorrelateOptions } from './scan/correlate.js'
 export type {
   ScanOptions,
   ScanCommitOptions,
