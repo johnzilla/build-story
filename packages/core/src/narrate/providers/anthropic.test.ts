@@ -7,6 +7,10 @@ import type { Timeline } from '../../types/timeline.js'
 const mockParse = vi.fn()
 const mockCreate = vi.fn()
 
+// Real SDK messages.parse()/create() responses always include a usage object;
+// the provider reads response.usage to track token spend. Mock it realistically.
+const USAGE = { input_tokens: 100, output_tokens: 50 }
+
 vi.mock('@anthropic-ai/sdk', () => {
   const MockAnthropic = vi.fn().mockImplementation(function () {
     return {
@@ -63,7 +67,7 @@ describe('AnthropicProvider', () => {
   describe('extractStoryArc()', () => {
     it('calls client.messages.parse() with correct parameters including temperature:0', async () => {
       const arc = makeArc()
-      mockParse.mockResolvedValue({ parsed_output: arc })
+      mockParse.mockResolvedValue({ parsed_output: arc, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       const timeline = makeTimeline()
@@ -78,7 +82,7 @@ describe('AnthropicProvider', () => {
 
     it('calls client.messages.parse() with zodOutputFormat in output_config', async () => {
       const arc = makeArc()
-      mockParse.mockResolvedValue({ parsed_output: arc })
+      mockParse.mockResolvedValue({ parsed_output: arc, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.extractStoryArc(makeTimeline(), 'system prompt')
@@ -89,7 +93,7 @@ describe('AnthropicProvider', () => {
 
     it('post-validates parsed_output with StoryArcSchema.parse()', async () => {
       const arc = makeArc()
-      mockParse.mockResolvedValue({ parsed_output: arc })
+      mockParse.mockResolvedValue({ parsed_output: arc, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       const result = await provider.extractStoryArc(makeTimeline(), 'system prompt')
@@ -97,7 +101,7 @@ describe('AnthropicProvider', () => {
     })
 
     it('throws descriptive error when parsed_output is null (refusal)', async () => {
-      mockParse.mockResolvedValue({ parsed_output: null })
+      mockParse.mockResolvedValue({ parsed_output: null, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await expect(provider.extractStoryArc(makeTimeline(), 'system prompt')).rejects.toThrow(
@@ -107,7 +111,7 @@ describe('AnthropicProvider', () => {
 
     it('includes the user message with timeline payload', async () => {
       const arc = makeArc()
-      mockParse.mockResolvedValue({ parsed_output: arc })
+      mockParse.mockResolvedValue({ parsed_output: arc, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       const timeline = makeTimeline({ rootDir: '/my-project' })
@@ -125,6 +129,7 @@ describe('AnthropicProvider', () => {
     it('calls client.messages.create() NOT .parse() for plain text output', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'Generated format text' }],
+        usage: USAGE,
       })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
@@ -138,6 +143,7 @@ describe('AnthropicProvider', () => {
     it('passes temperature:0 to messages.create()', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'text' }],
+        usage: USAGE,
       })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
@@ -150,6 +156,7 @@ describe('AnthropicProvider', () => {
     it('serializes arc.beats as JSON in user message', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'text' }],
+        usage: USAGE,
       })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
@@ -165,6 +172,7 @@ describe('AnthropicProvider', () => {
     it('returns the text content from the response', async () => {
       mockCreate.mockResolvedValue({
         content: [{ type: 'text', text: 'The generated text output' }],
+        usage: USAGE,
       })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
@@ -176,7 +184,7 @@ describe('AnthropicProvider', () => {
   describe('synthesizeArcs()', () => {
     it('calls client.messages.parse() for structured output during synthesis', async () => {
       const arc = makeArc()
-      mockParse.mockResolvedValue({ parsed_output: arc })
+      mockParse.mockResolvedValue({ parsed_output: arc, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.synthesizeArcs([arc, arc], 'system prompt')
@@ -192,7 +200,7 @@ describe('AnthropicProvider', () => {
         beats: [{ type: 'result', title: 'Beat 2', summary: 'Summary 2', evidence: [], sourceEventIds: ['evt-2'], significance: 2 }],
       })
       const merged = makeArc()
-      mockParse.mockResolvedValue({ parsed_output: merged })
+      mockParse.mockResolvedValue({ parsed_output: merged, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.synthesizeArcs([arc1, arc2], 'system prompt')
@@ -205,7 +213,7 @@ describe('AnthropicProvider', () => {
 
     it('passes temperature:0 in synthesis call', async () => {
       const arc = makeArc()
-      mockParse.mockResolvedValue({ parsed_output: arc })
+      mockParse.mockResolvedValue({ parsed_output: arc, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.synthesizeArcs([arc], 'system prompt')
@@ -215,7 +223,7 @@ describe('AnthropicProvider', () => {
     })
 
     it('throws descriptive error when synthesis returns null', async () => {
-      mockParse.mockResolvedValue({ parsed_output: null })
+      mockParse.mockResolvedValue({ parsed_output: null, usage: USAGE })
 
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await expect(provider.synthesizeArcs([makeArc()], 'system prompt')).rejects.toThrow(

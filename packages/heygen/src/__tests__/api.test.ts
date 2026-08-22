@@ -136,7 +136,7 @@ describe('submitChunk', () => {
   it('throws HeyGenApiError on API error response', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(makeErrorSubmitResponse('400140', 'Daily rate limit reached'))
 
-    const { renderWithHeyGen, HeyGenApiError } = await import('../api.js')
+    const { renderWithHeyGen } = await import('../api.js')
     const arc = makeArc([makeBeat()])
 
     await expect(renderWithHeyGen(arc, defaultConfig, '/tmp/out.mp4', () => {})).rejects.toThrow(
@@ -147,7 +147,7 @@ describe('submitChunk', () => {
   it('HeyGenApiError has correct code and message format', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(makeErrorSubmitResponse('400140', 'Daily rate limit reached'))
 
-    const { renderWithHeyGen, HeyGenApiError } = await import('../api.js')
+    const { renderWithHeyGen } = await import('../api.js')
     const arc = makeArc([makeBeat()])
 
     try {
