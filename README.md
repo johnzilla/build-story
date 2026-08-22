@@ -103,7 +103,9 @@ includeMerges = false  # merge commits are usually narration noise
 
 [transcripts]
 enabled = false        # opt-in: distill coding-agent sessions into events
-# path = "~/.claude/projects"  # override the Claude Code session store
+# harnesses = ["claude-code", "pi"]     # which agents to read (default: all known)
+# claudeCodePath = "~/.claude/projects" # override Claude Code's session store
+# piPath = "~/.pi/agent/sessions"       # override pi's session store
 # since = "2026-01-01"         # only sessions started at/after this ISO date
 # until = "2026-12-31"         # only sessions started at/before this ISO date
 
@@ -154,7 +156,7 @@ BuildStory builds its timeline from pluggable event sources, merged and sorted c
 |--------|--------------------|---------|
 | **git commits** | One event per commit: message, body, changed files, and +/- stats (from `git log --numstat`). The universal backbone — works on any repo regardless of workflow. | On (when the directory is a git repo) |
 | **git tags** | Release milestones. | On |
-| **agent transcripts** | The decision trail from coding-agent sessions — what you asked for, in order — distilled from the session logs (Claude Code today). Secrets are redacted. | Off (opt-in) |
+| **agent transcripts** | The decision trail from coding-agent sessions — what you asked for, in order — distilled from the session logs (Claude Code and pi today). Secrets are redacted. | Off (opt-in) |
 | **planning files** | Markdown artifacts, when present (see below). Enriches the story; not required. | On |
 
 Planning-file detection (when those files exist):
@@ -242,7 +244,7 @@ Use `--dry-run` to see cost estimates before any API calls.
 
 ## Roadmap
 
-- **More agent-transcript adapters** — the transcript source ships with a Claude Code adapter (enable `[transcripts]`, see [Configuration](#configuration)). goose, pi, and other harnesses are next — each a thin adapter behind the harness-neutral `TranscriptSource` interface, so one shape covers every agent. A future "capture mode" (recording sessions live via ACP) would drop the per-harness log parsing entirely.
+- **More agent-transcript adapters** — Claude Code and pi ship today (enable `[transcripts]`, see [Configuration](#configuration)); goose and other harnesses are next. Each is a thin adapter behind the harness-neutral `TranscriptSource` interface, so one shape covers every agent, and enabling several reads them all into one timeline. A future "capture mode" (recording sessions live via ACP) would drop the per-harness log parsing entirely.
 - **Transcript ↔ commit correlation** — tie a session's reasoning to the commits it produced (by timestamp) so each commit event carries its "why," rather than the narrator inferring it from a shared timeline.
 
 ## License

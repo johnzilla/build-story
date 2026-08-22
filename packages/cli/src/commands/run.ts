@@ -7,7 +7,7 @@ import type { FormatType } from '@buildstory/core'
 import { loadConfig } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
-import { createClaudeCodeTranscriptSource } from '../adapters/transcript-claude-code.js'
+import { createTranscriptSource } from '../adapters/transcript-registry.js'
 import { ensureVideoPackage, ensureHeyGenPackage } from '../lazy.js'
 
 function formatDuration(ms: number): string {
@@ -86,11 +86,12 @@ export async function run(
   // Step 1: Scan
   const source = createFsSource(resolve(rootDir))
   const gitSource = await createGitSource(resolve(rootDir))
-  const transcriptSource = config.transcripts?.enabled
-    ? createClaudeCodeTranscriptSource(
-        config.transcripts.path ? { projectsDir: config.transcripts.path } : undefined,
-      )
-    : null
+  const { source: transcriptSource, unknown: unknownHarnesses } = createTranscriptSource(
+    config.transcripts,
+  )
+  if (unknownHarnesses.length > 0) {
+    console.log(chalk.yellow(`  Unknown transcript harness(es) ignored: ${unknownHarnesses.join(', ')}`))
+  }
 
   const scanStart = Date.now()
   const scanSpinner = ora(`[1/${totalSteps}] Scanning artifacts...`).start()

@@ -22,8 +22,12 @@ export interface BuildStoryConfig {
   }
   transcripts?: {
     enabled?: boolean
-    /** Override the Claude Code projects dir (default: ~/.claude/projects). */
-    path?: string
+    /** Which agent harnesses to read. Default: all known (claude-code, pi). */
+    harnesses?: string[]
+    /** Override Claude Code's session dir (default: ~/.claude/projects). */
+    claudeCodePath?: string
+    /** Override pi's session dir (default: ~/.pi/agent/sessions). */
+    piPath?: string
     since?: string
     until?: string
   }

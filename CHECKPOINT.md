@@ -43,19 +43,30 @@ on ACP's vocabulary means adapters normalize into one shape and a future live
 "capture mode" needs no translation).
 
 Shipped:
-- **CLI adapter** `packages/cli/src/adapters/transcript-claude-code.ts` — reads
-  `~/.claude/projects/**/*.jsonl`, keeps human prompts (string-content `user`
-  records; tool-results are array-content and skipped) + agent thinking/text/
-  tool_use, redacts secrets, matches sessions to the repo by `cwd`.
+- **Adapters** (CLI): `transcript-claude-code.ts` (`~/.claude/projects/**/*.jsonl`)
+  and `transcript-pi.ts` (`~/.pi/agent/sessions/**/*.jsonl`, per pi's
+  session-format.md — cwd lives only in the `session` header line). Both keep
+  human prompts + agent thinking/text/tool calls, redact secrets, match sessions
+  to the repo by `cwd`. Shared discovery/matching/redaction in
+  `transcript-shared.ts`; per-harness `parse*Session` functions are pure/tested.
+- **Registry + composite** `transcript-registry.ts` — `createTranscriptSource`
+  fans out over selected harnesses (`transcripts.harnesses`, default all known)
+  and merges their sessions into one timeline; unknown harness names are reported.
 - **Core mapper** `buildTranscriptEvents()` — one `source: 'transcript'` event
   per session, dated at session start; summary = the human decision trail (the
-  LLM-visible field). Wired into `scan()` as a 4th injected source.
-- **Config** `[transcripts] enabled=false` (opt-in; privacy). `path`/`since`/`until`.
-- Verified end-to-end: scanning this repo with transcripts on emits a transcript
-  event from the live session (5 human turns extracted).
+  LLM-visible field). Wired into `scan()` as a 4th injected source. No core
+  changes were needed to add pi — the interface is harness-neutral.
+- **Config** `[transcripts] enabled=false` (opt-in; privacy). `harnesses`,
+  `claudeCodePath`, `piPath`, `since`, `until`.
+- Verified end-to-end: Claude Code against the live session (real), and pi
+  against a spec-shaped fixture (discovery + parse + mapper). **pi still needs a
+  check against a real pi session file** — none was available in this env.
 
-**Next:** goose/pi adapters (same interface); transcript↔commit correlation by
-timestamp so each commit carries its "why."
+pi format sourced from `github.com/earendil-works/pi`
+(`packages/coding-agent/docs/session-format.md`); pi.dev is egress-blocked here.
+
+**Next:** goose adapter (same pattern); validate pi on a real session;
+transcript↔commit correlation by timestamp so each commit carries its "why."
 
 ## Renderer decision (no code needed)
 

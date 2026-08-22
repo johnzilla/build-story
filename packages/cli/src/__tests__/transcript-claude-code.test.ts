@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import {
-  parseClaudeCodeSession,
-  sessionMatchesProject,
-} from '../adapters/transcript-claude-code.js'
+import { parseClaudeCodeSession } from '../adapters/transcript-claude-code.js'
+import { sessionMatchesProject } from '../adapters/transcript-shared.js'
 
 // Records shaped like real Claude Code .jsonl lines.
 function line(obj: unknown): string {
