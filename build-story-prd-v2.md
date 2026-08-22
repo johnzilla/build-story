@@ -2,7 +2,15 @@
 
 **Project:** BuildStory
 **Author:** Generated from conversation, April 5, 2026
-**Status:** Draft — Ready for GStack/GSD initialization
+**Status:** Historical — original v1 spec. Superseded on its core input premise (see banner).
+
+> **⚠️ Superseded premise (2026-08).** This PRD assumes the input is GStack/GSD
+> planning artifacts. That premise no longer holds: BuildStory now reconstructs
+> the timeline primarily from **git commits**, with planning files as an optional
+> enrichment, and agent session transcripts planned as a future source. The
+> pipeline shape (scan → narrate → render), the core-library pattern, and the
+> package boundaries below are still accurate. For current behavior see the
+> [README](./README.md); for current direction see [CHECKPOINT.md](./CHECKPOINT.md).
 
 ---
 

@@ -44,7 +44,7 @@ With `--skip-video` or `--include-text`, you also get:
 
 ```
 buildstory run [paths...]       Full pipeline: scan -> narrate -> TTS -> render
-buildstory scan [paths...]      Scan planning artifacts into timeline.json
+buildstory scan [paths...]      Scan git history + planning artifacts into timeline.json
 buildstory narrate <timeline>   Generate narrative from a timeline
 buildstory render <story-arc>   Render video from an existing story arc
 ```
@@ -158,7 +158,7 @@ Planning-file detection (when those files exist):
 | GSD | TASKS.md, TODO.md, SESSION_LOG.md, BLOCKERS.md, .planning/**/*.md |
 | Generic | ADR/, docs/, README.md |
 
-Custom file patterns and commit options are configurable via `buildstory.toml` or CLI flags. To narrate purely from commit history, set `scan.includeFiles = false`.
+Custom file patterns and commit options are configured in `buildstory.toml` (see [Configuration](#configuration)). To narrate purely from commit history, set `scan.includeFiles = false`; commits themselves are scanned by default whenever the target is a git repo.
 
 ## Video Output
 
@@ -177,7 +177,7 @@ Default palette: dark navy (#1a1a2e) + warm red (#e94560) + off-white text (#eae
 
 ```
 @buildstory/core          Pure library (no CLI, no config, no filesystem writes)
-  scan(source, options)     Timeline from planning artifacts
+  scan(source, opts, git)   Timeline from git commits + planning artifacts
   narrate(timeline, opts)   StoryArc with classified beats via LLM
   format(arc, type, llm)    Text output per format via LLM
   createProvider(opts)      LLM provider factory (Anthropic or OpenAI)
@@ -201,7 +201,7 @@ buildstory CLI            Thin wrapper
   adapters/                   ArtifactSource (fs + redaction), GitSource
 ```
 
-Core never imports `fs`, `process`, or config libraries. All filesystem access goes through an injected `ArtifactSource` interface. TTS and video rendering live in `@buildstory/video` to keep core pure.
+Core never imports `fs`, `process`, or config libraries. Filesystem access goes through an injected `ArtifactSource` interface and git access through an injected `GitSource` — so core stays free of I/O and vendor specifics. TTS and video rendering live in `@buildstory/video` to keep core pure.
 
 ## Packages
 
@@ -232,6 +232,10 @@ Typical run on a project with 50-200 events:
 - **Total (HeyGen)**: ~$5-15 per video (avatar rendering is the main cost)
 
 Use `--dry-run` to see cost estimates before any API calls.
+
+## Roadmap
+
+- **Agent session transcripts as an input source** — ingest coding-agent session logs (Claude Code first, then other harnesses) so the reasoning behind decisions — the options weighed, the pivots — enriches the timeline. Normalized through a harness-neutral `TranscriptSource` interface so one shape covers every agent. The interface is in place; adapters are next.
 
 ## License
 

@@ -12,7 +12,7 @@ const program = new Command()
 
 program
   .name('buildstory')
-  .description('Extract and narrate your build story from planning artifacts')
+  .description('Extract and narrate your build story from git history and planning artifacts')
   .version('0.1.0')
 
 program
@@ -32,7 +32,7 @@ program
 
 program
   .command('scan')
-  .description('Scan planning artifacts and produce a timeline')
+  .description('Scan git history and planning artifacts into a timeline')
   .argument('[paths...]', 'Paths to scan', ['.'])
   .option('-o, --output <file>', 'Output file path (default: stdout)')
   .option('-c, --config <path>', 'Config file path')
