@@ -1,7 +1,8 @@
 # Checkpoint — 2026-08-22
 
-Working branch: `claude/build-story-workflow-update-9by64e`
-State: **green** — `pnpm build`, `pnpm test` (241 tests), `pnpm lint` all pass.
+Working branch: `main` (source of truth; solo builder commits straight to main).
+State: **green** — `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`
+(299 tests) all pass.
 
 ## The pivot (why this work exists)
 
@@ -124,7 +125,36 @@ self-dependency. Changesets set to `access: public` and `.changeset/*.md`
 un-ignored so release notes can be committed. `pnpm audit --audit-level=high`
 runs in CI (+weekly schedule).
 
+## External review remediation (Phase 0 + Phase 1) — shipped
+
+An outside reviewer's findings, worked by severity and committed to main:
+
+- **Phase 0 — restored green gates** (`0cd2ba8`): fixed the failures that a
+  prior batch had left red; made `tsc --noEmit` a real CI gate; added
+  `.github/workflows/ci.yml`.
+- **Phase 0-remainder — finished the gate story** (`4ee5334`): R1/R3/R4.
+- **R2 (partial) — branch protection.** Chose *keep pushing to main, block
+  force-push only, do not require a PR.* A `main` ruleset blocks force-push and
+  deletion; normal pushes are unrestricted (matches solo-builder flow).
+- **Phase 1 — security & data safety** (`51f8e2d`, `c793362`):
+  - 1.1–1.4: secret-redaction parity across every ingress (git subject/body,
+    tags, all transcript harnesses), hostile-fixture tests (secrets assembled
+    from fragments so no scannable literal ships), transcript pre-filtering,
+    `SECURITY.md` (private-advisory reporting, data-egress table, prompt-injection
+    threat model), `.gitignore` for scan/timeline dumps.
+  - 1.5: **HeyGen HTTP hardening** — per-request timeouts (manual
+    AbortController, no dangling timer), 5xx-HTML surfaced as a clear status
+    error instead of an opaque JSON `SyntaxError`, transient-vs-terminal retry
+    split, `completed`-without-`video_url` fails loudly, per-run `mkdtemp` temp
+    dir. Fault-injection tests (5xx-HTML, hung connection, missing URL); suite
+    de-flaked by mocking all fs/stream I/O so fake timers can't race real
+    libuv I/O.
+
+**Next (roadmap, not requested):** goose adapter; validate pi on a real session;
+sharper correlation (touched files + message, walk pi's active branch).
+
 ## Working agreement
 
 Solo builder, no customers. No PRs. No GSD/planning-doc ceremony — commit
-straight to the working branch, keep build/test/lint green.
+straight to `main` (force-push blocked by ruleset), keep build/typecheck/lint/
+test green before every push.
