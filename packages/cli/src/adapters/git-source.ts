@@ -5,6 +5,7 @@ import type {
   CommitFileChange,
   GetCommitsOptions,
 } from '@buildstory/core'
+import { redactSecrets } from './redact.js'
 
 // Control characters as delimiters — safe because commit fields never contain them.
 const RS = '\x1e' // record separator: precedes each commit
@@ -54,8 +55,10 @@ export function parseCommitLog(raw: string): CommitRecord[] {
         hash: hash.trim(),
         date: date.trim(),
         author: author.trim(),
-        subject: subject.trim(),
-        body: body.trim(),
+        // Redact secrets from free-text message fields at ingress (parity with
+        // the file and transcript sources).
+        subject: redactSecrets(subject.trim()),
+        body: redactSecrets(body.trim()),
         files,
         insertions,
         deletions,
@@ -102,9 +105,9 @@ export async function createGitSource(rootDir: string): Promise<GitSource | null
           .map((line) => {
             const [name, date, message] = line.split('|')
             return {
-              name: name ?? '',
+              name: redactSecrets(name ?? ''),
               date: date ?? '',
-              message: message ?? '',
+              message: redactSecrets(message ?? ''),
             }
           })
       } catch {

@@ -110,6 +110,18 @@ export function parseClaudeCodeSession(
 }
 
 /**
+ * Match a Claude Code project directory name against a project path.
+ * Claude Code encodes the cwd by replacing `/` with `-`
+ * (`/home/user/app` → `-home-user-app`); sessions run in subdirectories share
+ * that prefix. Boundary collisions (e.g. `app` vs `app-2`) are caught by the
+ * per-record cwd check in `collectSessions`.
+ */
+export function matchClaudeCodeDir(dirName: string, projectPath: string): boolean {
+  const enc = projectPath.replace(/\/+$/, '').replace(/\//g, '-')
+  return dirName === enc || dirName.startsWith(`${enc}-`)
+}
+
+/**
  * A TranscriptSource over Claude Code's on-disk session store
  * (`~/.claude/projects/<encoded-cwd>/*.jsonl`; override the base dir via
  * `opts.projectsDir`). Secrets are redacted during parse.
@@ -124,6 +136,7 @@ export function createClaudeCodeTranscriptSource(opts?: {
 
   return {
     harness: 'claude-code',
-    listSessions: (filter) => collectSessions(projectsDir, parseClaudeCodeSession, filter),
+    listSessions: (filter) =>
+      collectSessions(projectsDir, parseClaudeCodeSession, filter, matchClaudeCodeDir),
   }
 }

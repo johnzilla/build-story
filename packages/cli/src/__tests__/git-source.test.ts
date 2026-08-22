@@ -80,6 +80,24 @@ describe('parseCommitLog()', () => {
     expect(commit?.subject).toBe('chore: empty')
   })
 
+  it('redacts secrets in commit subject and body at parse time', () => {
+    // Assembled from fragments so no scannable secret literal is in this file.
+    const stripeKey = 'sk' + '_live_' + 'abcdef1234567890ABCDEF'
+    const anthropicKey = 'sk-ant-' + 'abcdefghijklmnopqrstuvwxyz012345'
+    const raw = chunk(
+      'h1',
+      '2026-02-01T10:00:00Z',
+      'A',
+      `fix: remove ${stripeKey} from config`,
+      `The token was ${anthropicKey} — rotated now.`,
+      '1\t0\ta.ts\n',
+    )
+    const [commit] = parseCommitLog(raw)
+    expect(commit?.subject).not.toContain(stripeKey)
+    expect(commit?.subject).toContain('[REDACTED]')
+    expect(commit?.body).not.toContain(anthropicKey)
+  })
+
   it('preserves rename paths (tab-joined) from numstat', () => {
     const raw = chunk('h1', '2026-02-01T10:00:00Z', 'A', 's', '', '4\t2\told.ts => new.ts\n')
     const [commit] = parseCommitLog(raw)

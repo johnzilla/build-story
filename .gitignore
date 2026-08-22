@@ -4,4 +4,10 @@ dist/
 *.tgz
 coverage/
 buildstory-out/
+# Scan/narrate dumps — these embed rawContent (full file text) and an absolute
+# rootDir. Never commit them. See SECURITY.md.
+timeline.json
+*-timeline.json
+story-arc.json
+buildstory-scan.json
 *.tsbuildinfo

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parsePiSession } from '../adapters/transcript-pi.js'
+import { parsePiSession, matchPiDir } from '../adapters/transcript-pi.js'
 
 // Records shaped per pi's packages/coding-agent/docs/session-format.md.
 function line(obj: unknown): string {
@@ -120,5 +120,15 @@ describe('parsePiSession()', () => {
       line({ type: 'message', id: 'a', parentId: null, timestamp: '2026-03-01T09:00:02Z', message: { role: 'user', content: 'hi' } }),
     ].join('\n')
     expect(parsePiSession(noId, '20260301_uuid')?.id).toBe('20260301_uuid')
+  })
+})
+
+describe('matchPiDir()', () => {
+  it('matches the encoded repo dir and its subdirectory sessions', () => {
+    expect(matchPiDir('--home-user-build-story--', REPO)).toBe(true)
+    expect(matchPiDir('--home-user-build-story-packages-core--', REPO)).toBe(true)
+  })
+  it('does NOT match a different repo (so repo B is never opened)', () => {
+    expect(matchPiDir('--home-user-other-repo--', REPO)).toBe(false)
   })
 })

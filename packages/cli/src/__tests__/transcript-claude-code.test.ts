@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { parseClaudeCodeSession } from '../adapters/transcript-claude-code.js'
+import {
+  parseClaudeCodeSession,
+  matchClaudeCodeDir,
+} from '../adapters/transcript-claude-code.js'
 import { sessionMatchesProject } from '../adapters/transcript-shared.js'
 
 // Records shaped like real Claude Code .jsonl lines.
@@ -94,6 +97,17 @@ describe('parseClaudeCodeSession()', () => {
   it('returns null for a session with no useful turns', () => {
     const onlyNoise = line({ type: 'mode', mode: 'x', sessionId: 's' })
     expect(parseClaudeCodeSession(onlyNoise, 'fb')).toBeNull()
+  })
+})
+
+describe('matchClaudeCodeDir()', () => {
+  it('matches the encoded repo-root dir and its subdirectory sessions', () => {
+    expect(matchClaudeCodeDir('-home-user-build-story', REPO)).toBe(true)
+    expect(matchClaudeCodeDir('-home-user-build-story-packages-core', REPO)).toBe(true)
+  })
+  it('does NOT match a different repo (so repo B is never opened)', () => {
+    expect(matchClaudeCodeDir('-home-user-other-repo', REPO)).toBe(false)
+    expect(matchClaudeCodeDir('-tmp-scratch', REPO)).toBe(false)
   })
 })
 

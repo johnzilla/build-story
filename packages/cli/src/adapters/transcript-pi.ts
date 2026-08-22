@@ -128,6 +128,18 @@ export function parsePiSession(content: string, fallbackId: string): TranscriptS
 }
 
 /**
+ * Match a pi session directory name against a project path.
+ * pi encodes the cwd as `--<path-with-/-as->--` (`/home/user/app` →
+ * `--home-user-app--`); subdirectory sessions share the inner prefix. Boundary
+ * collisions are caught by the per-record cwd check in `collectSessions`.
+ */
+export function matchPiDir(dirName: string, projectPath: string): boolean {
+  const core = projectPath.replace(/\/+$/, '').replace(/^\//, '').replace(/\//g, '-')
+  const inner = dirName.replace(/^--/, '').replace(/--$/, '')
+  return inner === core || inner.startsWith(`${core}-`)
+}
+
+/**
  * A TranscriptSource over pi's on-disk session store
  * (`~/.pi/agent/sessions/**\/*.jsonl`; override the base dir via
  * `opts.sessionsDir`). Secrets are redacted during parse.
@@ -140,6 +152,6 @@ export function createPiTranscriptSource(opts?: { sessionsDir?: string }): Trans
 
   return {
     harness: 'pi',
-    listSessions: (filter) => collectSessions(dir, parsePiSession, filter),
+    listSessions: (filter) => collectSessions(dir, parsePiSession, filter, matchPiDir),
   }
 }

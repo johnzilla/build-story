@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import fg from 'fast-glob'
 import type { TranscriptSession, TranscriptTurn, TranscriptFilter } from '@buildstory/core'
 import { redactSecrets } from './redact.js'
@@ -55,24 +55,53 @@ export function sessionMatchesProject(
 }
 
 /**
- * Discover and parse every `*.jsonl` under `dir`, keeping sessions that match
+ * Discover and parse `*.jsonl` sessions under `dir`, keeping those that match
  * the project path and date window. `parse` is the harness-specific line parser.
+ *
+ * When `dirMatches` and `filter.projectPath` are provided, only session
+ * directories whose (encoded-cwd) name matches the project are opened — so
+ * scanning one repo never reads another repo's transcript files. The per-record
+ * cwd check still runs as defense-in-depth against encoding boundary cases.
  */
 export async function collectSessions(
   dir: string,
   parse: (content: string, fallbackId: string) => TranscriptSession | null,
   filter: TranscriptFilter,
+  dirMatches?: (dirName: string, projectPath: string) => boolean,
 ): Promise<TranscriptSession[]> {
-  let files: string[]
-  try {
-    files = await fg('**/*.jsonl', {
-      cwd: dir,
-      absolute: true,
-      onlyFiles: true,
-      suppressErrors: true,
-    })
-  } catch {
-    return []
+  let files: string[] = []
+
+  if (dirMatches && filter.projectPath) {
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      return []
+    }
+    const projectPath = filter.projectPath
+    const matchedDirs = entries
+      .filter((e) => e.isDirectory() && dirMatches(e.name, projectPath))
+      .map((e) => e.name)
+    for (const sub of matchedDirs) {
+      const found = await fg('*.jsonl', {
+        cwd: join(dir, sub),
+        absolute: true,
+        onlyFiles: true,
+        suppressErrors: true,
+      }).catch(() => [] as string[])
+      files.push(...found)
+    }
+  } else {
+    try {
+      files = await fg('**/*.jsonl', {
+        cwd: dir,
+        absolute: true,
+        onlyFiles: true,
+        suppressErrors: true,
+      })
+    } catch {
+      return []
+    }
   }
 
   const sessions: TranscriptSession[] = []

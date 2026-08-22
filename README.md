@@ -246,6 +246,21 @@ Typical run on a project with 50-200 events:
 
 Use `--dry-run` to see cost estimates before any API calls.
 
+## Data safety
+
+- **Local dumps hold everything.** `timeline.json` (and other scan dumps) embed
+  `rawContent` — the full text of scanned files and commit bodies — plus the
+  absolute `rootDir` path. They're git-ignored by default; don't commit or share
+  them without reviewing. **`rawContent` is never sent to the LLM** — only event
+  summaries/metadata are.
+- **Secrets are redacted at ingress** across files, git commit/tag messages, and
+  transcripts, on a best-effort basis. Review outputs before publishing.
+- **Transcripts are opt-in** and can contain secrets and dead-ends — enable
+  `[transcripts]` deliberately.
+
+See [SECURITY.md](./SECURITY.md) for the full threat model (including
+prompt-injection handling) and how to report a vulnerability.
+
 ## Roadmap
 
 - **More agent-transcript adapters** — Claude Code and pi ship today (enable `[transcripts]`, see [Configuration](#configuration)); goose and other harnesses are next. Each is a thin adapter behind the harness-neutral `TranscriptSource` interface, so one shape covers every agent, and enabling several reads them all into one timeline. A future "capture mode" (recording sessions live via ACP) would drop the per-harness log parsing entirely.
