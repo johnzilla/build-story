@@ -4,5 +4,4 @@ dist/
 *.tgz
 coverage/
 buildstory-out/
-.changeset/*.md
 *.tsbuildinfo

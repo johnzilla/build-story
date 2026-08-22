@@ -136,8 +136,8 @@ The CLI automatically loads `.env` from the current working directory.
 
 ## Requirements
 
-- **Node.js 22+**
-- **pnpm 10+**
+- **Node.js 22+** (enforced via `engines`)
+- **pnpm 10** — pinned via the `packageManager` field; run `corepack enable` to use the exact version
 - **ffmpeg/ffprobe** -- for audio processing (usually pre-installed on Linux/macOS)
 - **Headless Chrome** -- for Remotion video rendering (auto-downloaded on first render)
 

@@ -115,7 +115,14 @@ root devDep at ^8.0.16 (satisfies vitest's peer).
 **Remaining (1, accepted):** `extract-zip` (high, GHSA-jmr9-qjv8-65gv) — **no
 patched version exists**. Reaches us only via `@remotion/renderer`'s Chrome
 download, which is lazy-installed and runs only during video rendering. Revisit
-when Remotion ships a fix.
+when Remotion ships a fix. Listed in `package.json > pnpm.auditConfig.ignoreGhsas`
+so the CI `audit (high)` job passes on it but fails on any *new* high.
+
+**Toolchain / release plumbing:** pnpm pinned via `packageManager: pnpm@10.33.0`
+(Corepack); root `engines: node >=22`; removed the root `buildstory: workspace:*`
+self-dependency. Changesets set to `access: public` and `.changeset/*.md`
+un-ignored so release notes can be committed. `pnpm audit --audit-level=high`
+runs in CI (+weekly schedule).
 
 ## Working agreement
 
