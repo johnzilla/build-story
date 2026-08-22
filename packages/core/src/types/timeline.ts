@@ -9,7 +9,7 @@ export const TimelineEventSchema = z.object({
   metadata: z.record(z.string(), z.unknown()),
   dateConfidence: z.enum(['exact', 'inferred', 'estimated', 'unknown']),
   rawContent: z.string(),
-  artifactType: z.enum(['gstack', 'gsd', 'generic', 'git-tag']).optional(),
+  artifactType: z.enum(['gstack', 'gsd', 'generic', 'git-tag', 'git-commit']).optional(),
   crossRefs: z.array(z.string()).optional(),
 })
 

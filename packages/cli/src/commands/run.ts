@@ -95,6 +95,8 @@ export async function run(
       patterns: config.scan?.patterns,
       excludes: config.scan?.excludes,
       maxDepth: config.scan?.maxDepth,
+      includeFiles: config.scan?.includeFiles,
+      commits: config.commits,
     },
     gitSource,
   )

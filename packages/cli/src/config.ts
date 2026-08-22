@@ -11,6 +11,14 @@ export interface BuildStoryConfig {
     patterns?: string[]
     excludes?: string[]
     maxDepth?: number
+    includeFiles?: boolean
+  }
+  commits?: {
+    enabled?: boolean
+    max?: number
+    since?: string
+    includeMerges?: boolean
+    paths?: string[]
   }
   tts?: {
     voice?: string
@@ -63,6 +71,7 @@ export function loadConfig(projectRoot: string): BuildStoryConfig {
     ...globalConfig,
     ...projectConfig,
     scan: { ...globalConfig.scan, ...projectConfig.scan },
+    commits: { ...globalConfig.commits, ...projectConfig.commits },
     tts: { ...globalConfig.tts, ...projectConfig.tts },
     render: { ...globalConfig.render, ...projectConfig.render },
     video: { ...globalConfig.video, ...projectConfig.video },

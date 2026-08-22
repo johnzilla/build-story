@@ -30,9 +30,9 @@ describe('loadConfig', () => {
     vi.restoreAllMocks()
   })
 
-  it('returns empty object when no config files exist', () => {
+  it('returns empty section objects when no config files exist', () => {
     const config = loadConfig(tmpDir)
-    expect(config).toEqual({ scan: {} })
+    expect(config).toEqual({ scan: {}, commits: {}, tts: {}, render: {}, video: {}, heygen: {} })
   })
 
   it('parses project buildstory.toml', () => {
@@ -46,7 +46,7 @@ describe('loadConfig', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     writeFileSync(join(tmpDir, 'buildstory.toml'), '{{invalid toml')
     const config = loadConfig(tmpDir)
-    expect(config).toEqual({ scan: {} })
+    expect(config).toEqual({ scan: {}, commits: {}, tts: {}, render: {}, video: {}, heygen: {} })
     expect(spy).toHaveBeenCalled()
     spy.mockRestore()
   })

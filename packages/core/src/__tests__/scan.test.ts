@@ -59,12 +59,35 @@ function makeMockSource(files: Record<string, string>): ArtifactSource {
 function makeGitSource(opts?: {
   fileDates?: Record<string, string>
   tags?: Array<{ name: string; date: string; message: string }>
+  commits?: import('../types/git-source.js').CommitRecord[]
 }): GitSource {
-  return {
+  const base: GitSource = {
     getFileDate: vi.fn().mockImplementation(async (path: string) => {
       return opts?.fileDates?.[path] ?? null
     }),
     getTags: vi.fn().mockResolvedValue(opts?.tags ?? []),
+  }
+  // Only expose getCommits when commits are provided, so tests that don't opt
+  // in mirror a GitSource without commit support (backward compat).
+  if (opts?.commits) {
+    base.getCommits = vi.fn().mockResolvedValue(opts.commits)
+  }
+  return base
+}
+
+function makeCommit(
+  overrides?: Partial<import('../types/git-source.js').CommitRecord>,
+): import('../types/git-source.js').CommitRecord {
+  return {
+    hash: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+    date: '2026-02-01T10:00:00Z',
+    author: 'John Turner',
+    subject: 'feat: something',
+    body: '',
+    files: [{ path: 'src/foo.ts', insertions: 10, deletions: 2 }],
+    insertions: 10,
+    deletions: 2,
+    ...overrides,
   }
 }
 
@@ -243,5 +266,76 @@ describe('scan()', () => {
     const options: ScanOptions = { rootDir: '/project' }
     const result = await scan(source, options)
     expect(result.events).toHaveLength(0)
+  })
+
+  it('does not collect commit events when the GitSource lacks getCommits', async () => {
+    const source = makeMockSource({ 'PLANNING.md': PLANNING_CONTENT })
+    const gitSource = makeGitSource({ fileDates: { 'PLANNING.md': '2026-01-10T08:00:00Z' } })
+    const result = await scan(source, { rootDir: '/project' }, gitSource)
+    expect(result.events.some((e) => e.source === 'git-commit')).toBe(false)
+  })
+
+  it('collects git-commit events when the GitSource supports getCommits', async () => {
+    const source = makeMockSource({})
+    const gitSource = makeGitSource({ commits: [makeCommit()] })
+    const result = await scan(source, { rootDir: '/project' }, gitSource)
+    const commitEvents = result.events.filter((e) => e.source === 'git-commit')
+    expect(commitEvents).toHaveLength(1)
+    expect(commitEvents[0]?.artifactType).toBe('git-commit')
+    expect(commitEvents[0]?.summary).toContain('feat: something')
+  })
+
+  it('merges commit events with file events into one chronological timeline', async () => {
+    const source = makeMockSource({ 'PLANNING.md': PLANNING_CONTENT })
+    const gitSource = makeGitSource({
+      fileDates: { 'PLANNING.md': '2026-03-01T00:00:00Z' },
+      commits: [makeCommit({ date: '2026-01-01T00:00:00Z' })],
+    })
+    const result = await scan(source, { rootDir: '/project' }, gitSource)
+    expect(result.events[0]?.source).toBe('git-commit') // earlier date sorts first
+    expect(result.events.some((e) => e.source === 'file')).toBe(true)
+  })
+
+  it('respects commits.enabled = false', async () => {
+    const source = makeMockSource({})
+    const gitSource = makeGitSource({ commits: [makeCommit()] })
+    const result = await scan(
+      source,
+      { rootDir: '/project', commits: { enabled: false } },
+      gitSource,
+    )
+    expect(result.events.some((e) => e.source === 'git-commit')).toBe(false)
+  })
+
+  it('respects includeFiles = false (commit-only timeline)', async () => {
+    const source = makeMockSource({ 'PLANNING.md': PLANNING_CONTENT })
+    const gitSource = makeGitSource({ commits: [makeCommit()] })
+    const result = await scan(
+      source,
+      { rootDir: '/project', includeFiles: false },
+      gitSource,
+    )
+    expect(result.events.some((e) => e.source === 'file')).toBe(false)
+    expect(result.events.some((e) => e.source === 'git-commit')).toBe(true)
+  })
+
+  it('passes commit options through to the GitSource', async () => {
+    const source = makeMockSource({})
+    const getCommits = vi.fn().mockResolvedValue([makeCommit()])
+    const gitSource: GitSource = {
+      getFileDate: vi.fn().mockResolvedValue(null),
+      getTags: vi.fn().mockResolvedValue([]),
+      getCommits,
+    }
+    await scan(
+      source,
+      { rootDir: '/project', commits: { max: 50, includeMerges: true, since: '2026-01-01' } },
+      gitSource,
+    )
+    expect(getCommits).toHaveBeenCalledWith({
+      max: 50,
+      includeMerges: true,
+      since: '2026-01-01',
+    })
   })
 })

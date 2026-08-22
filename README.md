@@ -1,6 +1,8 @@
 # BuildStory
 
-Turn planning artifacts into narrated video documentaries. BuildStory scans your GStack/GSD planning files, extracts the decision arc via LLM, generates narration audio, and renders video — either programmatic Remotion compositions or avatar-narrated HeyGen videos.
+Turn your development history into narrated video documentaries. BuildStory reconstructs a chronological timeline from your **git commits** (and any planning artifacts you keep), extracts the decision arc via LLM, generates narration audio, and renders video — either programmatic Remotion compositions or avatar-narrated HeyGen videos.
+
+Point it at any repo — no framework, no planning docs required. Commit history is the backbone; planning files, when present, enrich the story.
 
 **[Watch an example: BuildStory narrating its own build journey](https://youtu.be/OtYFP66iI9s)**
 
@@ -90,6 +92,14 @@ outputDir = "./buildstory-out"
 patterns = [".planning/**/*.md", "docs/**/*.md"]
 excludes = ["node_modules/**", ".git/**"]
 maxDepth = 5
+includeFiles = true    # false = commit-only timeline (ignore planning files)
+
+[commits]
+enabled = true         # scan git commits as timeline events (default: true)
+max = 500              # cap on commits pulled, most recent first
+# since = "2026-01-01" # only commits newer than this git-understood date/revision
+includeMerges = false  # merge commits are usually narration noise
+# paths = ["src/**"]   # restrict to commits touching these pathspecs
 
 [tts]
 voice = "nova"         # OpenAI TTS voice: nova, alloy, echo, fable, onyx, shimmer
@@ -132,7 +142,15 @@ Video rendering dependencies (~200MB) are installed on first `buildstory render`
 
 ## What It Scans
 
-BuildStory detects planning artifacts automatically:
+BuildStory builds its timeline from pluggable event sources, merged and sorted chronologically:
+
+| Source | What it contributes | Default |
+|--------|--------------------|---------|
+| **git commits** | One event per commit: message, body, changed files, and +/- stats (from `git log --numstat`). The universal backbone — works on any repo regardless of workflow. | On (when the directory is a git repo) |
+| **git tags** | Release milestones. | On |
+| **planning files** | Markdown artifacts, when present (see below). Enriches the story; not required. | On |
+
+Planning-file detection (when those files exist):
 
 | Type | Files |
 |------|-------|
@@ -140,7 +158,7 @@ BuildStory detects planning artifacts automatically:
 | GSD | TASKS.md, TODO.md, SESSION_LOG.md, BLOCKERS.md, .planning/**/*.md |
 | Generic | ADR/, docs/, README.md |
 
-Custom patterns are configurable via `buildstory.toml` or CLI flags.
+Custom file patterns and commit options are configurable via `buildstory.toml` or CLI flags. To narrate purely from commit history, set `scan.includeFiles = false`.
 
 ## Video Output
 
