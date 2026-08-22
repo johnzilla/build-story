@@ -319,6 +319,50 @@ describe('scan()', () => {
     expect(result.events.some((e) => e.source === 'git-commit')).toBe(true)
   })
 
+  it('does not collect transcript events by default (opt-in)', async () => {
+    const source = makeMockSource({})
+    const gitSource = makeGitSource({ commits: [makeCommit()] })
+    const transcriptSource = {
+      harness: 'claude-code',
+      listSessions: vi.fn().mockResolvedValue([
+        {
+          id: 's1',
+          harness: 'claude-code',
+          startedAt: '2026-01-01T00:00:00Z',
+          turns: [{ role: 'user', kind: 'message', text: 'do a thing' }],
+        },
+      ]),
+    }
+    const result = await scan(source, { rootDir: '/project' }, gitSource, transcriptSource)
+    expect(result.events.some((e) => e.source === 'transcript')).toBe(false)
+    expect(transcriptSource.listSessions).not.toHaveBeenCalled()
+  })
+
+  it('collects transcript events when transcripts.enabled and a source is injected', async () => {
+    const source = makeMockSource({})
+    const transcriptSource = {
+      harness: 'claude-code',
+      listSessions: vi.fn().mockResolvedValue([
+        {
+          id: 's1',
+          harness: 'claude-code',
+          startedAt: '2026-01-01T00:00:00Z',
+          turns: [{ role: 'user', kind: 'message', text: 'do a thing' }],
+        },
+      ]),
+    }
+    const result = await scan(
+      source,
+      { rootDir: '/project', transcripts: { enabled: true } },
+      null,
+      transcriptSource,
+    )
+    const tEvents = result.events.filter((e) => e.source === 'transcript')
+    expect(tEvents).toHaveLength(1)
+    expect(tEvents[0]?.summary).toContain('do a thing')
+    expect(transcriptSource.listSessions).toHaveBeenCalledWith({ projectPath: '/project' })
+  })
+
   it('passes commit options through to the GitSource', async () => {
     const source = makeMockSource({})
     const getCommits = vi.fn().mockResolvedValue([makeCommit()])

@@ -6,6 +6,7 @@ import { scan } from '@buildstory/core'
 import { loadConfig } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
+import { createClaudeCodeTranscriptSource } from '../adapters/transcript-claude-code.js'
 
 export async function scanCommand(
   paths: string[],
@@ -27,6 +28,12 @@ export async function scanCommand(
     spinner.warn(chalk.yellow('No git repository found — dates will use file mtime'))
   }
 
+  const transcriptSource = config.transcripts?.enabled
+    ? createClaudeCodeTranscriptSource(
+        config.transcripts.path ? { projectsDir: config.transcripts.path } : undefined,
+      )
+    : null
+
   spinner.start('Scanning artifacts...')
   const timeline = await scan(
     source,
@@ -37,8 +44,10 @@ export async function scanCommand(
       maxDepth: config.scan?.maxDepth,
       includeFiles: config.scan?.includeFiles,
       commits: config.commits,
+      transcripts: config.transcripts,
     },
     gitSource,
+    transcriptSource,
   )
   spinner.succeed(chalk.green(`Scan complete — ${timeline.events.length} events found`))
 

@@ -34,18 +34,28 @@ intent = **shareable content engine** (polished video is the deliverable).
   DTS/composite build, video preflight type error, Anthropic test mocks missing
   `usage`, dead `VideoRenderer` interface, video `--passWithNoTests`.
 
-## Designed, not yet built — #3 transcripts
+## #3 transcripts — Claude Code adapter shipped
 
-`TranscriptSource` / `TranscriptSession` / `TranscriptTurn` interface committed in
-`packages/core/src/types/transcript.ts`, ACP-shaped. Rationale (in the file's
-doc comment): ACP is a *live* protocol, not a log format, so post-hoc reading
-needs a thin adapter per harness — but modeling the schema on ACP's session
-vocabulary means adapters normalize into one shape, and a future live "capture
-mode" needs no translation.
+`TranscriptSource` / `TranscriptSession` / `TranscriptTurn` interface in
+`packages/core/src/types/transcript.ts`, ACP-shaped (ACP is a *live* protocol,
+not a log format, so post-hoc reading needs a thin adapter per harness; modeling
+on ACP's vocabulary means adapters normalize into one shape and a future live
+"capture mode" needs no translation).
 
-**Next step:** write the first adapter (Claude Code, `~/.claude/projects/**/*.jsonl`)
-→ normalize to `TranscriptSession` → correlate to commits by timestamp so
-reasoning enriches commit events. Then goose/pi adapters. MVP = Claude Code only.
+Shipped:
+- **CLI adapter** `packages/cli/src/adapters/transcript-claude-code.ts` — reads
+  `~/.claude/projects/**/*.jsonl`, keeps human prompts (string-content `user`
+  records; tool-results are array-content and skipped) + agent thinking/text/
+  tool_use, redacts secrets, matches sessions to the repo by `cwd`.
+- **Core mapper** `buildTranscriptEvents()` — one `source: 'transcript'` event
+  per session, dated at session start; summary = the human decision trail (the
+  LLM-visible field). Wired into `scan()` as a 4th injected source.
+- **Config** `[transcripts] enabled=false` (opt-in; privacy). `path`/`since`/`until`.
+- Verified end-to-end: scanning this repo with transcripts on emits a transcript
+  event from the live session (5 human turns extracted).
+
+**Next:** goose/pi adapters (same interface); transcript↔commit correlation by
+timestamp so each commit carries its "why."
 
 ## Renderer decision (no code needed)
 

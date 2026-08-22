@@ -12,6 +12,19 @@ export interface ScanCommitOptions {
   paths?: string[]
 }
 
+/** Controls the transcript event source (see `scan`). */
+export interface ScanTranscriptOptions {
+  /**
+   * Collect agent session transcripts as events. Default: false — transcripts
+   * can contain secrets and dead-ends, so they are opt-in.
+   */
+  enabled?: boolean
+  /** Only sessions started at/after this ISO date. */
+  since?: string
+  /** Only sessions started at/before this ISO date. */
+  until?: string
+}
+
 export interface ScanOptions {
   rootDir: string
   patterns?: string[]
@@ -21,6 +34,8 @@ export interface ScanOptions {
   includeFiles?: boolean
   /** Configure the git-commit event source. */
   commits?: ScanCommitOptions
+  /** Configure the agent-transcript event source (requires an injected TranscriptSource). */
+  transcripts?: ScanTranscriptOptions
 }
 
 export interface NarrateOptions {

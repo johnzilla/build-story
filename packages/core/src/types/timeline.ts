@@ -3,13 +3,13 @@ import { z } from 'zod'
 export const TimelineEventSchema = z.object({
   id: z.string(),
   date: z.string(),
-  source: z.enum(['file', 'git-commit', 'git-tag']),
+  source: z.enum(['file', 'git-commit', 'git-tag', 'transcript']),
   path: z.string().optional(),
   summary: z.string(),
   metadata: z.record(z.string(), z.unknown()),
   dateConfidence: z.enum(['exact', 'inferred', 'estimated', 'unknown']),
   rawContent: z.string(),
-  artifactType: z.enum(['gstack', 'gsd', 'generic', 'git-tag', 'git-commit']).optional(),
+  artifactType: z.enum(['gstack', 'gsd', 'generic', 'git-tag', 'git-commit', 'transcript']).optional(),
   crossRefs: z.array(z.string()).optional(),
 })
 

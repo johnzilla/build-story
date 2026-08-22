@@ -101,6 +101,12 @@ max = 500              # cap on commits pulled, most recent first
 includeMerges = false  # merge commits are usually narration noise
 # paths = ["src/**"]   # restrict to commits touching these pathspecs
 
+[transcripts]
+enabled = false        # opt-in: distill coding-agent sessions into events
+# path = "~/.claude/projects"  # override the Claude Code session store
+# since = "2026-01-01"         # only sessions started at/after this ISO date
+# until = "2026-12-31"         # only sessions started at/before this ISO date
+
 [tts]
 voice = "nova"         # OpenAI TTS voice: nova, alloy, echo, fable, onyx, shimmer
 speed = 1.0            # Playback speed (0.25 - 4.0)
@@ -148,6 +154,7 @@ BuildStory builds its timeline from pluggable event sources, merged and sorted c
 |--------|--------------------|---------|
 | **git commits** | One event per commit: message, body, changed files, and +/- stats (from `git log --numstat`). The universal backbone — works on any repo regardless of workflow. | On (when the directory is a git repo) |
 | **git tags** | Release milestones. | On |
+| **agent transcripts** | The decision trail from coding-agent sessions — what you asked for, in order — distilled from the session logs (Claude Code today). Secrets are redacted. | Off (opt-in) |
 | **planning files** | Markdown artifacts, when present (see below). Enriches the story; not required. | On |
 
 Planning-file detection (when those files exist):
@@ -158,7 +165,7 @@ Planning-file detection (when those files exist):
 | GSD | TASKS.md, TODO.md, SESSION_LOG.md, BLOCKERS.md, .planning/**/*.md |
 | Generic | ADR/, docs/, README.md |
 
-Custom file patterns and commit options are configured in `buildstory.toml` (see [Configuration](#configuration)). To narrate purely from commit history, set `scan.includeFiles = false`; commits themselves are scanned by default whenever the target is a git repo.
+Custom file patterns and commit options are configured in `buildstory.toml` (see [Configuration](#configuration)). To narrate purely from commit history, set `scan.includeFiles = false`; commits themselves are scanned by default whenever the target is a git repo. Agent-session transcripts are **opt-in** — enable `[transcripts]` in `buildstory.toml`. They can contain secrets, which BuildStory redacts on a best-effort basis before they enter the timeline.
 
 ## Video Output
 
@@ -235,7 +242,8 @@ Use `--dry-run` to see cost estimates before any API calls.
 
 ## Roadmap
 
-- **Agent session transcripts as an input source** — ingest coding-agent session logs (Claude Code first, then other harnesses) so the reasoning behind decisions — the options weighed, the pivots — enriches the timeline. Normalized through a harness-neutral `TranscriptSource` interface so one shape covers every agent. The interface is in place; adapters are next.
+- **More agent-transcript adapters** — the transcript source ships with a Claude Code adapter (enable `[transcripts]`, see [Configuration](#configuration)). goose, pi, and other harnesses are next — each a thin adapter behind the harness-neutral `TranscriptSource` interface, so one shape covers every agent. A future "capture mode" (recording sessions live via ACP) would drop the per-harness log parsing entirely.
+- **Transcript ↔ commit correlation** — tie a session's reasoning to the commits it produced (by timestamp) so each commit event carries its "why," rather than the narrator inferring it from a shared timeline.
 
 ## License
 

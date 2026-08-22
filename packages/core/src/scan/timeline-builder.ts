@@ -12,15 +12,21 @@ function djb2Hash(input: string): number {
   return hash
 }
 
+const ID_PREFIXES: Record<'file' | 'git-commit' | 'git-tag' | 'transcript', string> = {
+  file: 'file',
+  'git-commit': 'commit',
+  'git-tag': 'tag',
+  transcript: 'session',
+}
+
 export function generateEventId(
-  source: 'file' | 'git-commit' | 'git-tag',
+  source: 'file' | 'git-commit' | 'git-tag' | 'transcript',
   path: string,
   date: string,
 ): string {
   const input = `${source}:${path}:${date}`
   const hash = djb2Hash(input)
-  const prefix = source === 'file' ? 'file' : source === 'git-tag' ? 'tag' : 'commit'
-  return `${prefix}-${hash.toString(16).padStart(8, '0')}`
+  return `${ID_PREFIXES[source]}-${hash.toString(16).padStart(8, '0')}`
 }
 
 interface BuildTimelineInput {
@@ -36,7 +42,12 @@ export async function buildTimeline(input: BuildTimelineInput): Promise<Timeline
   // 1. Assign IDs to file events that don't have them
   const eventsWithIds: TimelineEvent[] = fileEvents.map((evt) => {
     const id =
-      evt.id ?? generateEventId(evt.source as 'file' | 'git-commit' | 'git-tag', evt.path ?? '', evt.date)
+      evt.id ??
+      generateEventId(
+        evt.source as 'file' | 'git-commit' | 'git-tag' | 'transcript',
+        evt.path ?? '',
+        evt.date,
+      )
     return { ...evt, id } as TimelineEvent
   })
 

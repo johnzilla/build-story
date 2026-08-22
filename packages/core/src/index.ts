@@ -6,7 +6,13 @@ export type { Timeline, TimelineEvent } from './types/timeline.js'
 export { StoryArcSchema, StoryBeatSchema, BeatTypeSchema, FormatTypeSchema } from './types/story.js'
 export type { StoryArc, StoryBeat, BeatType, FormatType } from './types/story.js'
 export { buildCommitEvents } from './scan/commit-source.js'
-export type { ScanOptions, ScanCommitOptions, NarrateOptions } from './types/options.js'
+export { buildTranscriptEvents } from './scan/transcript-source.js'
+export type {
+  ScanOptions,
+  ScanCommitOptions,
+  ScanTranscriptOptions,
+  NarrateOptions,
+} from './types/options.js'
 export type { ArtifactSource } from './types/source.js'
 export type {
   GitSource,

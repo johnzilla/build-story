@@ -7,6 +7,7 @@ import type { FormatType } from '@buildstory/core'
 import { loadConfig } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
+import { createClaudeCodeTranscriptSource } from '../adapters/transcript-claude-code.js'
 import { ensureVideoPackage, ensureHeyGenPackage } from '../lazy.js'
 
 function formatDuration(ms: number): string {
@@ -85,6 +86,11 @@ export async function run(
   // Step 1: Scan
   const source = createFsSource(resolve(rootDir))
   const gitSource = await createGitSource(resolve(rootDir))
+  const transcriptSource = config.transcripts?.enabled
+    ? createClaudeCodeTranscriptSource(
+        config.transcripts.path ? { projectsDir: config.transcripts.path } : undefined,
+      )
+    : null
 
   const scanStart = Date.now()
   const scanSpinner = ora(`[1/${totalSteps}] Scanning artifacts...`).start()
@@ -97,8 +103,10 @@ export async function run(
       maxDepth: config.scan?.maxDepth,
       includeFiles: config.scan?.includeFiles,
       commits: config.commits,
+      transcripts: config.transcripts,
     },
     gitSource,
+    transcriptSource,
   )
   scanSpinner.succeed(
     chalk.green(

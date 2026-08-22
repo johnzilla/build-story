@@ -2,10 +2,12 @@ import type { ArtifactSource } from '../types/source.js'
 import type { ScanOptions } from '../types/options.js'
 import type { Timeline, TimelineEvent } from '../types/timeline.js'
 import type { GitSource, GetCommitsOptions } from '../types/git-source.js'
+import type { TranscriptSource } from '../types/transcript.js'
 import { discoverFiles } from './file-walker.js'
 import { parseArtifact, classifyArtifact } from './artifact-parser.js'
 import { buildTimeline } from './timeline-builder.js'
 import { buildCommitEvents } from './commit-source.js'
+import { buildTranscriptEvents } from './transcript-source.js'
 
 /** An event, pre-id or with an id already assigned (commit/tag events pre-assign). */
 type CollectedEvent = Omit<TimelineEvent, 'id'> & { id?: string }
@@ -98,6 +100,27 @@ async function collectCommitEvents(
 }
 
 /**
+ * Collect agent-session transcript events, when enabled and a TranscriptSource
+ * is injected. Off by default — transcripts are opt-in (they can carry secrets
+ * and dead-ends), so this returns nothing unless `options.transcripts.enabled`.
+ */
+async function collectTranscriptEvents(
+  options: ScanOptions,
+  transcriptSource: TranscriptSource | null,
+): Promise<CollectedEvent[]> {
+  if (!options.transcripts?.enabled || transcriptSource == null) return []
+
+  const filter: { projectPath: string; since?: string; until?: string } = {
+    projectPath: options.rootDir,
+  }
+  if (options.transcripts.since !== undefined) filter.since = options.transcripts.since
+  if (options.transcripts.until !== undefined) filter.until = options.transcripts.until
+
+  const sessions = await transcriptSource.listSessions(filter)
+  return buildTranscriptEvents(sessions)
+}
+
+/**
  * Scan a project into a chronological Timeline from a set of pluggable event
  * sources:
  *
@@ -106,6 +129,8 @@ async function collectCommitEvents(
  * - **git-commit** — the development history itself. Default on whenever the
  *   GitSource supports `getCommits`; configure via `options.commits`.
  * - **git-tag** — release milestones (added inside `buildTimeline`).
+ * - **transcript** — agent session reasoning, off by default; requires an
+ *   injected `TranscriptSource` and `options.transcripts.enabled`.
  *
  * All sources emit `TimelineEvent`s that are merged, sorted, and validated
  * together — nothing downstream (narrate/format/render) depends on where an
@@ -115,6 +140,7 @@ export async function scan(
   source: ArtifactSource,
   options: ScanOptions,
   gitSource?: GitSource | null,
+  transcriptSource?: TranscriptSource | null,
 ): Promise<Timeline> {
   const scannedAt = new Date().toISOString()
   const git = gitSource ?? null
@@ -126,6 +152,7 @@ export async function scan(
   }
 
   events.push(...(await collectCommitEvents(options, git)))
+  events.push(...(await collectTranscriptEvents(options, transcriptSource ?? null)))
 
   // buildTimeline assigns ids to events without one, appends git-tag events,
   // sorts chronologically, computes dateRange, and validates via Zod.

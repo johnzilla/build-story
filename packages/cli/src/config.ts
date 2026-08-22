@@ -20,6 +20,13 @@ export interface BuildStoryConfig {
     includeMerges?: boolean
     paths?: string[]
   }
+  transcripts?: {
+    enabled?: boolean
+    /** Override the Claude Code projects dir (default: ~/.claude/projects). */
+    path?: string
+    since?: string
+    until?: string
+  }
   tts?: {
     voice?: string
     speed?: number
@@ -72,6 +79,7 @@ export function loadConfig(projectRoot: string): BuildStoryConfig {
     ...projectConfig,
     scan: { ...globalConfig.scan, ...projectConfig.scan },
     commits: { ...globalConfig.commits, ...projectConfig.commits },
+    transcripts: { ...globalConfig.transcripts, ...projectConfig.transcripts },
     tts: { ...globalConfig.tts, ...projectConfig.tts },
     render: { ...globalConfig.render, ...projectConfig.render },
     video: { ...globalConfig.video, ...projectConfig.video },
