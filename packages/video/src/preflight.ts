@@ -145,5 +145,9 @@ export async function preflightCheck(opts: {
     )
   }
 
-  return { ok: failures.length === 0, failures, chromePath: chromePath ?? undefined }
+  // Only include chromePath when found — exactOptionalPropertyTypes forbids an
+  // explicit `undefined` for the optional `chromePath?: string` field.
+  return chromePath
+    ? { ok: failures.length === 0, failures, chromePath }
+    : { ok: failures.length === 0, failures }
 }
