@@ -1,4 +1,4 @@
-import { writeFile, unlink, rename, copyFile } from 'node:fs/promises'
+import { writeFile, unlink, rename, copyFile, mkdtemp, rm } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
@@ -83,6 +83,29 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// Per-request timeouts so a hung connection never stalls the pipeline forever.
+const SUBMIT_TIMEOUT_MS = 30_000
+const STATUS_TIMEOUT_MS = 30_000
+const DOWNLOAD_TIMEOUT_MS = 300_000 // downloads can be large
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  // Manual controller + cleared timer (not AbortSignal.timeout) so no dangling
+  // timer survives the request — aborts a hung connection, nothing more.
+  const controller = new AbortController()
+  const timer = setTimeout(() => {
+    controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, 'TimeoutError'))
+  }, timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // submitChunk
 // ---------------------------------------------------------------------------
@@ -96,34 +119,50 @@ async function submitChunk(
     dimension: { width: opts.width ?? 1280, height: opts.height ?? 720 },
   }
 
-  const response = await pRetry(
-    () =>
-      fetch('https://api.heygen.com/v2/video/generate', {
-        method: 'POST',
-        headers: {
-          'X-Api-Key': opts.apiKey,
-          'Content-Type': 'application/json',
+  // Retry the whole request+parse. HeyGenApiError is terminal (4xx / structured
+  // API error); everything else (5xx, non-JSON bodies, timeouts, network) retries.
+  const data = await pRetry(
+    async () => {
+      const response = await fetchWithTimeout(
+        'https://api.heygen.com/v2/video/generate',
+        {
+          method: 'POST',
+          headers: { 'X-Api-Key': opts.apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      }),
+        SUBMIT_TIMEOUT_MS,
+      )
+
+      // Read as text first, then try to parse — a 5xx often returns an HTML
+      // error page, and calling .json() on that throws an opaque SyntaxError.
+      const text = await response.text()
+      let json: unknown
+      try {
+        json = JSON.parse(text)
+      } catch {
+        if (response.status >= 500) {
+          throw new Error(`HeyGen submit: HTTP ${response.status} (non-JSON response)`)
+        }
+        throw new HeyGenApiError(String(response.status), `Non-JSON response (HTTP ${response.status})`)
+      }
+
+      const parsed = HeyGenSubmitResponseSchema.parse(json)
+      if (parsed.error || !parsed.data) {
+        // Structured API error (e.g. 400140 daily rate limit) — terminal.
+        throw new HeyGenApiError(
+          parsed.error?.code ?? String(response.status),
+          parsed.error?.message ?? 'Unknown error',
+        )
+      }
+      return parsed.data
+    },
     {
       retries: 3,
       shouldRetry: (err) => !(err instanceof HeyGenApiError),
     },
   )
 
-  const json = await response.json()
-  const parsed = HeyGenSubmitResponseSchema.parse(json)
-
-  if (parsed.error || !parsed.data) {
-    const code = parsed.error?.code ?? String(response.status)
-    const msg = parsed.error?.message ?? 'Unknown error'
-    // Error code 400140 = daily rate limit — terminal, never retry
-    // Any 4xx is terminal; 5xx and network errors are retried by pRetry
-    throw new HeyGenApiError(code, msg)
-  }
-
-  return parsed.data.video_id
+  return data.video_id
 }
 
 // ---------------------------------------------------------------------------
@@ -131,10 +170,16 @@ async function submitChunk(
 // ---------------------------------------------------------------------------
 
 async function fetchVideoStatus(videoId: string, apiKey: string) {
-  const response = await fetch(`https://api.heygen.com/v2/videos/${videoId}`, {
-    headers: { 'X-Api-Key': apiKey },
-  })
+  const response = await fetchWithTimeout(
+    `https://api.heygen.com/v2/videos/${videoId}`,
+    { headers: { 'X-Api-Key': apiKey } },
+    STATUS_TIMEOUT_MS,
+  )
   if (!response.ok) {
+    // 4xx is terminal; 5xx is transient and worth retrying by the caller.
+    if (response.status >= 500) {
+      throw new Error(`Status poll: HTTP ${response.status} ${response.statusText}`)
+    }
     throw new HeyGenApiError(
       String(response.status),
       `Status poll failed: HTTP ${response.status} ${response.statusText}`,
@@ -172,7 +217,12 @@ async function pollUntilComplete(
     await sleep(delay)
     attempt++
 
-    const status = await fetchVideoStatus(videoId, opts.apiKey)
+    // Retry transient status-poll failures (5xx, timeouts, network) a couple of
+    // times before giving up; a 4xx (HeyGenApiError) is terminal.
+    const status = await pRetry(() => fetchVideoStatus(videoId, opts.apiKey), {
+      retries: 2,
+      shouldRetry: (err) => !(err instanceof HeyGenApiError),
+    })
     const elapsed = Math.round((Date.now() - submissionTime) / 1000)
 
     if (firstPoll) {
@@ -185,7 +235,10 @@ async function pollUntilComplete(
     }
 
     if (status.status === 'completed') {
-      return status.video_url!
+      if (!status.video_url) {
+        throw new HeyGenVideoError('Status is "completed" but no video_url was returned', videoId)
+      }
+      return status.video_url
     }
 
     if (status.status === 'failed') {
@@ -213,7 +266,7 @@ async function pollUntilComplete(
 // ---------------------------------------------------------------------------
 
 async function downloadMp4(videoUrl: string, destPath: string): Promise<void> {
-  const response = await fetch(videoUrl)
+  const response = await fetchWithTimeout(videoUrl, {}, DOWNLOAD_TIMEOUT_MS)
   if (!response.ok || !response.body) {
     throw new Error(`Download failed: HTTP ${response.status}`)
   }
@@ -228,10 +281,11 @@ async function downloadMp4(videoUrl: string, destPath: string): Promise<void> {
 async function concatMp4s(
   chunkPaths: string[],
   outputPath: string,
+  workDir: string,
   ffmpegBin = 'ffmpeg',
 ): Promise<void> {
   const listContent = chunkPaths.map((p) => `file '${p}'`).join('\n')
-  const listPath = join(tmpdir(), `buildstory-concat-${Date.now()}.txt`)
+  const listPath = join(workDir, 'concat-list.txt')
   await writeFile(listPath, listContent)
 
   const args = ['-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', '-y', outputPath]
@@ -270,73 +324,66 @@ export async function renderWithHeyGen(
 
   const { chunks, warnings } = adaptResult
 
-  const completedChunks: Array<{ videoId: string; path: string }> = []
+  // Isolated per-run temp dir for chunk downloads + the concat list, cleaned up
+  // in finally. Avoids predictable/colliding paths in the shared tmpdir.
+  const workDir = await mkdtemp(join(tmpdir(), 'buildstory-heygen-'))
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i]!
+  try {
+    const completedChunks: Array<{ videoId: string; path: string }> = []
 
-    try {
-      onProgress(`Submitting chunk ${i + 1}/${chunks.length} to HeyGen...`)
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]!
 
-      const videoId = await submitChunk(chunk, {
-        apiKey: opts.apiKey,
-        width: opts.width,
-        height: opts.height,
-      })
+      try {
+        onProgress(`Submitting chunk ${i + 1}/${chunks.length} to HeyGen...`)
 
-      onProgress(
-        `Chunk ${i + 1}: submitted (video ID: ${videoId}). Polling for completion...`,
-      )
+        const videoId = await submitChunk(chunk, {
+          apiKey: opts.apiKey,
+          width: opts.width,
+          height: opts.height,
+        })
 
-      const videoUrl = await pollUntilComplete(
-        videoId,
-        { apiKey: opts.apiKey, timeoutSeconds: opts.timeoutSeconds },
-        onProgress,
-      )
+        onProgress(
+          `Chunk ${i + 1}: submitted (video ID: ${videoId}). Polling for completion...`,
+        )
 
-      const tmpPath = join(tmpdir(), `chunk-${i}-${videoId}.mp4`)
-      await downloadMp4(videoUrl, tmpPath)
+        const videoUrl = await pollUntilComplete(
+          videoId,
+          { apiKey: opts.apiKey, timeoutSeconds: opts.timeoutSeconds },
+          onProgress,
+        )
 
-      onProgress(`Chunk ${i + 1}: downloaded.`)
+        const tmpPath = join(workDir, `chunk-${i}-${videoId}.mp4`)
+        await downloadMp4(videoUrl, tmpPath)
 
-      completedChunks.push({ videoId, path: tmpPath })
-    } catch (err) {
-      // Per D-06: stop processing remaining chunks; preserve successful chunks; rethrow
-      const successSummary = completedChunks
-        .map((c) => `chunk video ID ${c.videoId} at ${c.path}`)
-        .join(', ')
+        onProgress(`Chunk ${i + 1}: downloaded.`)
 
-      const successMsg = completedChunks.length > 0
-        ? ` Successful chunks preserved: [${successSummary}].`
-        : ''
-
-      throw new Error(
-        `Chunk ${i + 1}/${chunks.length} failed: ${(err as Error).message}.${successMsg}`,
-      )
+        completedChunks.push({ videoId, path: tmpPath })
+      } catch (err) {
+        // Per D-06: stop processing remaining chunks; rethrow with context.
+        throw new Error(
+          `Chunk ${i + 1}/${chunks.length} failed: ${(err as Error).message}`,
+        )
+      }
     }
+
+    // Assemble final output (into outputPath, outside workDir).
+    if (completedChunks.length === 1) {
+      const singlePath = completedChunks[0]!.path
+      try {
+        await rename(singlePath, outputPath)
+      } catch {
+        // rename may fail across filesystems; fall back to copy.
+        await copyFile(singlePath, outputPath)
+      }
+    } else {
+      const chunkPaths = completedChunks.map((c) => c.path)
+      await concatMp4s(chunkPaths, outputPath, workDir)
+    }
+
+    return { videoPath: outputPath, warnings }
+  } finally {
+    // Remove the temp dir and any chunk files / concat list within it.
+    await rm(workDir, { recursive: true, force: true }).catch(() => {})
   }
-
-  // Assemble final output
-  if (completedChunks.length === 1) {
-    // Single chunk — rename/copy to output path
-    const singlePath = completedChunks[0]!.path
-    try {
-      await rename(singlePath, outputPath)
-    } catch {
-      // rename may fail across filesystems; fall back to copy + delete
-      await copyFile(singlePath, outputPath)
-      await unlink(singlePath).catch(() => {})
-    }
-  } else {
-    // Multiple chunks — concat and clean up
-    const chunkPaths = completedChunks.map((c) => c.path)
-    await concatMp4s(chunkPaths, outputPath)
-
-    // Per D-04: delete individual chunk MP4s after successful concat
-    for (const p of chunkPaths) {
-      await unlink(p).catch(() => {})
-    }
-  }
-
-  return { videoPath: outputPath, warnings }
 }

@@ -3,6 +3,39 @@ import type { StoryArc, StoryBeat } from '@buildstory/core'
 import type { HeyGenConfig } from '../types.js'
 
 // ---------------------------------------------------------------------------
+// Mock all real filesystem + stream I/O.
+//
+// renderWithHeyGen interleaves real fs I/O (mkdtemp, writeFile, rename, rm) with
+// faked poll timers. Real I/O settles on the libuv thread pool at times that do
+// not line up with fake-timer advancement, which made this suite flaky (a
+// different fault test failing on each run). Mocking every fs/stream touch turns
+// the whole flow into microtask + fake-timer work, so timer draining is fully
+// deterministic. concatMp4s/spawn is never reached — every fixture is a single
+// chunk (≤10 beats) — so node:child_process needs no mock.
+// ---------------------------------------------------------------------------
+vi.mock('node:fs/promises', () => ({
+  writeFile: vi.fn(async () => {}),
+  unlink: vi.fn(async () => {}),
+  rename: vi.fn(async () => {}),
+  copyFile: vi.fn(async () => {}),
+  mkdtemp: vi.fn(async (prefix: string) => `${prefix}mock`),
+  rm: vi.fn(async () => {}),
+}))
+
+vi.mock('node:fs', () => ({
+  createWriteStream: vi.fn(() => ({
+    on: vi.fn(),
+    once: vi.fn(),
+    write: vi.fn(),
+    end: vi.fn(),
+  })),
+}))
+
+vi.mock('node:stream/promises', () => ({
+  pipeline: vi.fn(async () => {}),
+}))
+
+// ---------------------------------------------------------------------------
 // Fixture helpers
 // ---------------------------------------------------------------------------
 
@@ -30,6 +63,16 @@ const defaultConfig: HeyGenConfig = {
   apiKey: 'test-api-key',
   avatarId: 'Monica_chair_front_public',
   voiceId: 'test-voice-id',
+}
+
+// With all fs/stream I/O mocked, the only remaining async gaps are microtasks
+// and the faked poll sleeps. Interleave microtask draining with timer advancement
+// so each poll cycle (and any pRetry backoff) is fully flushed.
+async function flush(rounds = 20): Promise<void> {
+  for (let i = 0; i < rounds; i++) {
+    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(300_000)
+  }
 }
 
 function makeSuccessSubmitResponse(videoId = 'vid-123') {
@@ -93,7 +136,7 @@ describe('submitChunk', () => {
 
     vi.useFakeTimers()
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/submit-test.mp4', () => {})
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
     vi.useRealTimers()
 
     const result = await resultPromise
@@ -126,7 +169,7 @@ describe('submitChunk', () => {
     vi.useFakeTimers()
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/test-output.mp4', () => {})
     // Advance timers past the first poll delay (15s)
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
     vi.useRealTimers()
 
     const result = await resultPromise
@@ -201,8 +244,8 @@ describe('pollUntilComplete', () => {
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/poll-test.mp4', () => {})
 
     // Advance past first poll delay (15s) then second (30s)
-    await vi.advanceTimersByTimeAsync(15_001)
-    await vi.advanceTimersByTimeAsync(30_001)
+    await flush()
+    await flush()
     vi.useRealTimers()
 
     const result = await resultPromise
@@ -223,7 +266,7 @@ describe('pollUntilComplete', () => {
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/fail-test.mp4', () => {})
     const caught = resultPromise.catch((e: unknown) => e)
 
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
 
     const err = await caught
     expect(err).toBeInstanceOf(Error)
@@ -249,7 +292,7 @@ describe('pollUntilComplete', () => {
     const caught = resultPromise.catch((e: unknown) => e)
 
     // With timeoutSeconds=0, deadline is already past before first poll
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
 
     const err = await caught
     expect(err).toBeInstanceOf(Error)
@@ -276,8 +319,8 @@ describe('pollUntilComplete', () => {
     const arc = makeArc([makeBeat()])
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/progress-test.mp4', onProgress)
 
-    await vi.advanceTimersByTimeAsync(15_001)
-    await vi.advanceTimersByTimeAsync(30_001)
+    await flush()
+    await flush()
     vi.useRealTimers()
 
     await resultPromise
@@ -322,7 +365,7 @@ describe('downloadMp4', () => {
 
     vi.useFakeTimers()
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/dl-test.mp4', () => {})
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
     vi.useRealTimers()
 
     const result = await resultPromise
@@ -361,7 +404,7 @@ describe('renderWithHeyGen', () => {
 
     vi.useFakeTimers()
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/seq-test.mp4', () => {})
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
     vi.useRealTimers()
 
     const result = await resultPromise
@@ -390,7 +433,7 @@ describe('renderWithHeyGen', () => {
 
     vi.useFakeTimers()
     const resultPromise = renderWithHeyGen(arc, defaultConfig, '/tmp/warn-test.mp4', () => {})
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
     vi.useRealTimers()
 
     const result = await resultPromise
@@ -425,10 +468,94 @@ describe('renderWithHeyGen', () => {
 
     vi.useFakeTimers()
     const resultPromise = renderWithHeyGen(arc, defaultConfig, outputPath, () => {})
-    await vi.advanceTimersByTimeAsync(16_000)
+    await flush()
     vi.useRealTimers()
 
     const result = await resultPromise
     expect(result.videoPath).toBe(outputPath)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// HTTP hardening — fault injection (task 1.5)
+// ---------------------------------------------------------------------------
+
+describe('HTTP hardening (fault injection)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    global.fetch = vi.fn()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('surfaces a 5xx HTML error page instead of an opaque JSON parse error', async () => {
+    // Submit always returns a 500 with an HTML body (not JSON). Fresh Response
+    // per call — a Response body can only be read once, and submit retries.
+    vi.mocked(fetch).mockImplementation(
+      async () =>
+        new Response('<html><body>502 Bad Gateway</body></html>', {
+          status: 500,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+    )
+
+    const { renderWithHeyGen } = await import('../api.js')
+    const arc = makeArc([makeBeat()])
+    const caught = renderWithHeyGen(arc, defaultConfig, '/tmp/5xx.mp4', () => {}).catch(
+      (e: unknown) => e,
+    )
+    await flush()
+
+    const err = await caught
+    expect(err).toBeInstanceOf(Error)
+    // Reports the HTTP status; never a raw "Unexpected token <" SyntaxError.
+    expect((err as Error).message).toContain('500')
+    expect((err as Error).message).not.toContain('Unexpected token')
+  })
+
+  it('passes an AbortSignal and fails a hung connection instead of hanging forever', async () => {
+    // Never resolve, but honor the abort the timeout triggers.
+    vi.mocked(fetch).mockImplementation(
+      (_url, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(init.signal?.reason ?? new Error('aborted')),
+          )
+        }),
+    )
+
+    const { renderWithHeyGen } = await import('../api.js')
+    const arc = makeArc([makeBeat()])
+    const caught = renderWithHeyGen(arc, defaultConfig, '/tmp/hung.mp4', () => {}).catch(
+      (e: unknown) => e,
+    )
+    await flush()
+
+    const err = await caught
+    expect(err).toBeInstanceOf(Error)
+    // The submit fetch was invoked with an AbortSignal (timeout wiring present).
+    const firstCall = vi.mocked(fetch).mock.calls[0]
+    expect(firstCall?.[1]?.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('fails clearly when status is completed but no video_url is returned', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(makeSuccessSubmitResponse('v-nourl'))
+      // completed, but the payload omits video_url
+      .mockResolvedValueOnce(makeStatusResponse('v-nourl', 'completed'))
+
+    const { renderWithHeyGen } = await import('../api.js')
+    const arc = makeArc([makeBeat()])
+    const caught = renderWithHeyGen(arc, defaultConfig, '/tmp/nourl.mp4', () => {}).catch(
+      (e: unknown) => e,
+    )
+    await flush()
+
+    const err = await caught
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toContain('video_url')
   })
 })
