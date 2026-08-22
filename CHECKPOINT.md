@@ -54,9 +54,17 @@ actual build), HeyGen behind `--renderer=heygen` in maintenance (already isolate
 in `@buildstory/heygen`, ~$5–15/video). Do NOT go 100% HeyGen; do NOT drop
 Remotion.
 
-## Known pre-existing issue (untouched)
+## Dependencies / security
 
-27 dependabot vulnerabilities on the default branch (18 high). Not addressed.
+Swept 2026-08: 36 audit findings → 1. Bumped `@anthropic-ai/sdk` (0.82→0.91)
+and `simple-git` (→3.36) directly; `pnpm update -r` refreshed the rest within
+range; `pnpm.overrides` pin patched `postcss`/`ws`/`esbuild`, and `vite` is a
+root devDep at ^8.0.16 (satisfies vitest's peer).
+
+**Remaining (1, accepted):** `extract-zip` (high, GHSA-jmr9-qjv8-65gv) — **no
+patched version exists**. Reaches us only via `@remotion/renderer`'s Chrome
+download, which is lazy-installed and runs only during video rendering. Revisit
+when Remotion ships a fix.
 
 ## Working agreement
 
