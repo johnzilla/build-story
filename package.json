@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter '@buildstory/core' build && pnpm --filter '@buildstory/video' build && pnpm --filter 'buildstory' build",
+    "build": "pnpm --filter '@buildstory/core' build && pnpm --filter '@buildstory/video' build && pnpm --filter '@buildstory/heygen' build && pnpm --filter 'buildstory' build",
     "test": "pnpm --filter '*' test",
+    "typecheck": "pnpm --filter '@buildstory/core' typecheck && pnpm --filter '@buildstory/video' typecheck && pnpm --filter '@buildstory/heygen' typecheck && pnpm --filter 'buildstory' typecheck",
     "lint": "eslint packages/*/src",
     "format": "prettier --write .",
     "clean": "pnpm --filter '*' exec -- rm -rf dist"

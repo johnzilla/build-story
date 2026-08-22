@@ -28,7 +28,9 @@ program
   .option('--no-title-card', 'Disable auto-inserted title card')
   .option('--no-stats-card', 'Disable auto-inserted stats card')
   .option('--renderer <renderer>', 'Video renderer (remotion|heygen)', 'remotion')
-  .action(run)
+  .action(async (paths, opts) => {
+    await run(paths, opts)
+  })
 
 program
   .command('scan')

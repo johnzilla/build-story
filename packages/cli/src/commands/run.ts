@@ -4,7 +4,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import { scan, narrate, format, createProvider } from '@buildstory/core'
 import type { FormatType } from '@buildstory/core'
-import { loadConfig } from '../config.js'
+import { loadConfig, toScanOptions } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
 import { createTranscriptSource } from '../adapters/transcript-registry.js'
@@ -95,20 +95,7 @@ export async function run(
 
   const scanStart = Date.now()
   const scanSpinner = ora(`[1/${totalSteps}] Scanning artifacts...`).start()
-  const timeline = await scan(
-    source,
-    {
-      rootDir,
-      patterns: config.scan?.patterns,
-      excludes: config.scan?.excludes,
-      maxDepth: config.scan?.maxDepth,
-      includeFiles: config.scan?.includeFiles,
-      commits: config.commits,
-      transcripts: config.transcripts,
-    },
-    gitSource,
-    transcriptSource,
-  )
+  const timeline = await scan(source, toScanOptions(rootDir, config), gitSource, transcriptSource)
   scanSpinner.succeed(
     chalk.green(
       `[1/${totalSteps}] Scan complete — ${timeline.events.length} events (${formatDuration(Date.now() - scanStart)})`,
@@ -350,7 +337,8 @@ export async function run(
 
   const artifactCounts = timeline.events.reduce(
     (acc, ev) => {
-      acc[ev.artifactType] = (acc[ev.artifactType] ?? 0) + 1
+      const key = ev.artifactType ?? 'unknown'
+      acc[key] = (acc[key] ?? 0) + 1
       return acc
     },
     {} as Record<string, number>,

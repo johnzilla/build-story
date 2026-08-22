@@ -88,6 +88,23 @@ actual build), HeyGen behind `--renderer=heygen` in maintenance (already isolate
 in `@buildstory/heygen`, ~$5–15/video). Do NOT go 100% HeyGen; do NOT drop
 Remotion.
 
+## Gates (CI)
+
+`pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test` all green; enforced by
+`.github/workflows/ci.yml` (Node 22) on push to main and every PR.
+
+- **typecheck is a real gate now.** tsup only type-checks each package's entry
+  graph; `tsc --noEmit` (per-package `typecheck` script) covers all src + tests.
+  Adding it surfaced ~65 latent errors — fixed. Notably: `format-prompts` was
+  missing the `remotion-script` key (removed the dead enum member instead);
+  `@types/mdast` was undeclared; the CLI passed explicit `undefined` for optional
+  ScanOptions (now via `toScanOptions`); `simple-git` needed a named import under
+  nodenext; video composition `.tsx` needed `.js` extensions + a `type` (not
+  `interface`) for Remotion's props constraint.
+- Removed `composite`/project-references from tsconfigs (unused — build is tsup),
+  which is what lets `tsc --noEmit` run.
+- heygen is now part of `pnpm build` (its d.ts is needed for the CLI typecheck).
+
 ## Dependencies / security
 
 Swept 2026-08: 36 audit findings → 1. Bumped `@anthropic-ai/sdk` (0.82→0.91)

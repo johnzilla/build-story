@@ -5,11 +5,12 @@ import type { ArtifactSource } from '../types/source.js'
 function makeSource(opts?: {
   resolveRef?: (from: string, ref: string) => string | null
 }): ArtifactSource {
-  return {
+  const source: ArtifactSource = {
     readFile: vi.fn().mockResolvedValue(''),
     glob: vi.fn().mockResolvedValue([]),
-    resolveRef: opts?.resolveRef,
   }
+  if (opts?.resolveRef) source.resolveRef = opts.resolveRef
+  return source
 }
 
 const ALL_PATHS = new Set<string>(['other.md', 'docs/guide.md', 'PLANNING.md'])

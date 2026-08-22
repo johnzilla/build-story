@@ -83,7 +83,10 @@ describe('buildTranscriptEvents()', () => {
   })
 
   it('drops sessions with no start timestamp', () => {
-    const events = buildTranscriptEvents([makeSession({ startedAt: undefined })])
+    // A session with no startedAt at all (not present) — should be dropped.
+    const events = buildTranscriptEvents([
+      { id: 'no-start', harness: 'claude-code', turns: [{ role: 'user', kind: 'message', text: 'hi' }] },
+    ])
     expect(events).toHaveLength(0)
   })
 })

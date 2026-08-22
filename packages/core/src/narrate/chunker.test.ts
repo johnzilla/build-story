@@ -28,9 +28,9 @@ describe('groupByPhase()', () => {
     ]
     const result = groupByPhase(events)
     expect(result.get('01-scaffold')).toHaveLength(1)
-    expect(result.get('01-scaffold')![0].id).toBe('e1')
+    expect(result.get('01-scaffold')![0]!.id).toBe('e1')
     expect(result.get('02-scanner')).toHaveLength(1)
-    expect(result.get('02-scanner')![0].id).toBe('e2')
+    expect(result.get('02-scanner')![0]!.id).toBe('e2')
   })
 
   it('puts events with no path into "ungrouped"', () => {
@@ -39,7 +39,7 @@ describe('groupByPhase()', () => {
     ]
     const result = groupByPhase(events)
     expect(result.get('ungrouped')).toHaveLength(1)
-    expect(result.get('ungrouped')![0].id).toBe('e1')
+    expect(result.get('ungrouped')![0]!.id).toBe('e1')
   })
 
   it('puts events with path that does not match phase pattern into "ungrouped"', () => {

@@ -18,7 +18,10 @@ function commit(id: string, date: string, summary = 'did a thing'): TimelineEven
 }
 
 function session(id: string, turns: TranscriptTurn[]): TranscriptSession {
-  return { id, harness: 'claude-code', startedAt: turns[0]?.timestamp, turns }
+  const s: TranscriptSession = { id, harness: 'claude-code', turns }
+  const startedAt = turns[0]?.timestamp
+  if (startedAt !== undefined) s.startedAt = startedAt
+  return s
 }
 
 function ask(text: string, timestamp: string): TranscriptTurn {

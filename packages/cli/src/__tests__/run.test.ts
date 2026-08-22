@@ -36,6 +36,7 @@ function makeArc(style: string): StoryArc {
 /** Mock LLMProvider that never makes real network calls */
 function createMockProvider(style = 'overview'): LLMProvider {
   return {
+    getUsage: vi.fn().mockReturnValue({ calls: 0, inputTokens: 0, outputTokens: 0 }),
     extractStoryArc: vi.fn().mockResolvedValue(makeArc(style)),
     generateFormat: vi.fn().mockResolvedValue('# Mock format output\n\nContent here.'),
     synthesizeArcs: vi.fn().mockResolvedValue(makeArc(style)),

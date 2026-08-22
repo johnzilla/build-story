@@ -23,6 +23,7 @@ const makeArc = (overrides: Partial<StoryArc> = {}): StoryArc => ({
 })
 
 const makeMockProvider = (generateFormatReturn = 'Generated text output'): LLMProvider => ({
+  getUsage: vi.fn().mockReturnValue({ calls: 0, inputTokens: 0, outputTokens: 0 }),
   extractStoryArc: vi.fn(),
   generateFormat: vi.fn().mockResolvedValue(generateFormatReturn),
   synthesizeArcs: vi.fn(),

@@ -35,7 +35,7 @@ export const StoryArcSchema = z.object({
   }),
 })
 
-export const FormatTypeSchema = z.enum(['outline', 'thread', 'blog', 'video-script', 'remotion-script'])
+export const FormatTypeSchema = z.enum(['outline', 'thread', 'blog', 'video-script'])
 
 export type BeatType = z.infer<typeof BeatTypeSchema>
 export type StoryBeat = z.infer<typeof StoryBeatSchema>

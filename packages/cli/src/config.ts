@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { parse } from 'smol-toml'
+import type { ScanOptions } from '@buildstory/core'
 
 export interface BuildStoryConfig {
   provider?: 'anthropic' | 'openai'
@@ -49,6 +50,22 @@ export interface BuildStoryConfig {
     avatarId?: string
     voiceId?: string
   }
+}
+
+/**
+ * Map loaded config to core ScanOptions, setting only keys that are defined —
+ * `exactOptionalPropertyTypes` forbids passing an explicit `undefined` for an
+ * optional field.
+ */
+export function toScanOptions(rootDir: string, config: BuildStoryConfig): ScanOptions {
+  const opts: ScanOptions = { rootDir }
+  if (config.scan?.patterns !== undefined) opts.patterns = config.scan.patterns
+  if (config.scan?.excludes !== undefined) opts.excludes = config.scan.excludes
+  if (config.scan?.maxDepth !== undefined) opts.maxDepth = config.scan.maxDepth
+  if (config.scan?.includeFiles !== undefined) opts.includeFiles = config.scan.includeFiles
+  if (config.commits !== undefined) opts.commits = config.commits
+  if (config.transcripts !== undefined) opts.transcripts = config.transcripts
+  return opts
 }
 
 export function loadConfig(projectRoot: string): BuildStoryConfig {

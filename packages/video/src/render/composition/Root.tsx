@@ -1,7 +1,7 @@
 import React from 'react'
 import { Composition } from 'remotion'
-import { BuildStoryComposition } from './BuildStory'
-import type { BuildStoryInputProps } from './types'
+import { BuildStoryComposition } from './BuildStory.js'
+import type { BuildStoryInputProps } from './types.js'
 
 export const RemotionRoot: React.FC = () => {
   return (

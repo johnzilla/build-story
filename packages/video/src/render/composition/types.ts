@@ -5,7 +5,9 @@ export interface BeatWithFrames extends StoryBeat {
   durationInFrames: number
 }
 
-export interface BuildStoryInputProps {
+// A `type` (not `interface`) so it satisfies Remotion's `Record<string, unknown>`
+// props constraint — interfaces lack the implicit index signature it needs.
+export type BuildStoryInputProps = {
   storyArc: StoryArc
   audioManifest: AudioManifest
   fps: number

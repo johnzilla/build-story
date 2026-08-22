@@ -120,10 +120,10 @@ export function parsePiSession(content: string, fallbackId: string): TranscriptS
   }
   if (model !== undefined) session.model = model
   if (cwd !== undefined) session.cwd = cwd
-  if (timestamps.length > 0) {
-    session.startedAt = timestamps[0]
-    session.endedAt = timestamps[timestamps.length - 1]
-  }
+  const first = timestamps[0]
+  const last = timestamps[timestamps.length - 1]
+  if (first !== undefined) session.startedAt = first
+  if (last !== undefined) session.endedAt = last
   return session
 }
 

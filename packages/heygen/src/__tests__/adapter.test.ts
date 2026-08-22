@@ -46,61 +46,61 @@ describe('beat-to-scene mapping', () => {
 
   it('scene.character.type is "avatar"', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
-    expect(result.chunks[0][0].character.type).toBe('avatar')
+    expect(result.chunks[0]![0]!.character.type).toBe('avatar')
   })
 
   it('scene.character.avatar_id matches opts.avatarId', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
-    expect(result.chunks[0][0].character.avatar_id).toBe(defaultOpts.avatarId)
+    expect(result.chunks[0]![0]!.character.avatar_id).toBe(defaultOpts.avatarId)
   })
 
   it('scene.voice.type is "text"', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
-    expect(result.chunks[0][0].voice.type).toBe('text')
+    expect(result.chunks[0]![0]!.voice.type).toBe('text')
   })
 
   it('scene.voice.input_text matches beat.summary', () => {
     const beat = makeBeat({ summary: 'Hello world.' })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-    expect(result.chunks[0][0].voice.input_text).toBe('Hello world.')
+    expect(result.chunks[0]![0]!.voice.input_text).toBe('Hello world.')
   })
 
   it('scene.voice.voice_id matches opts.voiceId', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
-    expect(result.chunks[0][0].voice.voice_id).toBe(defaultOpts.voiceId)
+    expect(result.chunks[0]![0]!.voice.voice_id).toBe(defaultOpts.voiceId)
   })
 
   it('scene.background.type is "color"', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
-    expect(result.chunks[0][0].background.type).toBe('color')
+    expect(result.chunks[0]![0]!.background.type).toBe('color')
   })
 
   it('scene.background.value is the hex from BEAT_COLOR_MAP', () => {
     const beat = makeBeat({ type: 'idea' })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-    expect(result.chunks[0][0].background.value).toBe('#1E3A5F')
+    expect(result.chunks[0]![0]!.background.value).toBe('#1E3A5F')
   })
 
   it('opts.speed is passed through to scene.voice.speed when provided', () => {
     const opts: AdaptOptions = { ...defaultOpts, speed: 1.5 }
     const result = adaptStoryArc(makeArc([makeBeat()]), opts)
-    expect(result.chunks[0][0].voice.speed).toBe(1.5)
+    expect(result.chunks[0]![0]!.voice.speed).toBe(1.5)
   })
 
   it('opts.avatarStyle is passed through to scene.character.avatar_style when provided', () => {
     const opts: AdaptOptions = { ...defaultOpts, avatarStyle: 'circle' }
     const result = adaptStoryArc(makeArc([makeBeat()]), opts)
-    expect(result.chunks[0][0].character.avatar_style).toBe('circle')
+    expect(result.chunks[0]![0]!.character.avatar_style).toBe('circle')
   })
 
   it('speed is omitted from scene when not provided', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
-    expect(result.chunks[0][0].voice.speed).toBeUndefined()
+    expect(result.chunks[0]![0]!.voice.speed).toBeUndefined()
   })
 
   it('avatarStyle is omitted from scene when not provided', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
-    expect(result.chunks[0][0].character.avatar_style).toBeUndefined()
+    expect(result.chunks[0]![0]!.character.avatar_style).toBeUndefined()
   })
 })
 
@@ -125,7 +125,7 @@ describe('beat-type colors', () => {
     it(`beat type "${beatType}" maps to hex ${expectedColor}`, () => {
       const beat = makeBeat({ type: beatType })
       const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-      expect(result.chunks[0][0].background.value).toBe(expectedColor)
+      expect(result.chunks[0]![0]!.background.value).toBe(expectedColor)
     })
   }
 })
@@ -207,7 +207,7 @@ describe('truncation', () => {
     const summary = 'a'.repeat(1499) + '.'
     const beat = makeBeat({ summary })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-    expect(result.chunks[0][0].voice.input_text).toBe(summary)
+    expect(result.chunks[0]![0]!.voice.input_text).toBe(summary)
     expect(result.warnings).toEqual([])
   })
 
@@ -220,7 +220,7 @@ describe('truncation', () => {
     expect(summary.length).toBeGreaterThan(1500)
     const beat = makeBeat({ summary })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-    const truncated = result.chunks[0][0].voice.input_text
+    const truncated = result.chunks[0]![0]!.voice.input_text
     expect(truncated.length).toBeLessThanOrEqual(1500)
     // Should end with the sentence punctuation
     expect(truncated.endsWith('.')).toBe(true)
@@ -230,13 +230,13 @@ describe('truncation', () => {
     const summary = 'x'.repeat(1501)
     const beat = makeBeat({ summary })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-    expect(result.chunks[0][0].voice.input_text).toHaveLength(1500)
+    expect(result.chunks[0]![0]!.voice.input_text).toHaveLength(1500)
   })
 
   it('empty summary produces no truncation, no warning', () => {
     const beat = makeBeat({ summary: '' })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-    expect(result.chunks[0][0].voice.input_text).toBe('')
+    expect(result.chunks[0]![0]!.voice.input_text).toBe('')
     expect(result.warnings).toEqual([])
   })
 })

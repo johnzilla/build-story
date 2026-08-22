@@ -73,7 +73,7 @@ describe('OpenAIProvider', () => {
       await provider.extractStoryArc(makeTimeline(), 'system prompt')
 
       expect(mockParse).toHaveBeenCalledOnce()
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       expect(call['response_format']).toBeDefined()
     })
 
@@ -86,7 +86,7 @@ describe('OpenAIProvider', () => {
       const provider = new OpenAIProvider({ apiKey: 'test-key' })
       await provider.extractStoryArc(makeTimeline(), 'system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       expect(call['temperature']).toBe(0)
     })
 
@@ -99,7 +99,7 @@ describe('OpenAIProvider', () => {
       const provider = new OpenAIProvider({ apiKey: 'test-key' })
       await provider.extractStoryArc(makeTimeline(), 'my system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       const messages = call['messages'] as Array<{ role: string; content: string }>
       const systemMsg = messages.find((m) => m.role === 'system')
       expect(systemMsg?.content).toBe('my system prompt')
@@ -149,7 +149,7 @@ describe('OpenAIProvider', () => {
       const provider = new OpenAIProvider({ apiKey: 'test-key' })
       await provider.generateFormat(makeArc(), 'blog', 'system prompt')
 
-      const call = mockCreate.mock.calls[0][0] as Record<string, unknown>
+      const call = mockCreate.mock.calls[0]![0] as Record<string, unknown>
       expect(call['temperature']).toBe(0)
     })
 
@@ -172,7 +172,7 @@ describe('OpenAIProvider', () => {
       const arc = makeArc()
       await provider.generateFormat(arc, 'outline', 'system prompt')
 
-      const call = mockCreate.mock.calls[0][0] as Record<string, unknown>
+      const call = mockCreate.mock.calls[0]![0] as Record<string, unknown>
       const messages = call['messages'] as Array<{ role: string; content: string }>
       const userMsg = messages.find((m) => m.role === 'user')
       expect(() => JSON.parse(userMsg?.content ?? '')).not.toThrow()
@@ -205,7 +205,7 @@ describe('OpenAIProvider', () => {
       const provider = new OpenAIProvider({ apiKey: 'test-key' })
       await provider.synthesizeArcs([arc1, arc2], 'system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       const messages = call['messages'] as Array<{ role: string; content: string }>
       const userMsg = messages.find((m) => m.role === 'user')
       const beats = JSON.parse(userMsg?.content ?? '[]') as unknown[]
@@ -219,7 +219,7 @@ describe('OpenAIProvider', () => {
       const provider = new OpenAIProvider({ apiKey: 'test-key' })
       await provider.synthesizeArcs([arc], 'system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       expect(call['temperature']).toBe(0)
     })
 

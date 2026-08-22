@@ -29,6 +29,7 @@ const emptyArc = StoryArcSchema.parse({
 // Mock LLMProvider for narrate() and format() tests
 // (real implementations make SDK calls; tests use injected mocks)
 const makeMockProvider = (): LLMProvider => ({
+  getUsage: vi.fn().mockReturnValue({ calls: 0, inputTokens: 0, outputTokens: 0 }),
   extractStoryArc: vi.fn().mockResolvedValue(emptyArc),
   generateFormat: vi.fn().mockResolvedValue(''),
   synthesizeArcs: vi.fn().mockResolvedValue(emptyArc),

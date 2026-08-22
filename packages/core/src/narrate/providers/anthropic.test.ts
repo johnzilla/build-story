@@ -74,7 +74,7 @@ describe('AnthropicProvider', () => {
       await provider.extractStoryArc(timeline, 'system prompt')
 
       expect(mockParse).toHaveBeenCalledOnce()
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       expect(call['temperature']).toBe(0)
       expect(call['system']).toBe('system prompt')
       expect(call['max_tokens']).toBe(16384)
@@ -87,7 +87,7 @@ describe('AnthropicProvider', () => {
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.extractStoryArc(makeTimeline(), 'system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       expect(call['output_config']).toBeDefined()
     })
 
@@ -117,7 +117,7 @@ describe('AnthropicProvider', () => {
       const timeline = makeTimeline({ rootDir: '/my-project' })
       await provider.extractStoryArc(timeline, 'system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       const messages = call['messages'] as Array<{ role: string; content: string }>
       expect(messages).toHaveLength(1)
       expect(messages[0]?.role).toBe('user')
@@ -149,7 +149,7 @@ describe('AnthropicProvider', () => {
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.generateFormat(makeArc(), 'blog', 'system prompt')
 
-      const call = mockCreate.mock.calls[0][0] as Record<string, unknown>
+      const call = mockCreate.mock.calls[0]![0] as Record<string, unknown>
       expect(call['temperature']).toBe(0)
     })
 
@@ -163,7 +163,7 @@ describe('AnthropicProvider', () => {
       const arc = makeArc()
       await provider.generateFormat(arc, 'thread', 'system prompt')
 
-      const call = mockCreate.mock.calls[0][0] as Record<string, unknown>
+      const call = mockCreate.mock.calls[0]![0] as Record<string, unknown>
       const messages = call['messages'] as Array<{ role: string; content: string }>
       const userContent = messages[0]?.content ?? ''
       expect(() => JSON.parse(userContent)).not.toThrow()
@@ -205,7 +205,7 @@ describe('AnthropicProvider', () => {
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.synthesizeArcs([arc1, arc2], 'system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       const messages = call['messages'] as Array<{ role: string; content: string }>
       const beats = JSON.parse(messages[0]?.content ?? '[]') as unknown[]
       expect(beats).toHaveLength(2)
@@ -218,7 +218,7 @@ describe('AnthropicProvider', () => {
       const provider = new AnthropicProvider({ apiKey: 'test-key' })
       await provider.synthesizeArcs([arc], 'system prompt')
 
-      const call = mockParse.mock.calls[0][0] as Record<string, unknown>
+      const call = mockParse.mock.calls[0]![0] as Record<string, unknown>
       expect(call['temperature']).toBe(0)
     })
 

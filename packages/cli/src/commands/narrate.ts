@@ -140,7 +140,8 @@ export async function narrateCommand(
   // Count unique artifact types
   const artifactCounts = timeline.events.reduce(
     (acc, ev) => {
-      acc[ev.artifactType] = (acc[ev.artifactType] ?? 0) + 1
+      const key = ev.artifactType ?? 'unknown'
+      acc[key] = (acc[key] ?? 0) + 1
       return acc
     },
     {} as Record<string, number>,

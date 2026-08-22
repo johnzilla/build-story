@@ -1,5 +1,7 @@
 # BuildStory
 
+[![CI](https://github.com/johnzilla/build-story/actions/workflows/ci.yml/badge.svg)](https://github.com/johnzilla/build-story/actions/workflows/ci.yml)
+
 Turn your development history into narrated video documentaries. BuildStory reconstructs a chronological timeline from your **git commits** (and any planning artifacts you keep), extracts the decision arc via LLM, generates narration audio, and renders video — either programmatic Remotion compositions or avatar-narrated HeyGen videos.
 
 Point it at any repo — no framework, no planning docs required. Commit history is the backbone; planning files, when present, enrich the story.
@@ -228,6 +230,7 @@ Core never imports `fs`, `process`, or config libraries. Filesystem access goes 
 pnpm install          # Install dependencies
 pnpm build            # Build all packages
 pnpm test             # Run all tests
+pnpm typecheck        # tsc --noEmit across all packages
 pnpm lint             # ESLint
 pnpm format           # Prettier
 ```
