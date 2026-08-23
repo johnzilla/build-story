@@ -2,7 +2,7 @@
 
 Working branch: `main` (source of truth; solo builder commits straight to main).
 State: **green** — `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`
-(299 tests) all pass.
+(309 tests) all pass.
 
 ## The pivot (why this work exists)
 
@@ -149,6 +149,52 @@ An outside reviewer's findings, worked by severity and committed to main:
     dir. Fault-injection tests (5xx-HTML, hung connection, missing URL); suite
     de-flaked by mocking all fs/stream I/O so fake timers can't race real
     libuv I/O.
+
+## Paid-path correctness (Phase 2) — shipped
+
+External review, Phase 2. All committed to main:
+
+- **2.1 TTS pricing — one source of truth.** New `@buildstory/video/pricing`
+  (also a standalone subpath export so the CLI dry-run imports it without loading
+  Remotion): `tts-1-hd = $0.03/1k`, `tts-1 = $0.015/1k`, default `tts-1-hd`.
+  `estimateTTSCost(beats, model)` and `run --dry-run` both price at the model
+  render actually calls; `[tts] model` is configurable. (Old bug: estimate used
+  $0.015 while `generateSceneAudio` called `tts-1-hd` at $0.03 — 2× under.)
+- **2.2 Render deps.** `preflight.chromePath` is now threaded into
+  `renderVideo → renderMedia({ browserExecutable })`, so a machine that passes
+  preflight renders with the same browser (no divergent second discovery).
+  Preflight now checks **ffmpeg and ffprobe** (was ffprobe only).
+  **Dropped `ffmpeg-static`** — it was a phantom dep (never imported); the code
+  uses system FFmpeg via `FFMPEG_PATH`/`FFPROBE_PATH` (README already required
+  it). Binary resolution centralized in `video/src/tts/ffmpeg.ts`. *(Diverges
+  from CLAUDE.md's "use ffmpeg-static" recommendation — a deliberate, reviewer-
+  sanctioned call: bundling ~90MB of ffmpeg+ffprobe for a dev CLI whose users
+  have FFmpeg is poor value, and ffmpeg-static ships no ffprobe anyway.)*
+- **2.3 Card flags now work.** `--no-title-card`/`--no-stats-card` and
+  `[render] titleCard/statsCard` flow as `showTitleCard`/`showStatsCard`
+  composition props; when off, those beats render with their natural scene type.
+  (Previously the flags were read under the wrong opt names and never reached the
+  composition — pure dead flags.)
+- **2.4 Lazy-install incoherence resolved.** `video`/`heygen` are hard workspace
+  deps (always installed); deleted `lazy.ts` and the install prompts. Commands
+  still `import()` them at render time (lazy *loading*, not installing), so
+  `scan`/`narrate`/`--skip-video` never load Remotion. Removed the redundant
+  `external` asymmetry in the CLI tsup config (tsup auto-externalizes deps).
+  README install story rewritten.
+- **2.5 remotion-script** — already removed in Phase 0; `FORMAT_PROMPTS` is
+  `Record<FormatType, string>`, so exhaustiveness is compiler-enforced. No action.
+- **2.6 Failure-mode work.** `generateSRT` now asserts beat/scene alignment
+  (clear error instead of a crash on an undefined scene). **TTS resume:**
+  existing `scene-NNN.wav` files are reused, so a re-run only regenerates missing
+  audio. **HeyGen chunk resume:** completed chunks live in a content-keyed
+  `<output>.mp4.parts/` that persists across failure and is removed only on
+  success — a mid-render failure re-submits only unfinished chunks (replaces the
+  1.5 mkdtemp temp dir; still output-scoped, so no shared-tmp collision).
+- **2.7 Token guard for commit-heavy repos.** Commits carry no GSD phase path, so
+  they all landed in one "ungrouped" chunk that stayed over budget →
+  `guardTokens` threw. `chunkTimeline` now size-splits oversized groups into
+  budget-fitting sub-chunks (exact char accounting), preserving order. Tested on
+  a synthetic 320-commit timeline: many chunks, each within budget, none lost.
 
 **Next (roadmap, not requested):** goose adapter; validate pi on a real session;
 sharper correlation (touched files + message, walk pi's active branch).

@@ -122,6 +122,11 @@ enabled = false        # opt-in: distill coding-agent sessions into events
 voice = "nova"         # OpenAI TTS voice: nova, alloy, echo, fable, onyx, shimmer
 speed = 1.0            # Playback speed (0.25 - 4.0)
 concurrency = 2        # Parallel TTS requests
+model = "tts-1-hd"     # OpenAI TTS model: "tts-1-hd" (default) or "tts-1" (cheaper)
+
+[render]
+titleCard = true       # Render first/last beats as title cards (--no-title-card overrides)
+statsCard = true       # Render a stats card near the end (--no-stats-card overrides)
 
 [video]
 renderer = "remotion"  # "remotion" (default) or "heygen"
@@ -144,10 +149,10 @@ The CLI automatically loads `.env` from the current working directory.
 
 - **Node.js 22+** (enforced via `engines`)
 - **pnpm 10** — pinned via the `packageManager` field; run `corepack enable` to use the exact version
-- **ffmpeg/ffprobe** -- for audio processing (usually pre-installed on Linux/macOS)
-- **Headless Chrome** -- for Remotion video rendering (auto-downloaded on first render)
+- **ffmpeg _and_ ffprobe** -- for audio processing (mp3→wav conversion and duration measurement); usually pre-installed on Linux/macOS. Override the binaries with `FFMPEG_PATH` / `FFPROBE_PATH`. `buildstory render` preflight checks both before spending anything.
+- **Headless Chrome** -- for Remotion video rendering
 
-Video rendering dependencies (~200MB) are installed on first `buildstory render` or `buildstory run` -- you'll be prompted before installation.
+All BuildStory packages (`@buildstory/video`, `@buildstory/heygen`) install with the CLI via `pnpm install` — there is no separate install step. The only render-time download is headless Chrome (~200MB), fetched by Remotion on the first `buildstory render`/`run`; install it ahead of time with `npx puppeteer browsers install chrome`, or point `PUPPETEER_EXECUTABLE_PATH` at an existing binary.
 
 ## Narrative Styles
 
@@ -200,28 +205,28 @@ Default palette: dark navy (#1a1a2e) + warm red (#e94560) + off-white text (#eae
   format(arc, type, llm)    Text output per format via LLM
   createProvider(opts)      LLM provider factory (Anthropic or OpenAI)
 
-@buildstory/video         Remotion rendering + TTS (optional, lazy-installed)
-  orchestrateTTS(...)       Per-scene audio via OpenAI TTS
-  renderVideo(...)          Remotion composition → MP4
-  preflightCheck(...)       Verify all dependencies before rendering
-  estimateTTSCost(...)      Cost estimation before API calls
+@buildstory/video         Remotion rendering + TTS (loaded on demand at render time)
+  orchestrateTTS(...)       Per-scene audio via OpenAI TTS (resumes existing scenes)
+  renderVideo(...)          Remotion composition → MP4 (honors card toggles + browser path)
+  preflightCheck(...)       Verify ffmpeg, ffprobe, Chrome, API key before rendering
+  estimateTTSCost(...)      Cost estimation, priced at the configured model
+  @buildstory/video/pricing Standalone TTS price table (imported by the CLI dry-run)
 
-@buildstory/heygen        HeyGen avatar rendering (optional, lazy-installed)
+@buildstory/heygen        HeyGen avatar rendering (loaded on demand at render time)
   adaptStoryArc(...)        StoryArc → HeyGen video_inputs with beat-type colors
   renderWithHeyGen(...)     Submit, poll, download, concat chunks → MP4
-                            (per-request timeouts + retry on transient faults)
+                            (per-request timeouts, retry on transient faults, chunk resume)
   preflightHeyGenCheck(...) Validate API key, avatar, voice config
   estimateHeyGenCost(...)   Credit/USD cost estimation
 
 buildstory CLI            Thin wrapper
   run, scan, narrate, render  Commands mapping to core/video/heygen functions
   config.ts                   TOML config loader
-  lazy.ts                     Lazy @buildstory/video and @buildstory/heygen install
   adapters/                   ArtifactSource (fs + redaction), GitSource,
                               transcript sources (Claude Code, pi)
 ```
 
-Core never imports `fs`, `process`, or config libraries. Filesystem access goes through an injected `ArtifactSource` interface, git access through an injected `GitSource`, and agent-session access through an injected `TranscriptSource` — so core stays free of I/O and vendor specifics. TTS and video rendering live in `@buildstory/video` to keep core pure.
+`@buildstory/video` and `@buildstory/heygen` are ordinary workspace dependencies of the CLI (always installed); the commands `import()` them only at render time so `scan`, `narrate`, and `--skip-video` never load Remotion. Core never imports `fs`, `process`, or config libraries. Filesystem access goes through an injected `ArtifactSource` interface, git access through an injected `GitSource`, and agent-session access through an injected `TranscriptSource` — so core stays free of I/O and vendor specifics. TTS and video rendering live in `@buildstory/video` to keep core pure.
 
 ## Packages
 
@@ -252,7 +257,14 @@ Typical run on a project with 50-200 events:
 - **Total (Remotion)**: ~$0.10-0.35 per video
 - **Total (HeyGen)**: ~$5-15 per video (avatar rendering is the main cost)
 
-Use `--dry-run` to see cost estimates before any API calls.
+Use `--dry-run` to see cost estimates before any API calls. The estimate is priced at the TTS model you've configured (`[tts] model`), matching what render actually calls.
+
+### Resuming a failed render
+
+Paid work is checkpointed so a mid-render failure doesn't re-bill you on the next run:
+
+- **TTS (Remotion path)** — each scene's audio is written to `audio/scene-NNN.wav` in the output dir and reused if it already exists. Re-running after a failure regenerates only the missing scenes.
+- **HeyGen** — completed avatar chunks are kept in `<output>.mp4.parts/` (content-keyed) and reused on the next run; the directory is removed only on success. A failure part-way through a multi-chunk video re-submits only the chunks that didn't finish.
 
 ## Data safety
 

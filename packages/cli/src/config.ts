@@ -38,6 +38,8 @@ export interface BuildStoryConfig {
     voice?: string
     speed?: number
     concurrency?: number
+    /** OpenAI TTS model: "tts-1-hd" (default) or "tts-1". */
+    model?: 'tts-1' | 'tts-1-hd'
   }
   render?: {
     titleCard?: boolean

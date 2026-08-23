@@ -2,12 +2,16 @@ import { writeFile, unlink } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import OpenAI from 'openai'
+import { DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
+import { getFfmpegPath } from './ffmpeg.js'
 
 const execFileAsync = promisify(execFile)
 
 interface GenerateOpts {
   voice: string
   speed: number
+  /** OpenAI TTS model. Defaults to DEFAULT_TTS_MODEL. */
+  model?: TTSModel
 }
 
 // 4096 char hard limit per OpenAI TTS request. Use 3900 as safe buffer.
@@ -32,7 +36,7 @@ export async function generateSceneAudio(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       const response = await client.audio.speech.create({
-        model: 'tts-1-hd',
+        model: opts.model ?? DEFAULT_TTS_MODEL,
         voice: opts.voice as 'nova' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'shimmer',
         input: truncated,
         speed: opts.speed,
@@ -44,7 +48,7 @@ export async function generateSceneAudio(
       const tempMp3 = `${outputPath}.tmp.mp3`
       await writeFile(tempMp3, buffer)
 
-      const ffmpegPath = process.env['FFMPEG_PATH'] ?? 'ffmpeg'
+      const ffmpegPath = getFfmpegPath()
       await execFileAsync(ffmpegPath, [
         '-y', '-i', tempMp3,
         '-acodec', 'pcm_s16le',

@@ -3,6 +3,7 @@ import { promisify } from 'node:util'
 import { existsSync, readdirSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { join } from 'node:path'
+import { getFfmpegPath, getFfprobePath } from './tts/ffmpeg.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -117,8 +118,19 @@ export async function preflightCheck(opts: {
     }
   }
 
-  // 2. Check ffprobe is available
-  const ffprobePath = process.env['FFPROBE_PATH'] ?? 'ffprobe'
+  // 2. Check ffmpeg AND ffprobe are available. Both are used by the TTS stage
+  //    (ffmpeg: mp3→wav conversion; ffprobe: audio-duration measurement), so a
+  //    missing ffmpeg would only surface mid-render — check it up front.
+  const ffmpegPath = getFfmpegPath()
+  try {
+    await execFileAsync(ffmpegPath, ['-version'])
+  } catch {
+    failures.push(
+      `ffmpeg not found at "${ffmpegPath}". Install FFmpeg or set FFMPEG_PATH env var. https://ffmpeg.org/download.html`
+    )
+  }
+
+  const ffprobePath = getFfprobePath()
   try {
     await execFileAsync(ffprobePath, ['-version'])
   } catch {

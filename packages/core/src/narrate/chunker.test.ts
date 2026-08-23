@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { groupByPhase, chunkTimeline } from './chunker.js'
+import { buildTimelinePayload, estimateTokens, guardTokens } from './tokens.js'
 import type { Timeline, TimelineEvent } from '../types/timeline.js'
 
 const makeEvent = (overrides: Partial<TimelineEvent> & { id: string }): TimelineEvent => ({
@@ -121,5 +122,53 @@ describe('chunkTimeline()', () => {
     const chunks = chunkTimeline(timeline, 100)
     const allIds = chunks.flatMap((c) => c.events.map((e) => e.id))
     expect(allIds.sort()).toEqual(['e1', 'e2', 'e3'].sort())
+  })
+
+  // --- 2.7: commit-heavy timelines (commits have no phase → one giant group) ---
+
+  /** A commit event as buildCommitEvents produces: substance in summary, no path. */
+  const makeCommit = (i: number): TimelineEvent =>
+    makeEvent({
+      id: `commit-${i}`,
+      source: 'git-commit',
+      date: `2026-01-${String((i % 28) + 1).padStart(2, '0')}`,
+      // Realistic commit payload: subject + body + a couple of changed files.
+      summary:
+        `feat(area-${i}): implement feature number ${i}\n\n` +
+        `This commit does a moderately detailed thing worth narrating. `.repeat(4) +
+        `\nFiles: src/module-${i}.ts, src/module-${i}.test.ts`,
+      metadata: { insertions: i, deletions: i % 5, files: 2 },
+    })
+
+  it('splits a 300+ commit timeline into budget-fitting chunks without throwing (guard not spurious)', () => {
+    const events = Array.from({ length: 320 }, (_, i) => makeCommit(i))
+    const timeline = makeTimeline(events)
+    const maxTokens = 8000 // small enough that 320 commits far exceed it
+
+    // Whole timeline is well over budget...
+    expect(estimateTokens(buildTimelinePayload(timeline))).toBeGreaterThan(maxTokens)
+
+    // ...and chunking must produce several sub-chunks (commits share one phase group).
+    const chunks = chunkTimeline(timeline, maxTokens)
+    expect(chunks.length).toBeGreaterThan(1)
+
+    // Every chunk fits the budget, so guardTokens never throws spuriously.
+    for (const chunk of chunks) {
+      const payload = buildTimelinePayload(chunk)
+      expect(estimateTokens(payload)).toBeLessThanOrEqual(maxTokens)
+      expect(() => guardTokens(payload, maxTokens)).not.toThrow()
+    }
+
+    // No events lost or duplicated.
+    const ids = chunks.flatMap((c) => c.events.map((e) => e.id))
+    expect(ids).toHaveLength(320)
+    expect(new Set(ids).size).toBe(320)
+  })
+
+  it('preserves commit order across the sub-chunks', () => {
+    const events = Array.from({ length: 300 }, (_, i) => makeCommit(i))
+    const chunks = chunkTimeline(makeTimeline(events), 6000)
+    const ids = chunks.flatMap((c) => c.events.map((e) => e.id))
+    expect(ids).toEqual(events.map((e) => e.id))
   })
 })

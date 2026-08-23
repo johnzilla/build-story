@@ -1,11 +1,10 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { getFfprobePath } from './ffmpeg.js'
 
 const execFileAsync = promisify(execFile)
 
-export function getFfprobePath(): string {
-  return process.env['FFPROBE_PATH'] ?? 'ffprobe'
-}
+export { getFfprobePath }
 
 export async function measureAudioDuration(filePath: string): Promise<number> {
   const ffprobePath = getFfprobePath()

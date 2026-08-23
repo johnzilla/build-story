@@ -16,6 +16,8 @@ export const RemotionRoot: React.FC = () => {
         storyArc: { version: '1', beats: [], metadata: { generatedAt: '', style: '', sourceTimeline: '' } },
         audioManifest: { scenes: [], totalDurationSeconds: 10, silenceGapSeconds: 0.3, bookendSilenceSeconds: 1 },
         fps: 30,
+        showTitleCard: true,
+        showStatsCard: true,
       } satisfies BuildStoryInputProps}
       calculateMetadata={async ({ props }) => {
         const totalFrames = Math.ceil(props.audioManifest.totalDurationSeconds * props.fps)

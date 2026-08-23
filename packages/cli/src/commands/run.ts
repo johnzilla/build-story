@@ -8,7 +8,7 @@ import { loadConfig, toScanOptions } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
 import { createTranscriptSource } from '../adapters/transcript-registry.js'
-import { ensureVideoPackage, ensureHeyGenPackage } from '../lazy.js'
+import { ttsCostUSD, DEFAULT_TTS_MODEL, type TTSModel } from '@buildstory/video/pricing'
 
 function formatDuration(ms: number): string {
   const secs = Math.round(ms / 1000)
@@ -34,8 +34,9 @@ export async function run(
     skipVideo?: boolean
     includeText?: boolean
     dryRun?: boolean
-    noTitleCard?: boolean
-    noStatsCard?: boolean
+    // commander maps `--no-title-card`/`--no-stats-card` to these (default true).
+    titleCard?: boolean
+    statsCard?: boolean
     renderer?: string
   },
 ) {
@@ -111,9 +112,11 @@ export async function run(
     // Empirical: scans typically yield ~1 beat per 3 events (e.g. 82 events
     // → ~28 beats in the blindjoin reference run). Used only for display.
     const estBeats = Math.max(1, Math.round(events / 3))
-    const TTS_PER_1000_CHARS = 0.015
     const AVG_BEAT_CHARS = 150
-    const estTTSCost = (estBeats * AVG_BEAT_CHARS) / 1000 * TTS_PER_1000_CHARS
+    // Price against the TTS model that render will actually call (one source of
+    // truth — @buildstory/video/pricing), not a hardcoded rate.
+    const ttsModel: TTSModel = config.tts?.model ?? DEFAULT_TTS_MODEL
+    const estTTSCost = ttsCostUSD(estBeats * AVG_BEAT_CHARS, ttsModel)
 
     console.log(chalk.dim('\n  Estimated cost (no API calls made):\n'))
     console.log(chalk.dim(`    Scan:          $0 (local filesystem) — done`))
@@ -132,7 +135,7 @@ export async function run(
       } else {
         console.log(
           chalk.dim(
-            `    TTS:           ~$${estTTSCost.toFixed(2)} (OpenAI TTS, ~${estBeats} scenes × ~${AVG_BEAT_CHARS} chars)`,
+            `    TTS:           ~$${estTTSCost.toFixed(2)} (OpenAI ${ttsModel}, ~${estBeats} scenes × ~${AVG_BEAT_CHARS} chars)`,
           ),
         )
         console.log(chalk.dim(`    Render:        $0 (local CPU + ffmpeg)`))
@@ -177,7 +180,8 @@ export async function run(
     const renderer = opts.renderer ?? config.video?.renderer ?? 'remotion'
 
     if (renderer === 'heygen') {
-      await ensureHeyGenPackage()
+      // @buildstory/heygen is a hard workspace dep (always installed); the
+      // dynamic import only defers loading its module graph until render time.
       const heygen = await import('@buildstory/heygen')
 
       // Satisfies HeyGenConfig -- defaulted fields are optional
@@ -247,11 +251,9 @@ export async function run(
         process.exit(1)
       }
     } else {
-      // === Existing Remotion path (unchanged) ===
-      // Lazy install check (REND-10, D-10)
-      await ensureVideoPackage()
-
-      // Dynamic import after install confirmed
+      // === Remotion path ===
+      // @buildstory/video is a hard workspace dep; the dynamic import only defers
+      // loading its heavy module graph (Remotion) until render time.
       const video = await import('@buildstory/video')
 
       // Preflight check (REND-11, D-12)
@@ -264,8 +266,10 @@ export async function run(
         process.exit(1)
       }
 
-      // TTS cost estimate (REND-03, D-16)
-      const costEstimate = video.estimateTTSCost(arc.beats)
+      const ttsModel = config.tts?.model ?? 'tts-1-hd'
+
+      // TTS cost estimate (REND-03, D-16) — priced at the model actually called
+      const costEstimate = video.estimateTTSCost(arc.beats, ttsModel)
       console.log(
         chalk.dim(
           `  Generating audio for ${costEstimate.sceneCount} scenes (~$${costEstimate.estimatedCostUSD.toFixed(2)} estimated)\n`,
@@ -284,7 +288,7 @@ export async function run(
       const audioManifest = await video.orchestrateTTS(
         arc.beats,
         outputDir,
-        { voice: ttsVoice, speed: ttsSpeed, apiKey: openaiKey, concurrency: ttsConcurrency },
+        { voice: ttsVoice, speed: ttsSpeed, apiKey: openaiKey, concurrency: ttsConcurrency, model: ttsModel },
         (completed: number, total: number) => {
           ttsSpinner.text = `[3/${totalSteps}] Generating TTS audio... ${completed}/${total} scenes`
         },
@@ -299,10 +303,19 @@ export async function run(
       mp4Path = resolve(outputDir, `${projectName}.mp4`)
       srtPath = resolve(outputDir, `${projectName}.srt`)
 
+      // Card visibility: CLI --no-*-card forces off; else config; else on.
+      const showTitleCard = opts.titleCard === false ? false : (config.render?.titleCard ?? true)
+      const showStatsCard = opts.statsCard === false ? false : (config.render?.statsCard ?? true)
+
       const renderSpinner = ora(`[4/${totalSteps}] Rendering video...`).start()
       await video.renderVideo(arc, audioManifest, {
         outputPath: mp4Path,
         srtPath,
+        showTitleCard,
+        showStatsCard,
+        // Use the Chrome/Chromium preflight already located, so a machine where
+        // preflight passes always renders (no second, divergent discovery).
+        ...(preflight.chromePath ? { browserExecutable: preflight.chromePath } : {}),
         onProgress: (p: { renderedFrames: number; totalFrames: number; progress: number }) => {
           const pct = Math.round(p.progress * 100)
           renderSpinner.text = `[4/${totalSteps}] Rendering video... ${pct}% (frame ${p.renderedFrames}/${p.totalFrames})`

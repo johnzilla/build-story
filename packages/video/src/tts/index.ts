@@ -1,19 +1,32 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import OpenAI from 'openai'
 import type { StoryBeat } from '@buildstory/core'
 import type { TTSOptions, SceneAudio, AudioManifest, TTSCostEstimate } from './types.js'
 import { generateSceneAudio } from './generate.js'
 import { measureAudioDuration } from './measure.js'
+import { ttsCostUSD, DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
 
-const TTS_COST_PER_1000_CHARS = 0.015
-
-export function estimateTTSCost(beats: StoryBeat[]): TTSCostEstimate {
+export function estimateTTSCost(
+  beats: StoryBeat[],
+  model: TTSModel = DEFAULT_TTS_MODEL,
+): TTSCostEstimate {
   const totalCharacters = beats.reduce((sum, b) => sum + b.summary.length, 0)
   return {
     totalCharacters,
-    estimatedCostUSD: (totalCharacters / 1000) * TTS_COST_PER_1000_CHARS,
+    // Priced at the model actually used to synthesize (single source of truth).
+    estimatedCostUSD: ttsCostUSD(totalCharacters, model),
     sceneCount: beats.length,
+  }
+}
+
+/** True if a scene's WAV already exists and is non-empty (resumable from disk). */
+async function existingSceneFile(filePath: string): Promise<boolean> {
+  try {
+    const s = await stat(filePath)
+    return s.isFile() && s.size > 0
+  } catch {
+    return false
   }
 }
 
@@ -36,7 +49,11 @@ export async function orchestrateTTS(
   await mkdir(audioDir, { recursive: true })
 
   const client = new OpenAI({ apiKey: options.apiKey })
-  const generateOpts = { voice: options.voice, speed: options.speed }
+  const generateOpts = {
+    voice: options.voice,
+    speed: options.speed,
+    model: options.model ?? DEFAULT_TTS_MODEL,
+  }
 
   // D-15: 0.3s silence between scenes, 1s bookend
   const SILENCE_GAP = 0.3
@@ -46,7 +63,11 @@ export async function orchestrateTTS(
 
   const tasks = beats.map((beat, i) => async () => {
     const filePath = join(audioDir, `scene-${String(i).padStart(3, '0')}.wav`)
-    await generateSceneAudio(client, beat.summary, filePath, generateOpts)
+    // Resume: a scene rendered by a previous (failed) run is reused rather than
+    // re-synthesized, so a mid-render failure never re-bills completed audio.
+    if (!(await existingSceneFile(filePath))) {
+      await generateSceneAudio(client, beat.summary, filePath, generateOpts)
+    }
     const durationSeconds = await measureAudioDuration(filePath)
     onProgress?.(i + 1, beats.length)
     return { beatIndex: i, filePath, durationSeconds, startOffsetSeconds: 0 }

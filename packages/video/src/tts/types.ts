@@ -1,8 +1,12 @@
+import type { TTSModel } from './pricing.js'
+
 export interface TTSOptions {
   voice: string
   speed: number
   apiKey: string
   concurrency: number
+  /** OpenAI TTS model. Defaults to DEFAULT_TTS_MODEL when omitted. */
+  model?: TTSModel
 }
 
 export interface SceneAudio {

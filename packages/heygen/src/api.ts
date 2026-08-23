@@ -1,11 +1,11 @@
-import { writeFile, unlink, rename, copyFile, mkdtemp, rm } from 'node:fs/promises'
+import { writeFile, unlink, rename, copyFile, mkdir, rm, stat } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { z } from 'zod'
 import pRetry from 'p-retry'
 import type { StoryArc } from '@buildstory/core'
@@ -306,6 +306,22 @@ async function concatMp4s(
 // renderWithHeyGen (public)
 // ---------------------------------------------------------------------------
 
+/** A short content hash of a chunk's scenes — resume reuses a downloaded chunk
+ * only when the arc that produced it is unchanged. */
+function chunkKey(scenes: HeyGenScene[]): string {
+  return createHash('sha1').update(JSON.stringify(scenes)).digest('hex').slice(0, 12)
+}
+
+/** True if a chunk file already exists and is non-empty (resumable from disk). */
+async function existingFile(filePath: string): Promise<boolean> {
+  try {
+    const s = await stat(filePath)
+    return s.isFile() && s.size > 0
+  } catch {
+    return false
+  }
+}
+
 export async function renderWithHeyGen(
   arc: StoryArc,
   config: HeyGenConfig,
@@ -324,66 +340,77 @@ export async function renderWithHeyGen(
 
   const { chunks, warnings } = adaptResult
 
-  // Isolated per-run temp dir for chunk downloads + the concat list, cleaned up
-  // in finally. Avoids predictable/colliding paths in the shared tmpdir.
-  const workDir = await mkdtemp(join(tmpdir(), 'buildstory-heygen-'))
+  // Output-scoped parts dir (not the shared tmpdir, so no cross-run collision)
+  // that PERSISTS across a failure. Each completed chunk lands here under a
+  // content-keyed name; a re-run reuses matching chunks so a mid-render failure
+  // never re-bills HeyGen for chunks already paid for. Removed only on success.
+  const partsDir = `${outputPath}.parts`
+  await mkdir(partsDir, { recursive: true })
 
-  try {
-    const completedChunks: Array<{ videoId: string; path: string }> = []
+  const completedChunks: Array<{ path: string }> = []
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i]!
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]!
+    const chunkPath = join(partsDir, `chunk-${i}-${chunkKey(chunk)}.mp4`)
 
-      try {
-        onProgress(`Submitting chunk ${i + 1}/${chunks.length} to HeyGen...`)
-
-        const videoId = await submitChunk(chunk, {
-          apiKey: opts.apiKey,
-          width: opts.width,
-          height: opts.height,
-        })
-
-        onProgress(
-          `Chunk ${i + 1}: submitted (video ID: ${videoId}). Polling for completion...`,
-        )
-
-        const videoUrl = await pollUntilComplete(
-          videoId,
-          { apiKey: opts.apiKey, timeoutSeconds: opts.timeoutSeconds },
-          onProgress,
-        )
-
-        const tmpPath = join(workDir, `chunk-${i}-${videoId}.mp4`)
-        await downloadMp4(videoUrl, tmpPath)
-
-        onProgress(`Chunk ${i + 1}: downloaded.`)
-
-        completedChunks.push({ videoId, path: tmpPath })
-      } catch (err) {
-        // Per D-06: stop processing remaining chunks; rethrow with context.
-        throw new Error(
-          `Chunk ${i + 1}/${chunks.length} failed: ${(err as Error).message}`,
-        )
+    try {
+      if (await existingFile(chunkPath)) {
+        onProgress(`Chunk ${i + 1}/${chunks.length}: reusing already-rendered chunk (resume).`)
+        completedChunks.push({ path: chunkPath })
+        continue
       }
-    }
 
-    // Assemble final output (into outputPath, outside workDir).
-    if (completedChunks.length === 1) {
-      const singlePath = completedChunks[0]!.path
-      try {
-        await rename(singlePath, outputPath)
-      } catch {
-        // rename may fail across filesystems; fall back to copy.
-        await copyFile(singlePath, outputPath)
-      }
-    } else {
-      const chunkPaths = completedChunks.map((c) => c.path)
-      await concatMp4s(chunkPaths, outputPath, workDir)
-    }
+      onProgress(`Submitting chunk ${i + 1}/${chunks.length} to HeyGen...`)
 
-    return { videoPath: outputPath, warnings }
-  } finally {
-    // Remove the temp dir and any chunk files / concat list within it.
-    await rm(workDir, { recursive: true, force: true }).catch(() => {})
+      const videoId = await submitChunk(chunk, {
+        apiKey: opts.apiKey,
+        width: opts.width,
+        height: opts.height,
+      })
+
+      onProgress(
+        `Chunk ${i + 1}: submitted (video ID: ${videoId}). Polling for completion...`,
+      )
+
+      const videoUrl = await pollUntilComplete(
+        videoId,
+        { apiKey: opts.apiKey, timeoutSeconds: opts.timeoutSeconds },
+        onProgress,
+      )
+
+      // Download to a temp name, then atomically rename into the content-keyed
+      // path so a partial download is never mistaken for a completed chunk.
+      const partialPath = `${chunkPath}.partial`
+      await downloadMp4(videoUrl, partialPath)
+      await rename(partialPath, chunkPath)
+
+      onProgress(`Chunk ${i + 1}: downloaded.`)
+
+      completedChunks.push({ path: chunkPath })
+    } catch (err) {
+      // Per D-06: stop on first failure; rethrow with context. partsDir is left
+      // in place so the next run resumes from the chunks already completed.
+      throw new Error(
+        `Chunk ${i + 1}/${chunks.length} failed: ${(err as Error).message}`,
+      )
+    }
   }
+
+  // Assemble final output (into outputPath, outside partsDir).
+  if (completedChunks.length === 1) {
+    const singlePath = completedChunks[0]!.path
+    try {
+      await copyFile(singlePath, outputPath)
+    } catch (err) {
+      throw new Error(`Failed to write output ${outputPath}: ${(err as Error).message}`)
+    }
+  } else {
+    const chunkPaths = completedChunks.map((c) => c.path)
+    await concatMp4s(chunkPaths, outputPath, partsDir)
+  }
+
+  // Success — remove the parts dir and all completed chunks / concat list.
+  await rm(partsDir, { recursive: true, force: true }).catch(() => {})
+
+  return { videoPath: outputPath, warnings }
 }

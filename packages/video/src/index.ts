@@ -2,6 +2,12 @@ export { orchestrateTTS, estimateTTSCost } from './tts/index.js'
 export { preflightCheck } from './preflight.js'
 export { renderVideo } from './render/index.js'
 export { generateSRT } from './render/srt.js'
+export {
+  TTS_PRICE_PER_1000_CHARS,
+  DEFAULT_TTS_MODEL,
+  ttsCostUSD,
+  type TTSModel,
+} from './tts/pricing.js'
 export type { PreflightResult } from './preflight.js'
 export type { RenderProgress, RenderOptions } from './render/index.js'
 export type { TTSOptions, SceneAudio, AudioManifest, TTSCostEstimate } from './tts/types.js'

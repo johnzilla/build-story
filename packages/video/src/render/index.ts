@@ -16,6 +16,16 @@ export interface RenderProgress {
 export interface RenderOptions {
   outputPath: string
   srtPath: string
+  /** Render the first/last beats as title cards (default true). */
+  showTitleCard?: boolean
+  /** Render the second-to-last beat as a stats card (default true). */
+  showStatsCard?: boolean
+  /**
+   * Path to the Chrome/Chromium binary Remotion should use. Pass the value
+   * preflight discovered so rendering uses the same browser preflight verified,
+   * instead of relying on Remotion's independent resolution.
+   */
+  browserExecutable?: string
   onProgress?: (progress: RenderProgress) => void
 }
 
@@ -69,6 +79,8 @@ export async function renderVideo(
     storyArc,
     audioManifest: audioManifestForRemotion,
     fps: 30,
+    showTitleCard: options.showTitleCard ?? true,
+    showStatsCard: options.showStatsCard ?? true,
   }
 
   // Step 2: Resolve composition metadata (durationInFrames from calculateMetadata)
@@ -78,13 +90,15 @@ export async function renderVideo(
     inputProps,
   })
 
-  // Step 3: Render MP4 (H.264 + AAC per REND-05)
+  // Step 3: Render MP4 (H.264 + AAC per REND-05). Pin the browser to the binary
+  // preflight verified so a machine that passes preflight always renders.
   await renderMedia({
     composition,
     serveUrl: bundleLocation,
     codec: 'h264',
     outputLocation: options.outputPath,
     inputProps,
+    ...(options.browserExecutable ? { browserExecutable: options.browserExecutable } : {}),
     onProgress: (p) => {
       options.onProgress?.({
         renderedFrames: p.renderedFrames,

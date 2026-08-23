@@ -30,6 +30,8 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
   storyArc,
   audioManifest,
   fps,
+  showTitleCard = true,
+  showStatsCard = true,
 }) => {
   // Convert beats to BeatWithFrames using audio manifest durations
   const beatsWithFrames: BeatWithFrames[] = storyArc.beats.map((beat, i) => {
@@ -53,9 +55,11 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
         const startFrame = cumulativeFrame
         const frames = beat.durationInFrames
         cumulativeFrame += frames
-        const isFirst = i === 0
-        const isLast = i === beatsWithFrames.length - 1
-        const isStats = i === beatsWithFrames.length - 2
+        // Cards are toggleable (--no-title-card / --no-stats-card / [render]
+        // config). When off, these beats render with their natural scene type.
+        const isFirst = showTitleCard && i === 0
+        const isLast = showTitleCard && i === beatsWithFrames.length - 1
+        const isStats = showStatsCard && i === beatsWithFrames.length - 2
 
         // Delay audio start by a small pad (6 frames = 200ms at 30fps) so the visual
         // scene appears first and audio doesn't clip at the Sequence boundary.

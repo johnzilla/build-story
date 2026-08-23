@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { stat } from 'node:fs/promises'
 import type { StoryArc, StoryBeat } from '@buildstory/core'
 import type { HeyGenConfig } from '../types.js'
 
@@ -18,8 +19,13 @@ vi.mock('node:fs/promises', () => ({
   unlink: vi.fn(async () => {}),
   rename: vi.fn(async () => {}),
   copyFile: vi.fn(async () => {}),
-  mkdtemp: vi.fn(async (prefix: string) => `${prefix}mock`),
+  mkdir: vi.fn(async () => {}),
   rm: vi.fn(async () => {}),
+  // Default: nothing on disk, so every chunk is freshly submitted. The resume
+  // test overrides this to report an existing chunk file.
+  stat: vi.fn(async () => {
+    throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+  }),
 }))
 
 vi.mock('node:fs', () => ({
@@ -557,5 +563,38 @@ describe('HTTP hardening (fault injection)', () => {
     const err = await caught
     expect(err).toBeInstanceOf(Error)
     expect((err as Error).message).toContain('video_url')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Chunk resume (task 2.6) — a completed chunk left on disk by a failed run is
+// reused instead of re-submitted, so a mid-render failure never re-bills HeyGen.
+// ---------------------------------------------------------------------------
+
+describe('chunk resume', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    global.fetch = vi.fn()
+  })
+
+  it('reuses an already-rendered chunk on disk instead of re-submitting', async () => {
+    // Report the content-keyed chunk file as already present and non-empty.
+    vi.mocked(stat).mockResolvedValue({
+      isFile: () => true,
+      size: 1024,
+    } as unknown as Awaited<ReturnType<typeof stat>>)
+
+    const { renderWithHeyGen } = await import('../api.js')
+    const arc = makeArc([makeBeat()])
+    const progress: string[] = []
+
+    const result = await renderWithHeyGen(arc, defaultConfig, '/tmp/resume.mp4', (m) =>
+      progress.push(m),
+    )
+
+    // No network calls at all — the paid submit/poll/download were skipped.
+    expect(fetch).not.toHaveBeenCalled()
+    expect(result.videoPath).toBe('/tmp/resume.mp4')
+    expect(progress.some((m) => m.includes('resume'))).toBe(true)
   })
 })
