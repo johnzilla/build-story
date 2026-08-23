@@ -51,7 +51,9 @@ pnpm. All are ESM-only and scoped under `@buildstory`:
    ```
 
    Confirm no test files, `.env`, or scan dumps appear in any tarball, and that
-   `@buildstory/video` includes `src/` (minus `__tests__`).
+   `@buildstory/video` includes `src/` (minus `__tests__`). Each package ships its
+   own committed `LICENSE` and `README.md` (not relying on pnpm's implicit copy),
+   so the MIT notice is present under either `pnpm` or `npm` — no copy step needed.
 
 4. **Publish** (build first — the tarball ships `dist/`):
 

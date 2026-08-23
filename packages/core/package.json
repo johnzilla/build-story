@@ -13,6 +13,7 @@
   },
   "bugs": { "url": "https://github.com/johnzilla/build-story/issues" },
   "publishConfig": { "access": "public" },
+  "engines": { "node": ">=22" },
   "type": "module",
   "files": ["dist/"],
   "exports": {

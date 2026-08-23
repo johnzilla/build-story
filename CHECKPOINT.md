@@ -291,6 +291,23 @@ sharper correlation (touched files + message, walk pi's active branch);
 multi-root scan (deferred with 3.1 — downstream assumes a single rootDir);
 publish the `buildstory` org on npm + first release (see RELEASING.md).
 
+## Pre-publish cleanup — shipped
+
+- **LICENSE in every tarball (the real finding).** Committed a physical `LICENSE`
+  in each package (`packages/*/LICENSE`) plus a `license: "MIT"` field on the root
+  package.json. pnpm@10.33 was already copying the root LICENSE at publish, but
+  relying on that is fragile (breaks under `npm publish` or a future pnpm); a
+  committed per-package LICENSE ships the MIT notice deterministically under any
+  tool. Verified present in all four dry-run tarballs.
+- **Polish:** added `engines: { node: ">=22" }` to core/video/heygen (cli already
+  had it) so npm warns consumers on old Node; added a minimal `README.md` to each
+  package so npm package pages aren't bare (verified in tarballs).
+- **Housekeeping:** the tracked `pnpm-workspace.yaml` and root `pnpm` config are
+  already clean — no stale `ffmpeg-static` build entry (that lived only in a local
+  uncommitted copy; the only remaining mentions are historical `.planning/` and
+  CLAUDE.md stack docs). No `TODOS.md` exists in the repo; the TTS-resume item was
+  completed in Phase 2 / cleanup (content-keyed manifest).
+
 ## Working agreement
 
 Solo builder, no customers. No PRs. No GSD/planning-doc ceremony — commit
