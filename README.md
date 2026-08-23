@@ -213,7 +213,7 @@ Default palette: dark navy (#1a1a2e) + warm red (#e94560) + off-white text (#eae
   createProvider(opts)      LLM provider factory (Anthropic or OpenAI)
 
 @buildstory/video         Remotion rendering + TTS (loaded on demand at render time)
-  orchestrateTTS(...)       Per-scene audio via OpenAI TTS (resumes existing scenes)
+  orchestrateTTS(...)       Per-scene audio via OpenAI TTS (content-keyed resume manifest)
   renderVideo(...)          Remotion composition → MP4 (honors card toggles + browser path)
   preflightCheck(...)       Verify ffmpeg, ffprobe, Chrome, API key before rendering
   estimateTTSCost(...)      Cost estimation, priced at the configured model
@@ -272,7 +272,7 @@ For a hard ceiling, pass `--max-cost <usd>` to `run`: BuildStory tracks spend as
 
 Paid work is checkpointed so a mid-render failure doesn't re-bill you on the next run:
 
-- **TTS (Remotion path)** — each scene's audio is written to `audio/scene-NNN.wav` in the output dir and reused if it already exists. Re-running after a failure regenerates only the missing scenes.
+- **TTS (Remotion path)** — each scene's audio is written under `audio/` with a filename keyed on the beat's content (voice + speed + model + text), and recorded in `audio/manifest.json`. A re-run reuses any scene whose content is unchanged — skipping both the paid TTS call and the duration probe — and regenerates only scenes that are missing or whose beat text changed. Editing a beat never reuses stale audio.
 - **HeyGen** — completed avatar chunks are kept in `<output>.mp4.parts/` (content-keyed) and reused on the next run; the directory is removed only on success. A failure part-way through a multi-chunk video re-submits only the chunks that didn't finish.
 
 ## Data safety

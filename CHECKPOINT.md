@@ -2,7 +2,7 @@
 
 Working branch: `main` (source of truth; solo builder commits straight to main).
 State: **green** — `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`
-(319 tests) all pass.
+(323 tests) all pass.
 
 ## The pivot (why this work exists)
 
@@ -235,6 +235,24 @@ External review, Phase 3. All committed to main:
   HeyGen credits) and aborts before any stage that would exceed the cap, keeping
   partial results (`story-arc.json`, completed formats). Every `run` prints an
   end-of-run spend breakdown. New `cli/src/pricing-llm.ts`.
+
+## Review cleanup (post-Phase-3) — shipped
+
+- **1.2-gap (Stripe redaction):** already covered — `redact.ts` has the
+  `(?:sk|rk)_live_…` pattern (with a test); the reviewer saw a pre-Phase-1
+  snapshot. No change.
+- **2.6-rest (TTS resume manifest):** upgraded the Phase-2 index-based TTS resume
+  to a content-keyed manifest. Scene files are named on a hash of
+  voice+speed+model+text and recorded in `audio/manifest.json`; a re-run reuses a
+  scene only when its content is unchanged — skipping the paid TTS call *and*
+  ffprobe (cached duration) — and regenerates a scene whose beat text changed
+  (no stale audio). Mirrors the HeyGen chunk-resume design. Tested (fresh run,
+  identical re-run, edited-beat, manifest-lost-but-files-present).
+- **R2 (branch protection require-CI):** NOT applied — it's a GitHub repo setting
+  with no MCP/API tool available here, and "require status checks" only gates PR
+  *merges*, which doesn't fit the direct-push-to-main workflow. Left to the user
+  to decide/set in the GitHub UI. Force-push is already blocked by the existing
+  main ruleset (the Phase-0 "Partial R2" decision).
 
 **Next (roadmap, not requested):** goose adapter; validate pi on a real session;
 sharper correlation (touched files + message, walk pi's active branch);
