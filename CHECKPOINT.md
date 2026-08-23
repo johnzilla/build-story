@@ -319,11 +319,9 @@ auto-generated tag page. The honest state: every manifest is at **0.1.0**
 release tags**. The first real version/tag will come from the Changesets flow at
 first publish (see RELEASING.md).
 
-- Local `v1.1` tag: **deleted**.
-- Remote `v1.1` tag: **still present** — this environment's git proxy rejects
-  delete-only pushes and exposes no token/MCP tool for a ref delete. Delete it
-  from a normal clone with `git push origin --delete v1.1`, or via the GitHub UI
-  (Tags → v1.1 → Delete). No Release to remove.
+Both the local and remote `v1.1` tags are **deleted** (the remote one removed by
+the maintainer, since this environment's git proxy rejects delete-only pushes).
+The repo now has **no tags** — verified local and remote both at zero.
 
 ## Working agreement
 
