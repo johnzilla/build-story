@@ -308,6 +308,23 @@ publish the `buildstory` org on npm + first release (see RELEASING.md).
   CLAUDE.md stack docs). No `TODOS.md` exists in the repo; the TTS-resume item was
   completed in Phase 2 / cleanup (content-keyed manifest).
 
+## Versioning baseline
+
+No official release has ever been cut. The single git tag `v1.1` was a **GSD
+milestone marker** ("HeyGen Renderer Exploration", commit `188c520`, 23 commits
+behind main) — not a release — and GSD is retired. It has **no** GitHub Release
+object (`list_releases` → `[]`), so its `releases/tag/v1.1` page is just GitHub's
+auto-generated tag page. The honest state: every manifest is at **0.1.0**
+(unreleased dev), the root now carries `version: 0.1.0` too, and there are **no
+release tags**. The first real version/tag will come from the Changesets flow at
+first publish (see RELEASING.md).
+
+- Local `v1.1` tag: **deleted**.
+- Remote `v1.1` tag: **still present** — this environment's git proxy rejects
+  delete-only pushes and exposes no token/MCP tool for a ref delete. Delete it
+  from a normal clone with `git push origin --delete v1.1`, or via the GitHub UI
+  (Tags → v1.1 → Delete). No Release to remove.
+
 ## Working agreement
 
 Solo builder, no customers. No PRs. No GSD/planning-doc ceremony — commit
