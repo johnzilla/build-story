@@ -55,6 +55,11 @@ pnpm. All are ESM-only and scoped under `@buildstory`:
    own committed `LICENSE` and `README.md` (not relying on pnpm's implicit copy),
    so the MIT notice is present under either `pnpm` or `npm` — no copy step needed.
 
+   The CLI's `--version` banner is read at runtime from `@buildstory/cli`'s own
+   `package.json` (`buildstory --version` reflects the installed version with no
+   rebuild) — it is **not** hardcoded, so `changeset version` keeps it correct
+   automatically. Keep it that way; don't reintroduce a literal version string.
+
 4. **Publish** (build first — the tarball ships `dist/`):
 
    ```bash

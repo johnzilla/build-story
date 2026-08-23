@@ -1,6 +1,13 @@
 import { loadEnvFile } from 'node:process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+
+// Read the version from the package's own manifest so the --version banner can
+// never go stale. The bundle lives at dist/index.js, so ../package.json resolves
+// to the installed package root under any layout (dev or published tarball).
+const { version: VERSION } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+) as { version: string }
 
 // Load .env from cwd. loadEnvFile() throws both when the file is absent (fine)
 // and when it's present but malformed — distinguish so a broken .env isn't
@@ -27,7 +34,7 @@ const program = new Command()
 program
   .name('buildstory')
   .description('Extract and narrate your build story from git history and planning artifacts')
-  .version('0.1.0')
+  .version(VERSION)
 
 // Flag defaults are intentionally omitted for --provider/--style/--renderer so
 // precedence is CLI flag > buildstory.toml > built-in default (resolved in the
