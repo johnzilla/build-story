@@ -1,0 +1,24 @@
+# BuildStory dogfooding config — narrate this repo from its own git history.
+#
+# The story is the commits, not the planning docs: includeFiles = false drops the
+# stale .planning/ GSD artifacts (that workflow is retired) so the timeline is the
+# actual development history pushed to GitHub.
+
+provider = "anthropic"
+style = "story"
+outputDir = "./buildstory-out"
+
+[scan]
+includeFiles = false     # commit-only timeline (ignore .planning/ and other .md)
+
+[commits]
+enabled = true
+max = 500                # covers the whole history (74 commits today)
+includeMerges = false    # merge commits are narration noise
+
+[tts]
+voice = "nova"
+model = "tts-1-hd"
+
+[video]
+renderer = "remotion"    # cheap local render; use "heygen" for an avatar
