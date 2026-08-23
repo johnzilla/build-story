@@ -81,6 +81,12 @@ buildstory render <story-arc>   Render video from an existing story arc
 - `--no-stats-card` -- Disable auto-inserted stats card (Remotion only)
 - `-o, --output <path>` -- Output directory (default: ./buildstory-out)
 
+HeyGen rendering can take ~10 minutes per minute of video; BuildStory submits,
+polls, and downloads on your behalf. Every request has a timeout so a hung
+connection can't stall a render forever, transient server errors are retried,
+and a server error page surfaces as a clear HTTP status rather than an opaque
+parse error — so a long render fails fast and legibly when something is wrong.
+
 ### Configuration
 
 Create `buildstory.toml` in your project root:
@@ -203,6 +209,7 @@ Default palette: dark navy (#1a1a2e) + warm red (#e94560) + off-white text (#eae
 @buildstory/heygen        HeyGen avatar rendering (optional, lazy-installed)
   adaptStoryArc(...)        StoryArc → HeyGen video_inputs with beat-type colors
   renderWithHeyGen(...)     Submit, poll, download, concat chunks → MP4
+                            (per-request timeouts + retry on transient faults)
   preflightHeyGenCheck(...) Validate API key, avatar, voice config
   estimateHeyGenCost(...)   Credit/USD cost estimation
 
@@ -210,10 +217,11 @@ buildstory CLI            Thin wrapper
   run, scan, narrate, render  Commands mapping to core/video/heygen functions
   config.ts                   TOML config loader
   lazy.ts                     Lazy @buildstory/video and @buildstory/heygen install
-  adapters/                   ArtifactSource (fs + redaction), GitSource
+  adapters/                   ArtifactSource (fs + redaction), GitSource,
+                              transcript sources (Claude Code, pi)
 ```
 
-Core never imports `fs`, `process`, or config libraries. Filesystem access goes through an injected `ArtifactSource` interface and git access through an injected `GitSource` — so core stays free of I/O and vendor specifics. TTS and video rendering live in `@buildstory/video` to keep core pure.
+Core never imports `fs`, `process`, or config libraries. Filesystem access goes through an injected `ArtifactSource` interface, git access through an injected `GitSource`, and agent-session access through an injected `TranscriptSource` — so core stays free of I/O and vendor specifics. TTS and video rendering live in `@buildstory/video` to keep core pure.
 
 ## Packages
 
