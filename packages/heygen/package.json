@@ -1,6 +1,18 @@
 {
   "name": "@buildstory/heygen",
   "version": "0.1.0",
+  "description": "HeyGen avatar video rendering for BuildStory narrative scripts. ESM-only.",
+  "keywords": ["buildstory", "heygen", "avatar", "video", "documentary"],
+  "license": "MIT",
+  "author": "John Turner",
+  "homepage": "https://github.com/johnzilla/build-story#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnzilla/build-story.git",
+    "directory": "packages/heygen"
+  },
+  "bugs": { "url": "https://github.com/johnzilla/build-story/issues" },
+  "publishConfig": { "access": "public" },
   "type": "module",
   "exports": {
     ".": {
@@ -11,8 +23,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist/",
-    "src/"
+    "dist/"
   ],
   "scripts": {
     "build": "tsup",

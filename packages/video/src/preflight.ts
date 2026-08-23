@@ -26,8 +26,10 @@ export interface PreflightResult {
  *   5. PATH lookup for google-chrome / chromium binaries
  *
  * Returns the binary path if found, otherwise null.
+ *
+ * Exported for testing the search-order logic with a mocked fs/os/env.
  */
-async function findChrome(): Promise<string | null> {
+export async function findChrome(): Promise<string | null> {
   // 1 + 2. Explicit env-var overrides
   for (const envVar of ['PUPPETEER_EXECUTABLE_PATH', 'CHROME_PATH'] as const) {
     const p = process.env[envVar]

@@ -10,6 +10,7 @@ import { createGitSource } from '../adapters/git-source.js'
 import { createTranscriptSource } from '../adapters/transcript-registry.js'
 import { ttsCostUSD } from '@buildstory/video/pricing'
 import { llmCostUSD, LLM_PRICE_PER_1M } from '../pricing-llm.js'
+import { claudeDirWarning } from '../warnings.js'
 import {
   checkProvider,
   checkStyle,
@@ -124,6 +125,9 @@ export async function run(
       `[1/${totalSteps}] Scan complete — ${timeline.events.length} events (${formatDuration(Date.now() - scanStart)})`,
     ),
   )
+
+  const claudeWarning = claudeDirWarning(timeline)
+  if (claudeWarning) console.log(chalk.yellow(`  ${claudeWarning}`))
 
   // --dry-run: print a cost estimate from event count and exit BEFORE any
   // paid API calls. Accurate per-beat estimates come from `buildstory render

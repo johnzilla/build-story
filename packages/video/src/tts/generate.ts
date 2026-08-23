@@ -4,6 +4,7 @@ import { promisify } from 'node:util'
 import OpenAI from 'openai'
 import { DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
 import { getFfmpegPath } from './ffmpeg.js'
+import { truncateForTTS } from './truncate.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -13,9 +14,6 @@ interface GenerateOpts {
   /** OpenAI TTS model. Defaults to DEFAULT_TTS_MODEL. */
   model?: TTSModel
 }
-
-// 4096 char hard limit per OpenAI TTS request. Use 3900 as safe buffer.
-const MAX_TTS_CHARS = 3900
 
 function isRateLimitError(err: unknown): boolean {
   return err instanceof Error && 'status' in err && (err as { status: number }).status === 429
@@ -27,10 +25,8 @@ export async function generateSceneAudio(
   outputPath: string,
   opts: GenerateOpts,
 ): Promise<void> {
-  // If text exceeds limit, truncate at last sentence boundary under limit
-  const truncated = text.length > MAX_TTS_CHARS
-    ? text.slice(0, text.lastIndexOf('.', MAX_TTS_CHARS) + 1) || text.slice(0, MAX_TTS_CHARS)
-    : text
+  // If text exceeds the limit, truncate at the last sentence boundary that fits.
+  const truncated = truncateForTTS(text)
 
   const MAX_ATTEMPTS = 3
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

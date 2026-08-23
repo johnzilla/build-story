@@ -7,9 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm --filter '@buildstory/core' build && pnpm --filter '@buildstory/video' build && pnpm --filter '@buildstory/heygen' build && pnpm --filter 'buildstory' build",
+    "build": "pnpm --filter '@buildstory/core' build && pnpm --filter '@buildstory/video' build && pnpm --filter '@buildstory/heygen' build && pnpm --filter '@buildstory/cli' build",
     "test": "pnpm --filter '*' test",
-    "typecheck": "pnpm --filter '@buildstory/core' typecheck && pnpm --filter '@buildstory/video' typecheck && pnpm --filter '@buildstory/heygen' typecheck && pnpm --filter 'buildstory' typecheck",
+    "typecheck": "pnpm --filter '@buildstory/core' typecheck && pnpm --filter '@buildstory/video' typecheck && pnpm --filter '@buildstory/heygen' typecheck && pnpm --filter '@buildstory/cli' typecheck",
     "lint": "eslint packages/*/src",
     "format": "prettier --write .",
     "audit": "pnpm audit --audit-level=high",

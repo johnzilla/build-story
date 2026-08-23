@@ -1,7 +1,20 @@
 {
   "name": "@buildstory/core",
   "version": "0.1.0",
+  "description": "Reconstruct a chronological development timeline and generate an LLM narrative script from git history, planning artifacts, and coding-agent transcripts. ESM-only.",
+  "keywords": ["buildstory", "git", "timeline", "changelog", "narrative", "llm", "documentary"],
+  "license": "MIT",
+  "author": "John Turner",
+  "homepage": "https://github.com/johnzilla/build-story#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnzilla/build-story.git",
+    "directory": "packages/core"
+  },
+  "bugs": { "url": "https://github.com/johnzilla/build-story/issues" },
+  "publishConfig": { "access": "public" },
   "type": "module",
+  "files": ["dist/"],
   "exports": {
     ".": {
       "import": "./dist/index.js",

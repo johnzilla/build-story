@@ -2,7 +2,7 @@
 
 Working branch: `main` (source of truth; solo builder commits straight to main).
 State: **green** — `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`
-(323 tests) all pass.
+(343 tests) all pass. All four packages `pnpm publish --dry-run` clean.
 
 ## The pivot (why this work exists)
 
@@ -254,9 +254,42 @@ External review, Phase 3. All committed to main:
   to decide/set in the GitHub UI. Force-push is already blocked by the existing
   main ruleset (the Phase-0 "Partial R2" decision).
 
+## Packaging, docs & tests (Phase 4) — shipped
+
+External review, Phase 4 (pre-publish). All committed to main:
+
+- **4.1 Video package tests.** The former zero-test package now has 24 tests
+  across 6 files. Extracted two internals into pure, testable modules —
+  `tts/concurrency.ts` (`withConcurrency`, now guards a non-positive limit
+  against an infinite loop) and `tts/truncate.ts` (`truncateForTTS`) — and
+  exported `findChrome` from preflight. New tests: concurrency (order/limit),
+  truncation (sentence-boundary/hard-cut), and findChrome path logic (mocked
+  fs/os/env: env override, puppeteer-cache layout, not-found). srt + pricing +
+  resume were already covered. Dropped `--passWithNoTests`.
+- **4.2 README + CONTRIBUTING.** README already matched shipped behavior after
+  Phases 2–3 (lazy-install rewrite, TTS pricing, Chrome, dead flags, pnpm 10);
+  this pass fixed the install commands for the CLI's real npm name (see 4.3) and
+  added **CONTRIBUTING.md** (setup, gates, package boundaries, ESM-only rule).
+- **4.3 Publish prep.** Added description/keywords/license/author/repository
+  (with `directory`)/bugs/homepage/`publishConfig.access=public` to all four
+  package.json; `files` for core (`dist/`) and cli (`dist/`); excluded tests from
+  the `@buildstory/video` tarball (it must ship `src/` for the Remotion bundler)
+  via negated `files` globs; trimmed `@buildstory/heygen` to `dist/`. **All four
+  `pnpm publish --dry-run` clean.** ESM-only stated explicitly. Added
+  **RELEASING.md** (Changesets runbook). *Naming:* the bare npm name `buildstory`
+  is owned by an unrelated package, so the CLI is renamed **`@buildstory/cli`**
+  (bin stays `buildstory`) — user-approved. Root build/typecheck filters updated.
+- **4.4 Privacy niceties.** (a) `run`/`scan` warn when files under a repo's
+  `.claude/` dir were scanned (`warnings.ts`, tested) — surprising when scanning
+  a repo that isn't yours. (b) The CLI warns on a present-but-malformed `.env`
+  instead of silently swallowing it. (c) HeyGen preflight now validates the API
+  key against a cheap endpoint (`remaining_quota`) and fails on a 401/403 before
+  any paid submission; transient/network errors don't block (tested).
+
 **Next (roadmap, not requested):** goose adapter; validate pi on a real session;
 sharper correlation (touched files + message, walk pi's active branch);
-multi-root scan (deferred with 3.1 — downstream assumes a single rootDir).
+multi-root scan (deferred with 3.1 — downstream assumes a single rootDir);
+publish the `buildstory` org on npm + first release (see RELEASING.md).
 
 ## Working agreement
 

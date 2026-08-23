@@ -16,8 +16,10 @@ Also produces text formats: X threads, blog drafts, story outlines, and video sc
 
 ## Quick Start
 
+From a clone of this repo (the CLI isn't published yet):
+
 ```bash
-# Install and build
+# Install and build the workspace
 pnpm install && pnpm build
 
 # Add your API keys to .env (already in .gitignore)
@@ -25,11 +27,22 @@ echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env
 echo 'OPENAI_API_KEY=sk-proj-...' >> .env
 
 # Run the full pipeline: scan -> narrate -> TTS -> render video
-npx buildstory run ~/my-project
+node packages/cli/dist/index.js run ~/my-project
 
 # Or text-only (no video, no OpenAI key needed)
-npx buildstory run ~/my-project --skip-video
+node packages/cli/dist/index.js run ~/my-project --skip-video
 ```
+
+Once published, install the CLI globally and use the `buildstory` command:
+
+```bash
+npm install -g @buildstory/cli   # the npm package is @buildstory/cli
+buildstory run ~/my-project
+```
+
+> The npm package is **`@buildstory/cli`** (the bare name `buildstory` belongs to
+> an unrelated package). It installs a `buildstory` command. Don't run
+> `npx buildstory` — that would fetch the unrelated package.
 
 Output goes to `./buildstory-out/<project-name>/`:
 - `<project>.mp4` -- narrated video with visual timeline
@@ -242,7 +255,7 @@ buildstory CLI            Thin wrapper
 | `@buildstory/core` | Core library: scan, narrate, format |
 | `@buildstory/video` | Remotion rendering: TTS, composition, ffprobe |
 | `@buildstory/heygen` | HeyGen rendering: adapter, API client, polling, concat |
-| `buildstory` | CLI wrapper |
+| `@buildstory/cli` | CLI wrapper (provides the `buildstory` command) |
 
 ## Development
 

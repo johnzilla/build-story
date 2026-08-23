@@ -1,6 +1,18 @@
 {
   "name": "@buildstory/video",
   "version": "0.1.0",
+  "description": "Remotion video rendering and OpenAI TTS for BuildStory narrative scripts. ESM-only. Ships src/ so the Remotion bundler can compile the composition at render time.",
+  "keywords": ["buildstory", "remotion", "video", "tts", "narration", "documentary"],
+  "license": "MIT",
+  "author": "John Turner",
+  "homepage": "https://github.com/johnzilla/build-story#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnzilla/build-story.git",
+    "directory": "packages/video"
+  },
+  "bugs": { "url": "https://github.com/johnzilla/build-story/issues" },
+  "publishConfig": { "access": "public" },
   "type": "module",
   "exports": {
     ".": {
@@ -16,12 +28,14 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist/",
-    "src/"
+    "src/",
+    "!src/**/__tests__/**",
+    "!src/**/*.test.ts"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

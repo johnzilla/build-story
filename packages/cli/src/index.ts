@@ -1,6 +1,20 @@
 import { loadEnvFile } from 'node:process'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
-try { loadEnvFile() } catch { /* no .env file — use existing env */ }
+// Load .env from cwd. loadEnvFile() throws both when the file is absent (fine)
+// and when it's present but malformed — distinguish so a broken .env isn't
+// swallowed silently, leaving the user to wonder why their keys "aren't set".
+try {
+  loadEnvFile()
+} catch {
+  if (existsSync(resolve(process.cwd(), '.env'))) {
+    console.error(
+      'Warning: found a .env file but could not parse it — ignoring it. ' +
+        'Check for malformed lines (expected KEY=value per line).',
+    )
+  }
+}
 
 import { Command } from 'commander'
 import { run } from './commands/run.js'

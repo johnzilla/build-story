@@ -7,6 +7,7 @@ import type { TTSOptions, SceneAudio, AudioManifest, TTSCostEstimate } from './t
 import { generateSceneAudio } from './generate.js'
 import { measureAudioDuration } from './measure.js'
 import { ttsCostUSD, DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
+import { withConcurrency } from './concurrency.js'
 
 export function estimateTTSCost(
   beats: StoryBeat[],
@@ -65,15 +66,6 @@ async function loadManifest(path: string): Promise<Map<string, ManifestEntry>> {
     // if they exist on disk).
   }
   return new Map()
-}
-
-async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
-  const results: T[] = []
-  for (let i = 0; i < tasks.length; i += limit) {
-    const batch = tasks.slice(i, i + limit).map(fn => fn())
-    results.push(...await Promise.all(batch))
-  }
-  return results
 }
 
 export async function orchestrateTTS(

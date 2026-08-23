@@ -7,6 +7,7 @@ import { loadConfig, toScanOptions } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
 import { createTranscriptSource } from '../adapters/transcript-registry.js'
+import { claudeDirWarning } from '../warnings.js'
 
 export async function scanCommand(
   path: string | undefined,
@@ -38,6 +39,9 @@ export async function scanCommand(
   spinner.start('Scanning artifacts...')
   const timeline = await scan(source, toScanOptions(rootDir, config), gitSource, transcriptSource)
   spinner.succeed(chalk.green(`Scan complete — ${timeline.events.length} events found`))
+
+  const claudeWarning = claudeDirWarning(timeline)
+  if (claudeWarning) console.error(chalk.yellow(`  ${claudeWarning}`))
 
   const json = JSON.stringify(timeline, null, 2)
 

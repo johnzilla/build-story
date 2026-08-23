@@ -1,10 +1,24 @@
 {
-  "name": "buildstory",
+  "name": "@buildstory/cli",
   "version": "0.1.0",
+  "description": "Turn your development history into narrated video documentaries and shareable text — from git commits, planning artifacts, and coding-agent transcripts. Install provides the `buildstory` command.",
+  "keywords": ["buildstory", "cli", "git", "changelog", "video", "documentary", "narrative", "llm"],
+  "license": "MIT",
+  "author": "John Turner",
+  "homepage": "https://github.com/johnzilla/build-story#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnzilla/build-story.git",
+    "directory": "packages/cli"
+  },
+  "bugs": { "url": "https://github.com/johnzilla/build-story/issues" },
+  "publishConfig": { "access": "public" },
   "type": "module",
+  "files": ["dist/"],
   "bin": {
     "buildstory": "./dist/index.js"
   },
+  "engines": { "node": ">=22" },
   "scripts": {
     "build": "tsup && chmod +x dist/index.js",
     "dev": "tsup --watch",
