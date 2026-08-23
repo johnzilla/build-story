@@ -34,7 +34,7 @@ afterAll(async () => {
 
 describe('scanCommand', () => {
   it('produces a valid Timeline JSON from real filesystem artifacts', async () => {
-    const timeline = await scanCommand([tempDir], { output: outputFile })
+    const timeline = await scanCommand(tempDir, { output: outputFile })
 
     // Validate against Zod schema
     const parsed = TimelineSchema.parse(timeline)
@@ -46,7 +46,7 @@ describe('scanCommand', () => {
   })
 
   it('writes valid JSON to the output file', async () => {
-    await scanCommand([tempDir], { output: outputFile })
+    await scanCommand(tempDir, { output: outputFile })
 
     const raw = readFileSync(outputFile, 'utf8')
     const parsed = JSON.parse(raw)
@@ -55,7 +55,7 @@ describe('scanCommand', () => {
   })
 
   it('events have required fields: artifactType, summary, rawContent', async () => {
-    const timeline = await scanCommand([tempDir], { output: outputFile })
+    const timeline = await scanCommand(tempDir, { output: outputFile })
 
     for (const event of timeline.events) {
       expect(typeof event.artifactType).toBe('string')
@@ -67,7 +67,7 @@ describe('scanCommand', () => {
 
   it('works without git (dateConfidence is estimated or unknown)', async () => {
     // tempDir has no .git — git will not be available
-    const timeline = await scanCommand([tempDir], { output: outputFile })
+    const timeline = await scanCommand(tempDir, { output: outputFile })
 
     for (const event of timeline.events) {
       // Without git, confidence should be estimated (via mtime) or unknown
@@ -76,7 +76,7 @@ describe('scanCommand', () => {
   })
 
   it('writes json to output file', async () => {
-    await scanCommand([tempDir], { output: outputFile })
+    await scanCommand(tempDir, { output: outputFile })
 
     const raw = readFileSync(outputFile, 'utf8')
     const parsed = JSON.parse(raw)

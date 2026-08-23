@@ -61,24 +61,32 @@ export async function narrate(
     scannedAt: timeline.scannedAt,
   })
 
+  // The model receives systemPrompt + payload, so the payload's real budget is
+  // maxInputTokens minus the system prompt (~1.5–2k tokens). Budgeting only the
+  // payload previously let a full chunk + a 2k system prompt slip over the limit.
+  const systemTokens = estimateTokens(systemPrompt)
+  const payloadBudget = Math.max(1, maxInputTokens - systemTokens)
+
   const payload = buildTimelinePayload(timeline)
   const estimatedTokens = estimateTokens(payload)
 
   let finalArc: StoryArc
 
-  if (estimatedTokens <= maxInputTokens) {
+  if (estimatedTokens <= payloadBudget) {
     // Fits within budget — single extraction call
     finalArc = await llmProvider.extractStoryArc(timeline, systemPrompt)
   } else {
-    // Over budget — chunk by phase boundaries, guard each chunk individually
-    const chunks = chunkTimeline(timeline, maxInputTokens)
+    // Over budget — chunk (by phase, then by size), guard each chunk individually
+    // against the same system-prompt-adjusted budget.
+    const chunks = chunkTimeline(timeline, payloadBudget)
 
     const chunkArcs: StoryArc[] = []
     for (const chunk of chunks) {
       const chunkPayload = buildTimelinePayload(chunk)
-      // guardTokens throws (NARR-08) if an individual chunk still exceeds the limit
-      // after phase-boundary splitting — this means a single phase is too large to narrate
-      guardTokens(chunkPayload, maxInputTokens)
+      // guardTokens throws (NARR-08) only if a single event is itself larger than
+      // the budget — the size-splitter in chunkTimeline handles everything else,
+      // so non-GSD (phase-less) repos no longer dead-end on one "ungrouped" chunk.
+      guardTokens(chunkPayload, payloadBudget)
       const chunkArc = await llmProvider.extractStoryArc(chunk, systemPrompt)
       chunkArcs.push(chunkArc)
     }

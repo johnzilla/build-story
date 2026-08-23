@@ -70,9 +70,22 @@ export function correlateCommitsWithTranscripts(
   const enrichedByIndex = new Map<number, TimelineEvent>()
   let prevMs = -Infinity
 
+  // Sliding-window pointer over the two sorted lists → O(n+m), not O(commits×asks).
+  // Both `commits` and `asks` are sorted ascending by ms. Each commit's window is
+  // (lower, commit.ms] with lower = max(prevCommitMs, commit.ms − lookback), which
+  // is monotonically non-decreasing — so `p` only ever advances forward.
+  let p = 0
   for (const commit of commits) {
     const lower = Math.max(prevMs, commit.ms - maxLookbackMs)
-    const windowAsks = asks.filter((a) => a.ms > lower && a.ms <= commit.ms)
+    // Drop asks at/before the lower bound (too old, or already claimed by an
+    // earlier commit) — they can never fall in this or any later window.
+    while (p < asks.length && asks[p]!.ms <= lower) p++
+    // Take asks up to and including the commit time.
+    let q = p
+    while (q < asks.length && asks[q]!.ms <= commit.ms) q++
+    const windowAsks = asks.slice(p, q)
+    // A later commit's lower bound is ≥ this commit.ms, so these asks are consumed.
+    p = q
     prevMs = commit.ms
     if (windowAsks.length === 0) continue
 

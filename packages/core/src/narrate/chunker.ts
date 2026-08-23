@@ -126,7 +126,18 @@ export function chunkTimeline(timeline: Timeline, maxInputTokens: number): Timel
   // stay over budget and guardTokens would throw spuriously. The size split
   // packs those events into as many sub-chunks as the budget requires.
   const groups = groupByPhase(timeline.events)
-  const wrapperChars = buildTimelinePayload({ ...timeline, events: [] }).length
+  // Wrapper (version/rootDir/scannedAt/dateRange + empty events array) size, used
+  // to budget how many events fit per chunk. Estimate the dateRange from the
+  // events (each sub-chunk's dateRange is event-derived, hence longer than the
+  // original timeline's may be) plus a small safety pad, so a packed chunk never
+  // slips a few chars over the token budget.
+  const DATE_SAFETY_PAD = 16
+  const wrapperChars =
+    buildTimelinePayload({
+      ...timeline,
+      dateRange: computeDateRange(timeline.events),
+      events: [],
+    }).length + DATE_SAFETY_PAD
   const chunks: Timeline[] = []
 
   for (const [, events] of groups) {

@@ -15,31 +15,36 @@ program
   .description('Extract and narrate your build story from git history and planning artifacts')
   .version('0.1.0')
 
+// Flag defaults are intentionally omitted for --provider/--style/--renderer so
+// precedence is CLI flag > buildstory.toml > built-in default (resolved in the
+// command). Commander would otherwise always set the flag, so config could never
+// take effect — the bug this fixes.
 program
-  .command('run [paths...]')
+  .command('run [path]')
   .description('Run the full pipeline: scan -> narrate -> TTS -> render')
   .option('-c, --config <path>', 'path to buildstory.toml')
-  .option('--provider <provider>', 'LLM provider (anthropic|openai)', 'anthropic')
-  .option('--style <style>', 'narrative style', 'story')
+  .option('--provider <provider>', 'LLM provider (anthropic|openai)')
+  .option('--style <style>', 'narrative style (technical|overview|retrospective|pitch|story)')
   .option('-o, --output <path>', 'output directory', './buildstory-out')
   .option('--skip-video', 'Skip video rendering, text-only output')
   .option('--include-text', 'Include text formats alongside video')
   .option('--dry-run', 'Show cost estimates without calling APIs')
+  .option('--max-cost <usd>', 'Abort before any stage that would exceed this total spend (USD)')
   .option('--no-title-card', 'Disable auto-inserted title card')
   .option('--no-stats-card', 'Disable auto-inserted stats card')
-  .option('--renderer <renderer>', 'Video renderer (remotion|heygen)', 'remotion')
-  .action(async (paths, opts) => {
-    await run(paths, opts)
+  .option('--renderer <renderer>', 'Video renderer (remotion|heygen)')
+  .action(async (path: string | undefined, opts) => {
+    await run(path, opts)
   })
 
 program
   .command('scan')
   .description('Scan git history and planning artifacts into a timeline')
-  .argument('[paths...]', 'Paths to scan', ['.'])
+  .argument('[path]', 'Path to scan', '.')
   .option('-o, --output <file>', 'Output file path (default: stdout)')
   .option('-c, --config <path>', 'Config file path')
-  .action(async (paths: string[], opts: { output?: string; config?: string }) => {
-    await scanCommand(paths, opts)
+  .action(async (path: string, opts: { output?: string; config?: string }) => {
+    await scanCommand(path, opts)
   })
 
 program
@@ -48,8 +53,8 @@ program
   .argument('<timeline>', 'Path to timeline.json')
   .option('-c, --config <path>', 'Config file path')
   .option('-f, --format <format>', 'Output format (outline|thread|blog|video-script) — all by default')
-  .option('--provider <provider>', 'LLM provider (anthropic|openai)', 'anthropic')
-  .option('--style <style>', 'Narrative style (technical|overview|retrospective|pitch|story)', 'overview')
+  .option('--provider <provider>', 'LLM provider (anthropic|openai)')
+  .option('--style <style>', 'Narrative style (technical|overview|retrospective|pitch|story)')
   .option('-o, --output <path>', 'Output directory', './buildstory-out')
   .action(async (timeline: string, opts) => {
     await narrateCommand(timeline, opts)
@@ -64,7 +69,7 @@ program
   .option('--dry-run', 'Show TTS cost estimate without calling APIs')
   .option('--no-title-card', 'Disable auto-inserted title card')
   .option('--no-stats-card', 'Disable auto-inserted stats card')
-  .option('--renderer <renderer>', 'Video renderer (remotion|heygen)', 'remotion')
+  .option('--renderer <renderer>', 'Video renderer (remotion|heygen)')
   .action(async (storyArc: string, opts) => {
     await renderCommand(storyArc, opts)
   })

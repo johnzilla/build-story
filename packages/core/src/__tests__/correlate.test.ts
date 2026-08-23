@@ -115,4 +115,33 @@ describe('correlateCommitsWithTranscripts()', () => {
     const [out] = correlateCommitsWithTranscripts([file], sessions)
     expect(out?.summary).toBe('a file')
   })
+
+  // 3.5: sliding-window correlation must stay O(n+m). This exercises many
+  // commits × many asks — correctness (each ask lands in exactly the right
+  // window) doubles as a guard that the two-pointer logic never rescans.
+  it('correlates a large commit/ask set correctly and completes quickly', () => {
+    const N = 2000
+    const base = Date.parse('2026-01-01T00:00:00Z')
+    const hour = 3_600_000
+    // Commit i at hour i; one ask 5 min before each commit (inside its window).
+    const commits = Array.from({ length: N }, (_, i) =>
+      commit(`c${i}`, new Date(base + i * hour).toISOString()),
+    )
+    const turns = Array.from({ length: N }, (_, i) =>
+      ask(`ask-${i}`, new Date(base + i * hour - 5 * 60_000).toISOString()),
+    )
+    const sessions = [session('s1', turns)]
+
+    const t0 = Date.now()
+    const out = correlateCommitsWithTranscripts(commits, sessions)
+    const elapsed = Date.now() - t0
+
+    // Every commit gets exactly its own ask — none leaks to a neighbor.
+    for (let i = 0; i < N; i++) {
+      expect(out[i]?.summary).toContain(`ask-${i}`)
+      if (i > 0) expect(out[i]?.summary).not.toContain(`ask-${i - 1}`)
+    }
+    // A quadratic scan of 2000×2000 would be far slower; this is a generous bound.
+    expect(elapsed).toBeLessThan(1000)
+  })
 })

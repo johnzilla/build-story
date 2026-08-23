@@ -38,7 +38,7 @@ describe('buildCommitEvents()', () => {
   it('assigns a stable commit- prefixed id keyed on the hash', () => {
     const [a] = buildCommitEvents([makeCommit()])
     const [b] = buildCommitEvents([makeCommit()])
-    expect(a?.id).toMatch(/^commit-[0-9a-f]{8}$/)
+    expect(a?.id).toMatch(/^commit-[0-9a-f]{16}$/)
     expect(a?.id).toBe(b?.id)
   })
 

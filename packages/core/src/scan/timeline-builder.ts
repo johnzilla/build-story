@@ -1,16 +1,7 @@
+import { createHash } from 'node:crypto'
 import { TimelineSchema } from '../types/timeline.js'
 import type { Timeline, TimelineEvent } from '../types/timeline.js'
 import type { GitSource } from '../types/git-source.js'
-
-// djb2 hash — deterministic, no crypto import needed
-function djb2Hash(input: string): number {
-  let hash = 5381
-  for (let i = 0; i < input.length; i++) {
-    hash = ((hash << 5) + hash) ^ (input.charCodeAt(i) | 0)
-    hash = hash >>> 0 // force unsigned 32-bit
-  }
-  return hash
-}
 
 const ID_PREFIXES: Record<'file' | 'git-commit' | 'git-tag' | 'transcript', string> = {
   file: 'file',
@@ -19,14 +10,20 @@ const ID_PREFIXES: Record<'file' | 'git-commit' | 'git-tag' | 'transcript', stri
   transcript: 'session',
 }
 
+/**
+ * Deterministic event id: a 64-bit (16 hex chars) slice of the SHA-1 of
+ * `source:path:date`. The prior 32-bit djb2 hash had a ~50% birthday-collision
+ * chance around ~77k events and produced visible collisions far sooner on large
+ * repos; 64 bits pushes that to ~5 billion, comfortably beyond any timeline.
+ */
 export function generateEventId(
   source: 'file' | 'git-commit' | 'git-tag' | 'transcript',
   path: string,
   date: string,
 ): string {
   const input = `${source}:${path}:${date}`
-  const hash = djb2Hash(input)
-  return `${ID_PREFIXES[source]}-${hash.toString(16).padStart(8, '0')}`
+  const hash = createHash('sha1').update(input).digest('hex').slice(0, 16)
+  return `${ID_PREFIXES[source]}-${hash}`
 }
 
 interface BuildTimelineInput {

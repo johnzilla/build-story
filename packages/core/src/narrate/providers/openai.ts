@@ -88,68 +88,72 @@ export class OpenAIProvider implements LLMProvider {
 
   /**
    * Internal helper for structured extraction.
-   * Tries zodResponseFormat first; falls back to z.toJSONSchema() if Zod v4 incompatibility detected.
+   *
+   * The Zod v4 incompatibility (Pitfall 1) is a SERIALIZATION failure: it happens
+   * synchronously inside `zodResponseFormat(...)` while it walks the schema —
+   * before any network call. So we isolate the fallback to schema *construction*
+   * only: if building the response_format throws, we rebuild it with
+   * `z.toJSONSchema()`. Then exactly ONE network call is made either way.
+   *
+   * The previous version wrapped the whole request in one try/catch and retried
+   * on any error whose message contained "Cannot read properties of undefined" —
+   * a broad substring that a genuine parse/response failure could also carry,
+   * triggering a second paid call that masked the real error. Narrowing the
+   * fallback to construction guarantees a schema failure raises once, with no
+   * duplicate spend.
    */
   private async _structuredExtract(
     messages: Array<{ role: 'system' | 'user'; content: string }>,
   ): Promise<StoryArc> {
-    // Try primary path: zodResponseFormat
+    // Build the response format, falling back to a hand-serialized JSON schema
+    // only if zodResponseFormat's synchronous schema walk fails.
+    let useParse = true
+    let responseFormat: ReturnType<typeof zodResponseFormat> | undefined
     try {
-      const responseFormat = zodResponseFormat(StoryArcSchema, 'story_arc')
+      responseFormat = zodResponseFormat(StoryArcSchema, 'story_arc')
+    } catch {
+      useParse = false
+    }
 
+    if (useParse && responseFormat !== undefined) {
       const completion = await this.client.chat.completions.parse({
         model: this.model,
         temperature: 0,
         messages,
         response_format: responseFormat,
       })
-
       this.trackUsage(completion.usage ?? undefined)
 
       const parsed = completion.choices[0]?.message.parsed
       if (parsed === null || parsed === undefined) {
         throw new Error('OpenAI failed to produce structured output (content filter or length limit)')
       }
-
-      return StoryArcSchema.parse(parsed)
-    } catch (err) {
-      // Check if this is a Zod v4 compatibility error from zodResponseFormat (Pitfall 1)
-      const errMsg = String(err)
-      const isZodCompatError =
-        errMsg.includes('ZodFirstPartyTypeKind') ||
-        errMsg.includes('zod-to-json-schema') ||
-        errMsg.includes('Cannot read properties of undefined')
-
-      if (!isZodCompatError) {
-        // Re-throw non-compatibility errors (e.g. API errors, content filter)
-        throw err
-      }
-
-      // Fallback: use z.toJSONSchema() with manual response_format
-      const rawSchema = z.toJSONSchema(StoryArcSchema)
-      const completion = await this.client.chat.completions.create({
-        model: this.model,
-        temperature: 0,
-        messages,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'story_arc',
-            schema: rawSchema as Record<string, unknown>,
-            strict: true,
-          },
-        },
-      })
-
-      this.trackUsage(completion.usage ?? undefined)
-
-      const content = completion.choices[0]?.message.content
-      if (content === null || content === undefined) {
-        throw new Error('OpenAI failed to produce structured output (fallback path: content filter or length limit)')
-      }
-
-      const parsed: unknown = JSON.parse(content)
       return StoryArcSchema.parse(parsed)
     }
+
+    // Fallback path: manual json_schema response_format via z.toJSONSchema().
+    const rawSchema = z.toJSONSchema(StoryArcSchema)
+    const completion = await this.client.chat.completions.create({
+      model: this.model,
+      temperature: 0,
+      messages,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'story_arc',
+          schema: rawSchema as Record<string, unknown>,
+          strict: true,
+        },
+      },
+    })
+    this.trackUsage(completion.usage ?? undefined)
+
+    const content = completion.choices[0]?.message.content
+    if (content === null || content === undefined) {
+      throw new Error('OpenAI failed to produce structured output (fallback path: content filter or length limit)')
+    }
+
+    const parsed: unknown = JSON.parse(content)
+    return StoryArcSchema.parse(parsed)
   }
 }

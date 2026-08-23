@@ -5,6 +5,17 @@ import ora from 'ora'
 import type { StoryArc } from '@buildstory/core'
 import { StoryArcSchema } from '@buildstory/core'
 import { loadConfig } from '../config.js'
+import {
+  checkRenderer,
+  checkVoice,
+  checkSpeed,
+  checkTtsModel,
+  reportErrors,
+  DEFAULT_RENDERER,
+  DEFAULT_VOICE,
+  DEFAULT_SPEED,
+  DEFAULT_TTS_MODEL,
+} from '../validate.js'
 
 // Renderer dispatch is a plain flag check below (remotion | heygen) — no plugin
 // registry (D-02). Each renderer's contract lives in its own package.
@@ -24,6 +35,16 @@ export async function renderCommand(
   const projectRoot = opts.config ? dirname(resolve(opts.config)) : process.cwd()
   const config = loadConfig(projectRoot)
 
+  // Validate inputs before any paid call. Precedence: flag > config > default.
+  const errors: string[] = []
+  const renderer = checkRenderer(opts.renderer ?? config.video?.renderer ?? DEFAULT_RENDERER, errors)
+  // TTS config is only used by the Remotion path, but a malformed value is worth
+  // surfacing up front regardless of which renderer runs.
+  const ttsVoice = checkVoice(config.tts?.voice ?? DEFAULT_VOICE, errors)
+  const ttsSpeed = checkSpeed(config.tts?.speed ?? DEFAULT_SPEED, errors)
+  const ttsModel = checkTtsModel(config.tts?.model ?? DEFAULT_TTS_MODEL, errors)
+  reportErrors(errors)
+
   // Load and validate story arc (T-04-09: parse through Zod schema)
   const raw = await readFile(resolve(storyArcPath), 'utf-8')
   const storyArc: StoryArc = StoryArcSchema.parse(JSON.parse(raw))
@@ -34,9 +55,6 @@ export async function renderCommand(
 
   console.log(chalk.bold('\n  BuildStory Render\n'))
   console.log(chalk.dim(`  Story: ${storyArc.beats.length} beats | Source: ${projectName}\n`))
-
-  // Renderer resolution: CLI flag > config > default (per D-01)
-  const renderer = opts.renderer ?? config.video?.renderer ?? 'remotion'
 
   if (renderer === 'heygen') {
     // @buildstory/heygen is a hard workspace dep; the dynamic import only defers
@@ -136,8 +154,6 @@ export async function renderCommand(
       process.exit(1)
     }
 
-    const ttsModel = config.tts?.model ?? 'tts-1-hd'
-
     // TTS cost estimate (REND-03, D-16) — priced at the model actually called
     const costEstimate = video.estimateTTSCost(storyArc.beats, ttsModel)
     console.log(
@@ -154,9 +170,7 @@ export async function renderCommand(
     const outputDir = resolve(opts.output, projectName)
     await mkdir(outputDir, { recursive: true })
 
-    // TTS (REND-02)
-    const ttsVoice = config.tts?.voice ?? 'nova'
-    const ttsSpeed = config.tts?.speed ?? 1.0
+    // TTS (REND-02) — voice/speed/model validated above; concurrency here.
     const ttsConcurrency = config.tts?.concurrency ?? 2
 
     const ttsSpinner = ora(`[1/2] Generating TTS audio...`).start()

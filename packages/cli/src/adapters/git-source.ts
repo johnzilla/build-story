@@ -78,17 +78,39 @@ export async function createGitSource(rootDir: string): Promise<GitSource | null
     return null
   }
 
+  // One-pass file→date map, built lazily on first getFileDate call and cached.
+  // A single `git log --name-only` walk replaces the old one-spawn-per-file
+  // (O(files) git processes) — the win on large repos. `--relative` scopes the
+  // walk to the scan dir and emits paths relative to it (matching the scanner's
+  // relative paths); newest-first order means the first time we see a file is
+  // its most-recent commit date.
+  let fileDateMap: Map<string, string> | null = null
+  const ensureFileDateMap = async (): Promise<Map<string, string>> => {
+    if (fileDateMap !== null) return fileDateMap
+    const map = new Map<string, string>()
+    try {
+      const raw = await git.raw(['log', '--name-only', '--relative', `--pretty=format:${RS}%aI`])
+      for (const block of raw.split(RS)) {
+        const nl = block.indexOf('\n')
+        if (nl === -1) continue
+        const date = block.slice(0, nl).trim()
+        if (date.length === 0) continue
+        for (const line of block.slice(nl + 1).split('\n')) {
+          const file = line.trim()
+          if (file.length > 0 && !map.has(file)) map.set(file, date)
+        }
+      }
+    } catch {
+      // Leave the map empty — getFileDate then returns null (mtime fallback).
+    }
+    fileDateMap = map
+    return map
+  }
+
   return {
     getFileDate: async (relativePath: string): Promise<string | null> => {
-      try {
-        const log = await git.log({
-          file: relativePath,
-          maxCount: 1,
-        })
-        return log.latest?.date ?? null
-      } catch {
-        return null
-      }
+      const map = await ensureFileDateMap()
+      return map.get(relativePath) ?? null
     },
 
     getTags: async (): Promise<Array<{ name: string; date: string; message: string }>> => {

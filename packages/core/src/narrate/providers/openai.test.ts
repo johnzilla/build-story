@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { zodResponseFormat } from 'openai/helpers/zod'
 import { StoryArcSchema } from '../../types/story.js'
 import type { StoryArc } from '../../types/story.js'
 import type { Timeline } from '../../types/timeline.js'
@@ -230,6 +231,45 @@ describe('OpenAIProvider', () => {
       await expect(provider.synthesizeArcs([makeArc()], 'system prompt')).rejects.toThrow(
         'OpenAI failed to produce structured output',
       )
+    })
+  })
+
+  // --- 3.4: zod-compat fallback is scoped to schema construction only ---
+  describe('zod-compat fallback', () => {
+    it('falls back to a single create() call when zodResponseFormat serialization throws', async () => {
+      // Simulate the Zod v4 serialization incompatibility (synchronous, pre-network).
+      vi.mocked(zodResponseFormat).mockImplementationOnce(() => {
+        throw new TypeError("Cannot read properties of undefined (reading 'ZodFirstPartyTypeKind')")
+      })
+      mockCreate.mockResolvedValue({
+        choices: [{ message: { content: JSON.stringify(makeArc()) } }],
+      })
+
+      const provider = new OpenAIProvider({ apiKey: 'test-key' })
+      const result = await provider.extractStoryArc(makeTimeline(), 'system prompt')
+
+      // Exactly one network call, via the fallback path — parse() never runs.
+      expect(mockCreate).toHaveBeenCalledOnce()
+      expect(mockParse).not.toHaveBeenCalled()
+      expect(() => StoryArcSchema.parse(result)).not.toThrow()
+    })
+
+    it('does NOT make a second paid call when parse() fails at request/response time', async () => {
+      // zodResponseFormat serializes fine, but the network parse() rejects with a
+      // message that happens to contain the old broad-match substring. The fix
+      // must NOT treat this as a compat error and retry via create().
+      mockParse.mockRejectedValue(
+        new TypeError("Cannot read properties of undefined (reading 'foo')"),
+      )
+
+      const provider = new OpenAIProvider({ apiKey: 'test-key' })
+      await expect(provider.extractStoryArc(makeTimeline(), 'system prompt')).rejects.toThrow(
+        /Cannot read properties of undefined/,
+      )
+
+      // The failure raised once — no duplicate spend on a fallback create().
+      expect(mockParse).toHaveBeenCalledOnce()
+      expect(mockCreate).not.toHaveBeenCalled()
     })
   })
 })

@@ -45,11 +45,13 @@ With `--skip-video` or `--include-text`, you also get:
 ## CLI
 
 ```
-buildstory run [paths...]       Full pipeline: scan -> narrate -> TTS -> render
-buildstory scan [paths...]      Scan git history + planning artifacts into timeline.json
+buildstory run [path]           Full pipeline: scan -> narrate -> TTS -> render
+buildstory scan [path]          Scan git history + planning artifacts into timeline.json
 buildstory narrate <timeline>   Generate narrative from a timeline
 buildstory render <story-arc>   Render video from an existing story arc
 ```
+
+`run` and `scan` take a single project path (default: current directory).
 
 ### Options
 
@@ -59,6 +61,7 @@ buildstory render <story-arc>   Render video from an existing story arc
 - `--skip-video` -- Text-only output, no TTS or video rendering
 - `--include-text` -- Include text formats alongside video
 - `--dry-run` -- Show cost estimates without calling APIs
+- `--max-cost <usd>` -- Abort before any stage that would push total spend past this cap; partial results are kept
 - `--no-title-card` -- Disable auto-inserted title card
 - `--no-stats-card` -- Disable auto-inserted stats card
 - `-o, --output <path>` -- Output directory (default: ./buildstory-out)
@@ -71,7 +74,7 @@ buildstory render <story-arc>   Render video from an existing story arc
 **narrate**
 - `-f, --format <format>` -- Single format: outline, thread, blog, video-script (default: all)
 - `--provider <provider>` -- LLM provider: anthropic or openai (default: anthropic)
-- `--style <style>` -- Narrative style (default: overview)
+- `--style <style>` -- Narrative style (default: story)
 - `-o, --output <path>` -- Output directory (default: ./buildstory-out)
 
 **render**
@@ -138,6 +141,8 @@ voiceId = "your_voice_id"     # Required for HeyGen renderer
 
 Global defaults at `~/.config/buildstory/config.toml` (project config overrides global).
 
+**Precedence:** a command-line flag overrides the value in `buildstory.toml`, which overrides the built-in default (`flag > config > default`). Invalid values for `--provider`, `--style`, `--renderer`, `tts.voice`, `tts.speed`, or `--max-cost` are rejected up front, before any API call.
+
 API keys via `.env` file (recommended) or environment variables:
 - `ANTHROPIC_API_KEY` -- for Claude (narration)
 - `OPENAI_API_KEY` -- for GPT (narration) and TTS (audio generation)
@@ -156,8 +161,10 @@ All BuildStory packages (`@buildstory/video`, `@buildstory/heygen`) install with
 
 ## Narrative Styles
 
-- **story** (default for `run`) -- Warm documentary voice. Third-person narration, punchy short sentences, stakes and tension. Like someone telling the story of how you built it.
-- **overview** (default for `narrate`) -- High-level project summary. Good for stakeholder updates.
+The default style is **story** for both `run` and `narrate` (they used to disagree). Override per run with `--style` or set `style` in `buildstory.toml`.
+
+- **story** (default) -- Warm documentary voice. Third-person narration, punchy short sentences, stakes and tension. Like someone telling the story of how you built it.
+- **overview** -- High-level project summary. Good for stakeholder updates.
 - **technical** -- Implementation-focused. How it was built, what broke, what worked.
 - **retrospective** -- Lessons learned. What went well, what didn't, what changed.
 - **pitch** -- Outcome-focused. Why this matters, what it enables.
@@ -258,6 +265,8 @@ Typical run on a project with 50-200 events:
 - **Total (HeyGen)**: ~$5-15 per video (avatar rendering is the main cost)
 
 Use `--dry-run` to see cost estimates before any API calls. The estimate is priced at the TTS model you've configured (`[tts] model`), matching what render actually calls.
+
+For a hard ceiling, pass `--max-cost <usd>` to `run`: BuildStory tracks spend as it goes (LLM tokens actual, TTS characters, HeyGen credits) and aborts before any stage that would push the total past the cap, keeping whatever's already been produced (e.g. `story-arc.json`). Every `run` ends with a spend report breaking down LLM / TTS / HeyGen cost and the total.
 
 ### Resuming a failed render
 

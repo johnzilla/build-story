@@ -11,6 +11,13 @@ import {
 } from '@buildstory/core'
 import type { FormatType, NarrateOptions } from '@buildstory/core'
 import { loadConfig } from '../config.js'
+import {
+  checkProvider,
+  checkStyle,
+  reportErrors,
+  DEFAULT_PROVIDER,
+  DEFAULT_STYLE,
+} from '../validate.js'
 
 function formatDuration(ms: number): string {
   const secs = Math.round(ms / 1000)
@@ -31,8 +38,8 @@ export async function narrateCommand(
   opts: {
     config?: string
     format?: string
-    provider: string
-    style: string
+    provider?: string
+    style?: string
     output: string
   },
 ): Promise<void> {
@@ -41,6 +48,16 @@ export async function narrateCommand(
   // Load config from the directory containing the timeline file or cwd
   const projectRoot = opts.config ? dirname(resolve(opts.config)) : process.cwd()
   const config = loadConfig(projectRoot)
+
+  // Validate inputs before any paid call. Precedence: flag > config > default.
+  const errors: string[] = []
+  const provider = checkProvider(opts.provider ?? config.provider ?? DEFAULT_PROVIDER, errors)
+  const style = checkStyle(opts.style ?? config.style ?? DEFAULT_STYLE, errors)
+  if (opts.format !== undefined) {
+    const ok = ['outline', 'thread', 'blog', 'video-script'].includes(opts.format)
+    if (!ok) errors.push(`Invalid --format "${opts.format}". Must be one of: outline, thread, blog, video-script`)
+  }
+  reportErrors(errors)
 
   // Read and validate timeline from disk (T-03-10: validate with TimelineSchema)
   console.log(chalk.bold('\n  BuildStory Narrate\n'))
@@ -63,18 +80,13 @@ export async function narrateCommand(
     chalk.green(`Loaded timeline: ${chalk.bold(projectName)} — ${timeline.events.length} events`),
   )
 
-  // Determine provider and API key (T-03-09: API keys from env vars only, never logged)
-  const provider = (config.provider ?? opts.provider) as 'anthropic' | 'openai'
+  // API key from env vars only, never logged (T-03-09).
   const apiKey =
     provider === 'anthropic'
       ? (process.env['ANTHROPIC_API_KEY'] ?? '')
       : (process.env['OPENAI_API_KEY'] ?? '')
 
-  const narrateOpts: NarrateOptions = {
-    provider,
-    style: (config.style ?? opts.style) as 'technical' | 'overview' | 'retrospective' | 'pitch',
-    apiKey,
-  }
+  const narrateOpts: NarrateOptions = { provider, style, apiKey }
 
   console.log(
     chalk.dim(`  Provider: ${provider} | Style: ${narrateOpts.style}\n`),
@@ -83,19 +95,11 @@ export async function narrateCommand(
   // Create ONE provider instance — pass to both narrate() and format() to avoid double instantiation
   const llmProvider = createProvider(narrateOpts)
 
-  // Determine which format types to generate (D-05: all 4 by default, --format for single)
+  // Determine which format types to generate (D-05: all 4 by default, --format for single).
+  // --format was already validated above; parse for the typed value.
   let formatTypes: FormatType[]
   if (opts.format) {
-    const parsed = FormatTypeSchema.safeParse(opts.format)
-    if (!parsed.success) {
-      console.error(
-        chalk.red(
-          `Error: Invalid --format value "${opts.format}". Must be one of: outline, thread, blog, video-script`,
-        ),
-      )
-      process.exit(1)
-    }
-    formatTypes = [parsed.data]
+    formatTypes = [FormatTypeSchema.parse(opts.format)]
   } else {
     formatTypes = ['outline', 'thread', 'blog', 'video-script']
   }

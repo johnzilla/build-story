@@ -37,7 +37,7 @@ describe('buildTranscriptEvents()', () => {
   it('assigns a stable session- prefixed id keyed on session id', () => {
     const a = buildTranscriptEvents([makeSession()])[0]
     const b = buildTranscriptEvents([makeSession()])[0]
-    expect(a?.id).toMatch(/^session-[0-9a-f]{8}$/)
+    expect(a?.id).toMatch(/^session-[0-9a-f]{16}$/)
     expect(a?.id).toBe(b?.id)
   })
 

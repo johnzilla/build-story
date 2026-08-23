@@ -2,7 +2,7 @@
 
 Working branch: `main` (source of truth; solo builder commits straight to main).
 State: **green** — `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`
-(309 tests) all pass.
+(319 tests) all pass.
 
 ## The pivot (why this work exists)
 
@@ -196,8 +196,49 @@ External review, Phase 2. All committed to main:
   budget-fitting sub-chunks (exact char accounting), preserving order. Tested on
   a synthetic 320-commit timeline: many chunks, each within budget, none lost.
 
+## UX & pipeline robustness (Phase 3) — shipped
+
+External review, Phase 3. All committed to main:
+
+- **3.1 CLI stops lying about multi-root.** `run`/`scan` took `[paths...]` but only
+  ever used the first; downstream (`narrate`, correlate, system prompt) assumes a
+  single `rootDir`. Changed to a single `[path]` argument (docs match behavior).
+- **3.2 Input validation + precedence.** New `cli/src/validate.ts` checks
+  `--provider`/`--style`/`--renderer`/`tts.voice`/`tts.speed`/`--max-cost` and
+  fails fast, free, and clearly (one aggregated report) before any paid call.
+  Fixed inverted precedence — was `config ?? flag` (config won); now
+  `flag ?? config ?? default` (removed commander flag defaults so an unset flag
+  is truly undefined). Unified the default style to **story** for both `run` and
+  `narrate` (they disagreed; narrate also mis-cast the type, omitting "story").
+- **3.3 Token-guard hardening.** The narrate budget now subtracts the system
+  prompt (~1.5–2k tokens) from `maxInputTokens` for both the fits-check and each
+  chunk's guard (a full chunk + a 2k prompt used to slip over). Combined with the
+  Phase-2 size-splitter, a phase-less (non-GSD) repo chunks and narrates instead
+  of dead-ending on one over-budget "ungrouped" chunk.
+- **3.4 OpenAI zod-compat fallback narrowed.** The fallback is now scoped to
+  schema *construction* (`zodResponseFormat`, which fails synchronously before any
+  network call). Previously any error whose message contained "Cannot read
+  properties of undefined" — including a genuine parse/response failure — retried
+  via a second `create()`, masking the real error and double-spending. Now a
+  schema failure raises once, no duplicate spend.
+- **3.5 Correlation is O(n+m).** `correlateCommitsWithTranscripts` replaced the
+  per-commit `asks.filter(...)` (O(commits×asks)) with a sliding two-pointer walk
+  over the two sorted lists. No behavior change (all existing tests pass); a
+  2000×2000 correctness+speed test guards it.
+- **3.6 IDs + git dating.** Event IDs are now a 64-bit SHA-1 slice (16 hex) instead
+  of 32-bit djb2 — collision bound moves from ~77k events to ~5B (50k-input
+  collision test). File dating batches into **one** `git log --name-only
+  --relative` pass building a path→date map, replacing one `git log` spawn per
+  file (the large-repo win). Commit IDs still key on the git hash.
+- **3.7 `--max-cost` + spend report.** `run --max-cost <usd>` tracks spend live
+  (LLM cost from actual token usage via a per-provider price table, TTS chars,
+  HeyGen credits) and aborts before any stage that would exceed the cap, keeping
+  partial results (`story-arc.json`, completed formats). Every `run` prints an
+  end-of-run spend breakdown. New `cli/src/pricing-llm.ts`.
+
 **Next (roadmap, not requested):** goose adapter; validate pi on a real session;
-sharper correlation (touched files + message, walk pi's active branch).
+sharper correlation (touched files + message, walk pi's active branch);
+multi-root scan (deferred with 3.1 — downstream assumes a single rootDir).
 
 ## Working agreement
 

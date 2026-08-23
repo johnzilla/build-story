@@ -9,13 +9,13 @@ import { createGitSource } from '../adapters/git-source.js'
 import { createTranscriptSource } from '../adapters/transcript-registry.js'
 
 export async function scanCommand(
-  paths: string[],
+  path: string | undefined,
   opts: {
     config?: string
     output?: string
   },
 ) {
-  const rootDir = resolve(paths[0] ?? process.cwd())
+  const rootDir = resolve(path ?? process.cwd())
   const config = loadConfig(opts.config ? resolve(opts.config, '..') : process.cwd())
 
   const source = createFsSource(rootDir)

@@ -30,19 +30,29 @@ function makeFileEvent(overrides?: Partial<TimelineEvent>): Omit<TimelineEvent, 
 }
 
 describe('generateEventId()', () => {
-  it('returns a stable string starting with "file-" for file source', () => {
+  it('returns a stable string starting with "file-" for file source (64-bit hex)', () => {
     const id = generateEventId('file', 'PLANNING.md', '2026-01-15T10:00:00Z')
-    expect(id).toMatch(/^file-[0-9a-f]{8}$/)
+    expect(id).toMatch(/^file-[0-9a-f]{16}$/)
   })
 
-  it('returns a stable string starting with "tag-" for git-tag source', () => {
+  it('returns a stable string starting with "tag-" for git-tag source (64-bit hex)', () => {
     const id = generateEventId('git-tag', '', '2026-02-01T00:00:00Z')
-    expect(id).toMatch(/^tag-[0-9a-f]{8}$/)
+    expect(id).toMatch(/^tag-[0-9a-f]{16}$/)
   })
 
-  it('returns a stable string starting with "commit-" for git-commit source', () => {
+  it('returns a stable string starting with "commit-" for git-commit source (64-bit hex)', () => {
     const id = generateEventId('git-commit', 'abc123', '2026-01-20T00:00:00Z')
-    expect(id).toMatch(/^commit-[0-9a-f]{8}$/)
+    expect(id).toMatch(/^commit-[0-9a-f]{16}$/)
+  })
+
+  it('produces no collisions across 50k distinct inputs (64-bit hash)', () => {
+    const ids = new Set<string>()
+    for (let i = 0; i < 50_000; i++) {
+      ids.add(generateEventId('file', `src/module-${i}.md`, '2026-01-15T10:00:00Z'))
+    }
+    // 32-bit djb2 would be near-certain to collide here (birthday bound ~77k);
+    // 64-bit sha-1 slice must not.
+    expect(ids.size).toBe(50_000)
   })
 
   it('is deterministic — same inputs always produce same output', () => {
