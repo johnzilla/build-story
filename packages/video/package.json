@@ -41,12 +41,12 @@
   },
   "dependencies": {
     "@buildstory/core": "workspace:*",
-    "@remotion/bundler": "4.0.446",
-    "@remotion/renderer": "4.0.446",
+    "@remotion/bundler": "4.0.529",
+    "@remotion/renderer": "4.0.529",
     "openai": "^6.49.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "remotion": "4.0.446",
+    "remotion": "4.0.529",
     "subtitle": "^4.2.2"
   },
   "devDependencies": {

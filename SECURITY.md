@@ -109,3 +109,41 @@ generated output as you would any AI summary of untrusted input.
 `timeline.json` and similar dumps embed **`rawContent`** (full file text and
 commit bodies) and an **absolute `rootDir`** path. These are git-ignored by
 default — do not commit or publish them without reviewing their contents.
+
+## Dependency review — September 26, 2026
+
+The lockfile audit reports zero vulnerabilities with no ignored advisories.
+Security overrides set patched version floors while retaining compatible major
+versions. Re-run the audit when updating dependencies; this result is a snapshot.
+
+| Dependency | Resolution | Exposure and action |
+| --- | --- | --- |
+| `fast-uri` | 3.1.8 | Arrives through Remotion's bundler → webpack → Ajv. Updated past the 3.1.6 fixes for host-normalization advisories. BuildStory does not use it directly for URL allowlisting. |
+| `js-yaml` | 3.15.2 / 4.3.2 | YAML parsing is used by release tooling and, through gray-matter, artifact parsing. Updated both major branches for the empty-merge CPU exhaustion advisory. |
+| `extract-zip` | Removed | Remotion packages upgraded together from 4.0.446 to 4.0.529. Removed the previous GHSA-jmr9-qjv8-65gv audit exception. |
+
+References: [fast-uri advisory](https://github.com/advisories/GHSA-5jgf-p345-68v8),
+[js-yaml advisory](https://github.com/advisories/GHSA-2883-xcg3-v3hh),
+[extract-zip advisory](https://github.com/advisories/GHSA-7pqw-9j4j-h8q3).
+
+### Remaining vendored archive risk and mitigation
+
+Remotion 4.0.529 includes its own ZIP extractor in
+`@remotion/renderer/dist/browser/extract-zip-archive.js`. A local fixture with
+a symlink entry followed by a regular file of the same name confirmed that it
+can write outside the extraction directory. The fixture wrote only a harmless
+marker inside a dedicated temporary review directory. Registry audits do not
+identify this vendored implementation as the removed `extract-zip` package.
+
+BuildStory's `renderVideo` now requires an installed Chrome/Chromium, using an
+explicit option or local browser discovery. It passes the resulting path to
+both `selectComposition` and `renderMedia`, and fails before bundling if no
+browser is installed. Consequently these BuildStory paths do not invoke
+Remotion's automatic browser download/extraction. Regression tests cover both
+explicit and discovered browsers, plus the missing-browser failure.
+
+This mitigates the reachable BuildStory path; it does not repair Remotion's
+extractor. Direct use of Remotion's browser-download APIs remains outside this
+protection. Install browsers from trusted sources. Reassess this mitigation
+on the next Remotion upgrade and by October 26, 2026 before re-enabling any
+automatic browser downloads. No new audit suppression was added.

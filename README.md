@@ -192,7 +192,7 @@ The CLI automatically loads `.env` from the current working directory.
 - **ffmpeg _and_ ffprobe** -- for audio processing (mp3→wav conversion and duration measurement); usually pre-installed on Linux/macOS. Override the binaries with `FFMPEG_PATH` / `FFPROBE_PATH`. `buildstory render` preflight checks both before spending anything.
 - **Headless Chrome** -- for Remotion video rendering
 
-All BuildStory packages (`@buildstory/video`, `@buildstory/heygen`) install with the CLI via `pnpm install` — there is no separate install step. The only render-time download is headless Chrome (~200MB), fetched by Remotion on the first `buildstory render`/`run`; install it ahead of time with `npx puppeteer browsers install chrome`, or point `PUPPETEER_EXECUTABLE_PATH` at an existing binary.
+All BuildStory packages (`@buildstory/video`, `@buildstory/heygen`) install with the CLI via `pnpm install` — there is no separate install step. Rendering requires an installed Chrome/Chromium. Automatic browser downloads are disabled to avoid archive-extraction risks. Install a browser ahead of time from a trusted source, or point `PUPPETEER_EXECUTABLE_PATH` / `CHROME_PATH` at an existing binary.
 
 ## Narrative Styles
 

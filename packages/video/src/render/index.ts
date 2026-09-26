@@ -7,6 +7,7 @@ import type { StoryArc } from '@buildstory/core'
 import { sanitizeStoryArc } from '@buildstory/core'
 import type { AudioManifest } from '../tts/types.js'
 import { generateSRT } from './srt.js'
+import { findChrome } from '../preflight.js'
 
 export interface RenderProgress {
   renderedFrames: number
@@ -53,12 +54,25 @@ export async function renderVideo(
   options: RenderOptions,
 ): Promise<void> {
   storyArc = sanitizeStoryArc(storyArc)
+  // Always supply an installed browser to BOTH renderer calls. Omitting it
+  // lets Remotion download and extract a browser archive implicitly.
+  const browserExecutable = options.browserExecutable ?? await findChrome()
+  if (!browserExecutable) {
+    throw new Error('An installed Chrome/Chromium is required. Set CHROME_PATH or PUPPETEER_EXECUTABLE_PATH; automatic browser downloads are disabled.')
+  }
   const entryPoint = resolveCompositionEntry()
 
   // Step 1: Bundle the Remotion composition entry point
   const bundleLocation = await bundle({
     entryPoint,
-    webpackOverride: (config) => config,
+    webpackOverride: (config) => ({
+      ...config,
+      resolve: {
+        ...config.resolve,
+        // Source uses Node ESM .js specifiers; the bundle compiles TS directly.
+        extensionAlias: { ...config.resolve?.extensionAlias, '.js': ['.ts', '.tsx', '.js'] },
+      },
+    }),
   })
 
   // Remotion's <Audio> only accepts http/https URLs served by its dev server.
@@ -90,6 +104,7 @@ export async function renderVideo(
     serveUrl: bundleLocation,
     id: 'BuildStory',
     inputProps,
+    browserExecutable,
   })
 
   // Step 3: Render MP4 (H.264 + AAC per REND-05). Pin the browser to the binary
@@ -100,7 +115,7 @@ export async function renderVideo(
     codec: 'h264',
     outputLocation: options.outputPath,
     inputProps,
-    ...(options.browserExecutable ? { browserExecutable: options.browserExecutable } : {}),
+    browserExecutable,
     onProgress: (p) => {
       options.onProgress?.({
         renderedFrames: p.renderedFrames,

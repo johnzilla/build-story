@@ -84,8 +84,8 @@ pnpm. All are ESM-only and scoped under `@buildstory`:
   with `tsup --format esm`. Consumers must be ESM (or use dynamic `import()`).
 - Publishing order doesn't need to be manual — pnpm publishes in dependency
   order. If you publish one at a time, do `core → video → heygen → cli`.
-- The accepted `extract-zip` advisory (GHSA-jmr9-qjv8-65gv, reachable only via
-  Remotion's lazy Chrome download) is ignored in `package.json`
-  `pnpm.auditConfig.ignoreGhsas`; revisit when Remotion ships a fix.
+- There are no ignored dependency advisories. Keep the Remotion packages pinned
+  to the same version and retain the installed-browser policy described in
+  [SECURITY.md](SECURITY.md). Audit success alone does not cover vendored code.
 
 [Changesets]: https://github.com/changesets/changesets

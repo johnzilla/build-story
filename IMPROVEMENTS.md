@@ -12,8 +12,8 @@ story of the development process and explain the decisions behind it.
 2. [x] **High: close outbound privacy gaps.** Cover quoted credential keys,
    imported timelines, and final outbound payloads. Remove unnecessary absolute
    paths and provide a payload preview.
-3. [ ] **High: resolve dependency advisories.** Update affected dependency
-   chains, assess reachability, and document any remaining accepted exceptions.
+3. [x] **High: resolve dependency advisories.** Update affected dependency
+   chains, assess reachability, and document remaining risks and mitigations.
 
 ## Reliability and cost
 
@@ -29,7 +29,8 @@ story of the development process and explain the decisions behind it.
    truncating it; keep spoken text, captions, and visible text consistent.
 8. [ ] **Medium: unify configuration and preflight.** Honor the exact config
    file, target repository, and outputDir; validate all fields; check prerequisites
-   before paid work; use the selected Chrome executable throughout rendering.
+   before paid work. Using the selected Chrome executable throughout rendering
+   was completed with item 3.
 9. [ ] **Medium: bound network and assembly work.** Apply deadlines through
    response-body consumption; test stalled downloads and multi-chunk FFmpeg
    assembly, including paths with spaces and apostrophes.
@@ -73,4 +74,14 @@ story of the development process and explain the decisions behind it.
 - Item 2 verification: all 382 tests pass, plus workspace build, typecheck,
   lint, and diff checks. Tests cover SDK boundaries, imported content, preview
   equivalence, no-key/no-network operation, and overwrite protection.
-- Next: item 3, dependency security advisories.
+- Item 3 complete: upgraded Remotion packages together to 4.0.529, updated
+  fast-uri and both js-yaml branches, removed extract-zip and its audit exception.
+  Remotion's vendored ZIP extractor still permits writes through symlinks;
+  BuildStory now requires an installed browser and supplies it to both renderer
+  calls, avoiding automatic downloads/extraction. SECURITY.md records the risk.
+  Fixed TypeScript import resolution in the composition bundle after the render
+  smoke check exposed a failure.
+- Item 3 verification: all 385 tests pass, plus workspace build, typecheck,
+  lint, frozen-lockfile install, and diff checks. Audit reports zero advisories
+  with none ignored. A real 1080p H.264/AAC render with synthetic audio completed.
+- Next: item 4, resumable paid HeyGen jobs.

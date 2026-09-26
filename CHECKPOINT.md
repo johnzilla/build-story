@@ -113,11 +113,14 @@ and `simple-git` (→3.36) directly; `pnpm update -r` refreshed the rest within
 range; `pnpm.overrides` pin patched `postcss`/`ws`/`esbuild`, and `vite` is a
 root devDep at ^8.0.16 (satisfies vitest's peer).
 
-**Remaining (1, accepted):** `extract-zip` (high, GHSA-jmr9-qjv8-65gv) — **no
-patched version exists**. Reaches us only via `@remotion/renderer`'s Chrome
-download, which is lazy-installed and runs only during video rendering. Revisit
-when Remotion ships a fix. Listed in `package.json > pnpm.auditConfig.ignoreGhsas`
-so the CI `audit (high)` job passes on it but fails on any *new* high.
+**September 26 update:** Remotion is now pinned to 4.0.529 throughout, removing
+`extract-zip` from the dependency tree and removing its audit exception.
+Patched `fast-uri` and `js-yaml` resolutions bring the registry audit to zero
+findings. Remotion's vendored ZIP extractor still permits a symlink write
+outside the extraction directory (confirmed with a harmless temporary fixture).
+BuildStory therefore requires an installed browser and passes it explicitly to
+both composition selection and rendering, avoiding automatic archive downloads.
+See SECURITY.md for exposure and follow-up details.
 
 **Toolchain / release plumbing:** pnpm pinned via `packageManager: pnpm@10.33.0`
 (Corepack); root `engines: node >=22`; removed the root `buildstory: workspace:*`

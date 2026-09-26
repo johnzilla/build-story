@@ -55,7 +55,6 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Fails on any new high-severity advisory. Known-accepted advisories with
-      # no upstream fix are listed in package.json > pnpm.auditConfig.ignoreGhsas.
+      # Fails on high-severity advisories. No advisories are currently ignored.
       - name: Audit (high)
         run: pnpm audit --audit-level=high
