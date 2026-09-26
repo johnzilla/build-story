@@ -153,6 +153,60 @@ Content here.
     expect(result.metadata).toEqual({})
   })
 
+  it.each(['javascript', 'js', ' javascript ', 'JavaScript', 'unknown'])(
+    'does not execute %s frontmatter',
+    async (language) => {
+      const execute = vi.fn()
+      vi.stubGlobal('__buildstoryFrontmatterProbe', execute)
+      try {
+        const content = `---${language}\n(globalThis.__buildstoryFrontmatterProbe(), {title: 'unsafe'})\n---\n# Safe heading\n[other](./other.md)\n`
+        const result = await parseArtifact(content, 'README.md', makeSource(), ALL_PATHS)
+        expect(execute).not.toHaveBeenCalled()
+        expect(result.metadata).toEqual({})
+        expect(result.summary).toContain('# Safe heading')
+        expect(result.crossRefs).toContain('other.md')
+        expect(result.rawContent).toBe(content)
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    },
+  )
+
+  it.each(['\uFEFF---javascript\n', '---javascript\r\n', '\uFEFF---js\r\n'])(
+    'rejects executable frontmatter with a BOM or CRLF: %j',
+    async (opening) => {
+      const execute = vi.fn()
+      vi.stubGlobal('__buildstoryFrontmatterProbe', execute)
+      try {
+        const content = `${opening}(globalThis.__buildstoryFrontmatterProbe(), {})\n---\n# Title\n`
+        const result = await parseArtifact(content, 'README.md', makeSource(), new Set())
+        expect(execute).not.toHaveBeenCalled()
+        expect(result.metadata).toEqual({})
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    },
+  )
+
+  it.each(['', 'yaml', 'yml'])('preserves %j YAML frontmatter', async (language) => {
+    const content = `\uFEFF---${language}\r\ntitle: Safe plan\r\n---\r\n# Title\r\n`
+    const result = await parseArtifact(content, 'README.md', makeSource(), new Set())
+    expect(result.metadata).toEqual({ title: 'Safe plan' })
+  })
+
+  it('preserves JSON frontmatter', async () => {
+    const content = '---json\n{"title":"Safe plan","count":2}\n---\n# Title\n'
+    const result = await parseArtifact(content, 'README.md', makeSource(), new Set())
+    expect(result.metadata).toEqual({ title: 'Safe plan', count: 2 })
+  })
+
+  it('ignores malformed frontmatter', async () => {
+    const content = '---\ntitle: [unterminated\n---\n# Title\n'
+    const result = await parseArtifact(content, 'README.md', makeSource(), new Set())
+    expect(result.metadata).toEqual({})
+    expect(result.summary).toContain('# Title')
+  })
+
   it('returns crossRefs array', async () => {
     const content = '# Title\n\n[link to other](./other.md)\n'
     const source = makeSource()

@@ -21,6 +21,31 @@ const GSD_FILENAMES = new Set(['TASKS.md', 'TODO.md', 'SESSION_LOG.md', 'BLOCKER
 const GSTACK_PATH_SEGMENTS = ['.gstack/']
 const GSD_PATH_SEGMENTS = ['.gsd/', '.planning/', '.claude/']
 
+const DATA_FRONTMATTER_LANGUAGES = new Set(['', 'yaml', 'yml', 'json'])
+
+function parseMetadata(content: string): Record<string, unknown> {
+  // Match gray-matter's BOM normalization before checking the opening fence.
+  // Its default engines include JavaScript evaluation, so repository text must
+  // never be allowed to select an arbitrary engine.
+  const normalized = content.replace(/^\uFEFF/, '')
+  const opening = /^---([^\r\n]*)\r?\n/.exec(normalized)
+  if (!opening || !DATA_FRONTMATTER_LANGUAGES.has(opening[1]!.trim())) return {}
+
+  try {
+    const parsed = matter(normalized, {
+      engines: {
+        javascript: () => {
+          throw new Error('Executable frontmatter is not supported')
+        },
+      },
+    })
+    return parsed.data as Record<string, unknown>
+  } catch {
+    // Malformed or unsupported frontmatter contributes no metadata.
+    return {}
+  }
+}
+
 export function classifyArtifact(
   relativePath: string,
 ): 'gstack' | 'gsd' | 'generic' {
@@ -129,13 +154,7 @@ export async function parseArtifact(
 ): Promise<ParsedArtifact> {
   const tree = parseMarkdown(content)
   const summary = buildSummary(tree)
-  let metadata: Record<string, unknown> = {}
-  try {
-    const parsed = matter(content)
-    metadata = parsed.data as Record<string, unknown>
-  } catch {
-    // Malformed frontmatter — skip metadata extraction
-  }
+  const metadata = parseMetadata(content)
   const crossRefs = await extractCrossRefs(content, relativePath, source, allPaths)
 
   return {

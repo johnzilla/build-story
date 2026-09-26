@@ -44,6 +44,14 @@ private-key blocks, and `key: value` / `key=value` secret assignments).
 Redaction is best-effort pattern matching, not a guarantee — review outputs
 before publishing, especially with transcripts enabled.
 
+## Frontmatter parsing
+
+Scanned documents may contain YAML (including `yaml`/`yml` labels) or JSON
+frontmatter. Executable and unknown frontmatter languages contribute no
+metadata. JavaScript frontmatter is disabled before parsing; malformed metadata
+is ignored while the document's heading summary and cross-references remain
+available.
+
 ## Prompt-injection threat model
 
 Planning files, commit messages, and transcripts are **untrusted input**. Their
