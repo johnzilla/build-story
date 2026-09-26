@@ -1,9 +1,10 @@
+import { writePayloadPreview } from '../preview.js'
 import { readFile, mkdir } from 'node:fs/promises'
 import { resolve, dirname, basename } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
 import type { StoryArc } from '@buildstory/core'
-import { StoryArcSchema } from '@buildstory/core'
+import { StoryArcSchema, sanitizeStoryArc } from '@buildstory/core'
 import { loadConfig } from '../config.js'
 import {
   checkRenderer,
@@ -26,6 +27,7 @@ export async function renderCommand(
     config?: string
     output: string
     dryRun?: boolean
+    previewPayload?: string
     // commander maps `--no-title-card`/`--no-stats-card` to these (default true).
     titleCard?: boolean
     statsCard?: boolean
@@ -47,7 +49,7 @@ export async function renderCommand(
 
   // Load and validate story arc (T-04-09: parse through Zod schema)
   const raw = await readFile(resolve(storyArcPath), 'utf-8')
-  const storyArc: StoryArc = StoryArcSchema.parse(JSON.parse(raw))
+  const storyArc: StoryArc = sanitizeStoryArc(StoryArcSchema.parse(JSON.parse(raw)))
 
   const projectName = storyArc.metadata.sourceTimeline
     ? basename(storyArc.metadata.sourceTimeline)
@@ -55,6 +57,40 @@ export async function renderCommand(
 
   console.log(chalk.bold('\n  BuildStory Render\n'))
   console.log(chalk.dim(`  Story: ${storyArc.beats.length} beats | Source: ${projectName}\n`))
+
+  if (opts.previewPayload) {
+    if (renderer === 'heygen') {
+      const { adaptStoryArc } = await import('@buildstory/heygen')
+      const adapted = adaptStoryArc(storyArc, {
+        avatarId: config.heygen?.avatarId ?? '[AVATAR_ID]',
+        voiceId: config.heygen?.voiceId ?? '[VOICE_ID]',
+      })
+      await writePayloadPreview(opts.previewPayload, {
+        provider: 'heygen',
+        stage: 'video-generation',
+        note: 'Authentication omitted. Missing avatar/voice IDs use placeholders. No preflight or API calls made.',
+        requests: adapted.chunks.map((scenes) => ({
+          video_inputs: scenes,
+          dimension: { width: 1280, height: 720 },
+        })),
+        warnings: adapted.warnings,
+      })
+    } else {
+      const { prepareSpeechText } = await import('@buildstory/video')
+      await writePayloadPreview(opts.previewPayload, {
+        provider: 'openai',
+        stage: 'speech-generation',
+        note: 'Authentication omitted. Lists all scenes; cached audio may skip requests. No preflight or API calls made.',
+        requests: storyArc.beats.map((beat) => ({
+          model: ttsModel,
+          voice: ttsVoice,
+          input: prepareSpeechText(beat.summary),
+          speed: ttsSpeed,
+        })),
+      })
+    }
+    return
+  }
 
   if (renderer === 'heygen') {
     // @buildstory/heygen is a hard workspace dep; the dynamic import only defers

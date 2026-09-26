@@ -1,3 +1,4 @@
+import { sanitizeOutboundText, sanitizeOutboundValue } from '../../privacy/outbound.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { StoryArcSchema } from '../../types/story.js'
@@ -38,7 +39,7 @@ export class AnthropicProvider implements LLMProvider {
       model: this.model,
       max_tokens: 16384,
       temperature: 0,
-      system: systemPrompt,
+      system: sanitizeOutboundText(systemPrompt),
       messages: [{ role: 'user', content: payload }],
       output_config: {
         format: zodOutputFormat(StoryArcSchema),
@@ -56,14 +57,14 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async generateFormat(arc: StoryArc, _formatType: FormatType, systemPrompt: string): Promise<string> {
-    const beatsJson = JSON.stringify(arc.beats, null, 2)
+    const beatsJson = JSON.stringify(sanitizeOutboundValue(arc.beats), null, 2)
 
     // Plain text output — use messages.create() not messages.parse() (per D-04)
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: 4096,
       temperature: 0,
-      system: systemPrompt,
+      system: sanitizeOutboundText(systemPrompt),
       messages: [{ role: 'user', content: beatsJson }],
     })
 
@@ -80,7 +81,7 @@ export class AnthropicProvider implements LLMProvider {
   async synthesizeArcs(arcs: StoryArc[], systemPrompt: string): Promise<StoryArc> {
     // Merge all beats from all arcs into a single array
     const mergedBeats = arcs.flatMap((arc) => arc.beats)
-    const mergedBeatsJson = JSON.stringify(mergedBeats, null, 2)
+    const mergedBeatsJson = JSON.stringify(sanitizeOutboundValue(mergedBeats), null, 2)
 
     const synthesisPrompt =
       systemPrompt +
@@ -92,7 +93,7 @@ export class AnthropicProvider implements LLMProvider {
       model: this.model,
       max_tokens: 16384,
       temperature: 0,
-      system: synthesisPrompt,
+      system: sanitizeOutboundText(synthesisPrompt),
       messages: [{ role: 'user', content: mergedBeatsJson }],
       output_config: {
         format: zodOutputFormat(StoryArcSchema),

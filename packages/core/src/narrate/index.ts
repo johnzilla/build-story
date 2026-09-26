@@ -5,9 +5,8 @@ import { StoryArcSchema } from '../types/story.js'
 import type { LLMProvider } from './providers/interface.js'
 import { AnthropicProvider } from './providers/anthropic.js'
 import { OpenAIProvider } from './providers/openai.js'
-import { buildSystemPrompt } from './prompts/system.js'
-import { buildTimelinePayload, estimateTokens, guardTokens } from './tokens.js'
-import { chunkTimeline } from './chunker.js'
+import { prepareNarration } from './prepare.js'
+import { sanitizeStoryArc } from '../privacy/outbound.js'
 
 /**
  * Create an LLMProvider from NarrateOptions.
@@ -54,50 +53,15 @@ export async function narrate(
   }
 
   const llmProvider = provider ?? createProvider(options)
-  const maxInputTokens = options.maxInputTokens ?? 100000
-
-  const systemPrompt = buildSystemPrompt(options.style, {
-    rootDir: timeline.rootDir,
-    scannedAt: timeline.scannedAt,
-  })
-
-  // The model receives systemPrompt + payload, so the payload's real budget is
-  // maxInputTokens minus the system prompt (~1.5–2k tokens). Budgeting only the
-  // payload previously let a full chunk + a 2k system prompt slip over the limit.
-  const systemTokens = estimateTokens(systemPrompt)
-  const payloadBudget = Math.max(1, maxInputTokens - systemTokens)
-
-  const payload = buildTimelinePayload(timeline)
-  const estimatedTokens = estimateTokens(payload)
-
-  let finalArc: StoryArc
-
-  if (estimatedTokens <= payloadBudget) {
-    // Fits within budget — single extraction call
-    finalArc = await llmProvider.extractStoryArc(timeline, systemPrompt)
-  } else {
-    // Over budget — chunk (by phase, then by size), guard each chunk individually
-    // against the same system-prompt-adjusted budget.
-    const chunks = chunkTimeline(timeline, payloadBudget)
-
-    const chunkArcs: StoryArc[] = []
-    for (const chunk of chunks) {
-      const chunkPayload = buildTimelinePayload(chunk)
-      // guardTokens throws (NARR-08) only if a single event is itself larger than
-      // the budget — the size-splitter in chunkTimeline handles everything else,
-      // so non-GSD (phase-less) repos no longer dead-end on one "ungrouped" chunk.
-      guardTokens(chunkPayload, payloadBudget)
-      const chunkArc = await llmProvider.extractStoryArc(chunk, systemPrompt)
-      chunkArcs.push(chunkArc)
-    }
-
-    if (chunkArcs.length === 1 && chunkArcs[0] !== undefined) {
-      finalArc = chunkArcs[0]
-    } else {
-      // Synthesize multiple chunk arcs into a single coherent arc
-      finalArc = await llmProvider.synthesizeArcs(chunkArcs, systemPrompt)
-    }
+  const prepared = prepareNarration(timeline, options)
+  timeline = prepared.timeline
+  const chunkArcs: StoryArc[] = []
+  for (const chunk of prepared.chunks) {
+    chunkArcs.push(sanitizeStoryArc(await llmProvider.extractStoryArc(chunk, prepared.systemPrompt)))
   }
+  const finalArc = chunkArcs.length === 1
+    ? chunkArcs[0]!
+    : sanitizeStoryArc(await llmProvider.synthesizeArcs(chunkArcs, prepared.systemPrompt))
 
   // Post-narration: validate sourceEventIds against actual timeline event IDs (NARR-05)
   const validIds = new Set(timeline.events.map((e) => e.id))
@@ -126,6 +90,7 @@ export async function narrate(
     metadata: {
       ...finalArc.metadata,
       generatedAt: new Date().toISOString(),
+      sourceTimeline: timeline.rootDir,
       ...(warnings.length > 0 ? { warnings } : {}),
     },
   }

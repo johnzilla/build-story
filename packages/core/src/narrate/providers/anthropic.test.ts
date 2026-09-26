@@ -64,6 +64,30 @@ describe('AnthropicProvider', () => {
     vi.clearAllMocks()
   })
 
+  it('scrubs secrets and local paths at every SDK request boundary', async () => {
+    mockParse.mockResolvedValue({ parsed_output: makeArc(), usage: USAGE })
+    mockCreate.mockResolvedValue({ content: [{ type: 'text', text: 'safe output' }], usage: USAGE })
+    const provider = new AnthropicProvider({ apiKey: 'test-key' })
+    const secret = 'synthetic outbound value'
+    const localPath = '/Users/private-reviewer/work/repo'
+    const system = `Context ${localPath}; password="${secret}"`
+    const timeline = makeTimeline({ rootDir: localPath, events: [{
+      id: 'evt-1', date: '2026-01-01', source: 'file', summary: `password="${secret}"`,
+      metadata: { apiKey: secret, cwd: localPath }, rawContent: 'RAW PRIVATE', dateConfidence: 'exact',
+    }] })
+    const arc = makeArc()
+    arc.beats[0]!.summary = `password="${secret}"`
+    arc.beats[0]!.evidence = [localPath]
+    await provider.extractStoryArc(timeline, system)
+    await provider.generateFormat(arc, 'blog', system)
+    await provider.synthesizeArcs([arc], system)
+    const requests = JSON.stringify([...mockParse.mock.calls, ...mockCreate.mock.calls])
+    expect(requests).not.toContain(secret)
+    expect(requests).not.toContain(localPath)
+    expect(requests).not.toContain('RAW PRIVATE')
+    expect(requests).toContain('[REDACTED]')
+  })
+
   describe('extractStoryArc()', () => {
     it('calls client.messages.parse() with correct parameters including temperature:0', async () => {
       const arc = makeArc()
@@ -121,7 +145,8 @@ describe('AnthropicProvider', () => {
       const messages = call['messages'] as Array<{ role: string; content: string }>
       expect(messages).toHaveLength(1)
       expect(messages[0]?.role).toBe('user')
-      expect(messages[0]?.content).toContain('/my-project')
+      expect(JSON.parse(messages[0]!.content).rootDir).toBe('my-project')
+      expect(messages[0]?.content).not.toContain('/my-project')
     })
   })
 

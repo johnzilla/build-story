@@ -1,6 +1,7 @@
 import type { StoryArc, FormatType } from '../types/story.js'
 import type { LLMProvider } from '../narrate/providers/interface.js'
 import { buildFormatPrompt } from '../narrate/prompts/format-prompts.js'
+import { sanitizeStoryArc } from '../privacy/outbound.js'
 
 /**
  * Generate formatted text output from a StoryArc using an LLM provider.
@@ -13,6 +14,7 @@ import { buildFormatPrompt } from '../narrate/prompts/format-prompts.js'
  * Appends word count and reading time metadata footer per NARR-06.
  */
 export async function format(arc: StoryArc, formatType: FormatType, provider: LLMProvider): Promise<string> {
+  arc = sanitizeStoryArc(arc)
   const formatPrompt = buildFormatPrompt(formatType)
   const text = await provider.generateFormat(arc, formatType, formatPrompt)
 

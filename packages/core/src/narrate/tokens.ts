@@ -1,4 +1,5 @@
 import type { Timeline, TimelineEvent } from '../types/timeline.js'
+import { sanitizeTimeline } from '../privacy/outbound.js'
 
 /**
  * Estimate token count using the ~4 chars/token heuristic.
@@ -17,6 +18,7 @@ export function estimateTokens(text: string): number {
  * Per T-03-01 threat mitigation.
  */
 export function buildTimelinePayload(timeline: Timeline): string {
+  timeline = sanitizeTimeline(timeline)
   const payload = {
     version: timeline.version,
     rootDir: timeline.rootDir,

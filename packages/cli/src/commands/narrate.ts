@@ -8,9 +8,11 @@ import {
   createProvider,
   TimelineSchema,
   FormatTypeSchema,
+  buildNarrationPreview,
 } from '@buildstory/core'
 import type { FormatType, NarrateOptions } from '@buildstory/core'
 import { loadConfig } from '../config.js'
+import { writePayloadPreview } from '../preview.js'
 import {
   checkProvider,
   checkStyle,
@@ -41,6 +43,7 @@ export async function narrateCommand(
     provider?: string
     style?: string
     output: string
+    previewPayload?: string
   },
 ): Promise<void> {
   const pipelineStart = Date.now()
@@ -73,6 +76,15 @@ export async function narrateCommand(
   }
 
   const timeline = TimelineSchema.parse(parsedJson)
+
+  if (opts.previewPayload) {
+    loadSpinner.stop()
+    await writePayloadPreview(opts.previewPayload, {
+      provider,
+      ...buildNarrationPreview(timeline, { style }),
+    })
+    return
+  }
 
   // Derive project name from timeline rootDir
   const projectName = basename(timeline.rootDir)

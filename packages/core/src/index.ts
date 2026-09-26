@@ -30,3 +30,7 @@ export type {
   TranscriptFilter,
 } from './types/transcript.js'
 export type { LLMProvider, UsageStats } from './narrate/providers/interface.js'
+
+export { redactSecrets, SECRET_PATTERNS } from './privacy/redact.js'
+export { sanitizeOutboundText, sanitizeOutboundValue, sanitizeTimeline, sanitizeStoryArc } from './privacy/outbound.js'
+export { buildNarrationPreview } from './narrate/prepare.js'

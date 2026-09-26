@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import type { StoryArc } from '@buildstory/core'
+import { sanitizeStoryArc } from '@buildstory/core'
 import type { AudioManifest } from '../tts/types.js'
 import { generateSRT } from './srt.js'
 
@@ -51,6 +52,7 @@ export async function renderVideo(
   audioManifest: AudioManifest,
   options: RenderOptions,
 ): Promise<void> {
+  storyArc = sanitizeStoryArc(storyArc)
   const entryPoint = resolveCompositionEntry()
 
   // Step 1: Bundle the Remotion composition entry point

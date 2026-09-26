@@ -37,6 +37,16 @@ const defaultOpts: AdaptOptions = {
 // ---------------------------------------------------------------------------
 
 describe('beat-to-scene mapping', () => {
+  it('sanitizes narration from imported arcs before creating outbound scenes', () => {
+    const arc = makeArc([makeBeat({ summary: 'password="synthetic private words" in /Users/private-person/repo' })])
+    const result = adaptStoryArc(arc, defaultOpts)
+    const text = result.chunks[0]![0]!.voice.input_text
+    expect(text).not.toContain('synthetic private words')
+    expect(text).not.toContain('/Users/private-person')
+    expect(text).toContain('[REDACTED]')
+    expect(arc.beats[0]!.summary).toContain('synthetic private words')
+  })
+
   it('1-beat arc returns 1 chunk with 1 scene, warnings is empty array', () => {
     const result = adaptStoryArc(makeArc([makeBeat()]), defaultOpts)
     expect(result.chunks).toHaveLength(1)

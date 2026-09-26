@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import OpenAI from 'openai'
 import type { StoryBeat } from '@buildstory/core'
+import { sanitizeOutboundValue } from '@buildstory/core'
 import type { TTSOptions, SceneAudio, AudioManifest, TTSCostEstimate } from './types.js'
 import { generateSceneAudio } from './generate.js'
 import { measureAudioDuration } from './measure.js'
@@ -13,6 +14,7 @@ export function estimateTTSCost(
   beats: StoryBeat[],
   model: TTSModel = DEFAULT_TTS_MODEL,
 ): TTSCostEstimate {
+  beats = sanitizeOutboundValue(beats)
   const totalCharacters = beats.reduce((sum, b) => sum + b.summary.length, 0)
   return {
     totalCharacters,
@@ -74,6 +76,7 @@ export async function orchestrateTTS(
   options: TTSOptions,
   onProgress?: (completed: number, total: number) => void,
 ): Promise<AudioManifest> {
+  beats = sanitizeOutboundValue(beats)
   const audioDir = join(outputDir, 'audio')
   await mkdir(audioDir, { recursive: true })
 

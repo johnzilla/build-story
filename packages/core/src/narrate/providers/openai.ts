@@ -1,3 +1,4 @@
+import { sanitizeOutboundText, sanitizeOutboundValue } from '../../privacy/outbound.js'
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
 import { z } from 'zod'
@@ -39,21 +40,21 @@ export class OpenAIProvider implements LLMProvider {
     const payload = buildTimelinePayload(timeline)
     return this._structuredExtract(
       [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: sanitizeOutboundText(systemPrompt) },
         { role: 'user', content: payload },
       ],
     )
   }
 
   async generateFormat(arc: StoryArc, _formatType: FormatType, systemPrompt: string): Promise<string> {
-    const beatsJson = JSON.stringify(arc.beats, null, 2)
+    const beatsJson = JSON.stringify(sanitizeOutboundValue(arc.beats), null, 2)
 
     // Plain text output — use create() not parse() (per D-04)
     const completion = await this.client.chat.completions.create({
       model: this.model,
       temperature: 0,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: sanitizeOutboundText(systemPrompt) },
         { role: 'user', content: beatsJson },
       ],
     })
@@ -70,7 +71,7 @@ export class OpenAIProvider implements LLMProvider {
 
   async synthesizeArcs(arcs: StoryArc[], systemPrompt: string): Promise<StoryArc> {
     const mergedBeats = arcs.flatMap((arc) => arc.beats)
-    const mergedBeatsJson = JSON.stringify(mergedBeats, null, 2)
+    const mergedBeatsJson = JSON.stringify(sanitizeOutboundValue(mergedBeats), null, 2)
 
     const synthesisPrompt =
       systemPrompt +
@@ -80,7 +81,7 @@ export class OpenAIProvider implements LLMProvider {
 
     return this._structuredExtract(
       [
-        { role: 'system', content: synthesisPrompt },
+        { role: 'system', content: sanitizeOutboundText(synthesisPrompt) },
         { role: 'user', content: mergedBeatsJson },
       ],
     )

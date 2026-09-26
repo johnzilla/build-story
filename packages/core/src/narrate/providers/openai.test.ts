@@ -63,6 +63,30 @@ describe('OpenAIProvider', () => {
     vi.clearAllMocks()
   })
 
+  it('scrubs secrets and local paths at every SDK request boundary', async () => {
+    mockParse.mockResolvedValue({ choices: [{ message: { parsed: makeArc() } }] })
+    mockCreate.mockResolvedValue({ choices: [{ message: { content: 'safe output' } }] })
+    const provider = new OpenAIProvider({ apiKey: 'test-key' })
+    const secret = 'synthetic outbound value'
+    const localPath = '/Users/private-reviewer/work/repo'
+    const system = `Context ${localPath}; password="${secret}"`
+    const timeline = makeTimeline({ rootDir: localPath, events: [{
+      id: 'evt-1', date: '2026-01-01', source: 'file', summary: `password="${secret}"`,
+      metadata: { apiKey: secret, cwd: localPath }, rawContent: 'RAW PRIVATE', dateConfidence: 'exact',
+    }] })
+    const arc = makeArc()
+    arc.beats[0]!.summary = `password="${secret}"`
+    arc.beats[0]!.evidence = [localPath]
+    await provider.extractStoryArc(timeline, system)
+    await provider.generateFormat(arc, 'blog', system)
+    await provider.synthesizeArcs([arc], system)
+    const requests = JSON.stringify([...mockParse.mock.calls, ...mockCreate.mock.calls])
+    expect(requests).not.toContain(secret)
+    expect(requests).not.toContain(localPath)
+    expect(requests).not.toContain('RAW PRIVATE')
+    expect(requests).toContain('[REDACTED]')
+  })
+
   describe('extractStoryArc()', () => {
     it('calls client.chat.completions.parse() with zodResponseFormat', async () => {
       const arc = makeArc()

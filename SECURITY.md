@@ -24,9 +24,12 @@ sends what's listed:
 | `render` (Remotion) | OpenAI TTS | The narration text of each beat. |
 | `render` (HeyGen) | HeyGen | The narration text + scene config. |
 
-**`rawContent` is never sent to the LLM.** `buildTimelinePayload` explicitly
-strips it — full file text and full commit bodies stay local. They are retained
-only in local artifacts (see below).
+**Event `rawContent` is never sent to the LLM.** `buildTimelinePayload` strips
+it, including when a timeline is imported from JSON. Summaries still contain
+selected commit-body and transcript excerpts. Outbound `rootDir` and
+`sourceTimeline` use a project label instead of an absolute directory. Local
+`cwd`, `rootDir`, and `homeDir` metadata fields are removed recursively;
+recognizable absolute paths in text are replaced with `[LOCAL_PATH]`.
 
 ### Ingress sources (what becomes event `summary`/`metadata`)
 
@@ -37,12 +40,40 @@ only in local artifacts (see below).
 ### Secret redaction
 
 All three ingress paths run untrusted text through `redactSecrets` **before it
-enters the timeline** (`packages/cli/src/adapters/redact.ts`): files, git
+enters the timeline** (`packages/core/src/privacy/redact.ts`, re-exported by
+`packages/cli/src/adapters/redact.ts`): files, git
 commit/tag messages, and transcript turns. Patterns cover common API keys and
 tokens (OpenAI/Anthropic, AWS, Slack, Google, Stripe, npm, GitHub, JWTs, PEM
-private-key blocks, and `key: value` / `key=value` secret assignments).
-Redaction is best-effort pattern matching, not a guarantee — review outputs
-before publishing, especially with transcripts enabled.
+private-key blocks, URL credentials, and `key: value` / `key=value` secret
+assignments, including quoted JSON keys and quoted values with spaces/escapes).
+
+Outbound sanitization also runs before LLM extraction, synthesis, formatting,
+OpenAI speech generation, and HeyGen scene construction. Nested sensitive
+fields are redacted before serialization, so imported timelines and arcs do
+not depend on having passed through the scanner. Narration, video text, and
+subtitles use the same sanitization policy. Authentication credentials remain
+available to the SDKs; they are not included in content previews.
+
+Redaction and text-path detection are best-effort, not a guarantee of anonymity
+or complete secret detection. Relative repository paths and ordinary web links
+remain in the story. Review previews and outputs, especially with transcripts
+enabled. Original input files are not rewritten by outbound sanitization.
+
+### Offline payload previews
+
+`run`, `narrate`, and `render` accept `--preview-payload <file>`. The command
+writes a new file with owner-only permissions and exits without API calls,
+authentication checks, or rendering. It refuses to overwrite existing files.
+
+- `run` / `narrate`: sanitized system and user content for each extraction
+  request, using the same chunking as narration. Later synthesis/formatting and
+  speech requests depend on generated output and cannot be previewed at this stage.
+- `render`: narration request bodies for the selected renderer. Missing HeyGen
+  avatar/voice IDs use labeled placeholders. Authentication is omitted. TTS
+  previews include every scene even if the real run can reuse cached audio.
+
+Previews can still contain private project information. They are for local
+review, not automatically safe to publish.
 
 ## Frontmatter parsing
 

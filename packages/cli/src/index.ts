@@ -47,6 +47,7 @@ program
   .option('--provider <provider>', 'LLM provider (anthropic|openai)')
   .option('--style <style>', 'narrative style (technical|overview|retrospective|pitch|story)')
   .option('-o, --output <path>', 'output directory', './buildstory-out')
+  .option('--preview-payload <file>', 'Save sanitized outbound content and exit without API calls')
   .option('--skip-video', 'Skip video rendering, text-only output')
   .option('--include-text', 'Include text formats alongside video')
   .option('--dry-run', 'Show cost estimates without calling APIs')
@@ -77,6 +78,7 @@ program
   .option('--provider <provider>', 'LLM provider (anthropic|openai)')
   .option('--style <style>', 'Narrative style (technical|overview|retrospective|pitch|story)')
   .option('-o, --output <path>', 'Output directory', './buildstory-out')
+  .option('--preview-payload <file>', 'Save sanitized outbound content and exit without API calls')
   .action(async (timeline: string, opts) => {
     await narrateCommand(timeline, opts)
   })
@@ -87,6 +89,7 @@ program
   .argument('<story-arc>', 'Path to story-arc.json')
   .option('-c, --config <path>', 'Config file path')
   .option('-o, --output <path>', 'Output directory', './buildstory-out')
+  .option('--preview-payload <file>', 'Save sanitized outbound content and exit without API calls')
   .option('--dry-run', 'Show TTS cost estimate without calling APIs')
   .option('--no-title-card', 'Disable auto-inserted title card')
   .option('--no-stats-card', 'Disable auto-inserted stats card')

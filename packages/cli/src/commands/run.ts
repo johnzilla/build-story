@@ -1,3 +1,5 @@
+import { buildNarrationPreview } from '@buildstory/core'
+import { writePayloadPreview } from '../preview.js'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { resolve, dirname, basename } from 'node:path'
 import chalk from 'chalk'
@@ -52,6 +54,7 @@ export async function run(
     skipVideo?: boolean
     includeText?: boolean
     dryRun?: boolean
+    previewPayload?: string
     maxCost?: string
     // commander maps `--no-title-card`/`--no-stats-card` to these (default true).
     titleCard?: boolean
@@ -128,6 +131,14 @@ export async function run(
 
   const claudeWarning = claudeDirWarning(timeline)
   if (claudeWarning) console.log(chalk.yellow(`  ${claudeWarning}`))
+
+  if (opts.previewPayload) {
+    await writePayloadPreview(opts.previewPayload, {
+      provider,
+      ...buildNarrationPreview(timeline, { style }),
+    })
+    return { timeline, arc: undefined, outputs: {} }
+  }
 
   // --dry-run: print a cost estimate from event count and exit BEFORE any
   // paid API calls. Accurate per-beat estimates come from `buildstory render

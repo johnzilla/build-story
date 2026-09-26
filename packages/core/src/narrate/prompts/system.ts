@@ -1,3 +1,5 @@
+import { projectLabel, sanitizeOutboundText } from '../../privacy/outbound.js'
+
 /**
  * Style preset system prompts for LLM narration.
  * Each style produces meaningfully different StoryArc output for the same Timeline input.
@@ -155,7 +157,7 @@ export function buildSystemPrompt(
 
   const metadataHint =
     timelineMetadata !== undefined
-      ? `\n## Timeline Metadata\n- Root directory: ${timelineMetadata.rootDir}\n- Scanned at: ${timelineMetadata.scannedAt}\n`
+      ? `\n## Timeline Metadata\n- Project: ${projectLabel(timelineMetadata.rootDir)}\n- Scanned at: ${sanitizeOutboundText(timelineMetadata.scannedAt)}\n`
       : ''
 
   return `${base}${metadataHint}`

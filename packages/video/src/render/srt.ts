@@ -1,5 +1,6 @@
 import { stringifySync } from 'subtitle'
 import type { StoryBeat } from '@buildstory/core'
+import { sanitizeOutboundText } from '@buildstory/core'
 import type { SceneAudio } from '../tts/types.js'
 
 export function generateSRT(beats: StoryBeat[], scenes: SceneAudio[]): string {
@@ -21,7 +22,7 @@ export function generateSRT(beats: StoryBeat[], scenes: SceneAudio[]): string {
       data: {
         start: startMs,
         end: endMs,
-        text: beat.summary,
+        text: sanitizeOutboundText(beat.summary),
       },
     }
   })

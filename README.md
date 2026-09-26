@@ -103,6 +103,28 @@ connection can't stall a render forever, transient server errors are retried,
 and a server error page surfaces as a clear HTTP status rather than an opaque
 parse error — so a long render fails fast and legibly when something is wrong.
 
+### Preview outbound content
+
+Use `--preview-payload <new-file>` to inspect sanitized content before paying
+for generation. These commands make no API calls and need no API keys:
+
+```bash
+buildstory run ~/my-project --preview-payload ./narration-preview.json
+buildstory narrate ./timeline.json --preview-payload ./import-preview.json
+buildstory render ./story-arc.json --preview-payload ./speech-preview.json
+buildstory render ./story-arc.json --renderer heygen --preview-payload ./heygen-preview.json
+```
+
+The file must not already exist. Previews are created with owner-only
+permissions. Narration previews contain the extraction prompts for each chunk;
+synthesis, text formats, and speech depend on the generated story and are not
+included at that stage. Render previews show speech or HeyGen generation
+bodies without authentication. Missing HeyGen IDs use placeholders.
+
+Credentials and recognizable local paths are scrubbed at outbound boundaries,
+including for imported JSON. Review the preview: pattern matching cannot detect
+every secret or private detail. See [SECURITY.md](SECURITY.md).
+
 ### Configuration
 
 Create `buildstory.toml` in your project root:

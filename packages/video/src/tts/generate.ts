@@ -5,8 +5,14 @@ import OpenAI from 'openai'
 import { DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
 import { getFfmpegPath } from './ffmpeg.js'
 import { truncateForTTS } from './truncate.js'
+import { sanitizeOutboundText } from '@buildstory/core'
 
 const execFileAsync = promisify(execFile)
+
+/** Exact narration sent to TTS, also used by the offline render preview. */
+export function prepareSpeechText(text: string): string {
+  return truncateForTTS(sanitizeOutboundText(text))
+}
 
 interface GenerateOpts {
   voice: string
@@ -26,7 +32,7 @@ export async function generateSceneAudio(
   opts: GenerateOpts,
 ): Promise<void> {
   // If text exceeds the limit, truncate at the last sentence boundary that fits.
-  const truncated = truncateForTTS(text)
+  const truncated = prepareSpeechText(text)
 
   const MAX_ATTEMPTS = 3
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

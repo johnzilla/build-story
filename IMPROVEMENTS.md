@@ -9,7 +9,7 @@ story of the development process and explain the decisions behind it.
 1. [x] **Critical: prevent execution of Markdown frontmatter.** Permit only
    data formats; verify that JavaScript, aliases, BOMs, and CRLF cannot execute
    code. Preserve ordinary YAML/JSON metadata and document the behavior.
-2. [ ] **High: close outbound privacy gaps.** Cover quoted credential keys,
+2. [x] **High: close outbound privacy gaps.** Cover quoted credential keys,
    imported timelines, and final outbound payloads. Remove unnecessary absolute
    paths and provide a payload preview.
 3. [ ] **High: resolve dependency advisories.** Update affected dependency
@@ -65,4 +65,12 @@ story of the development process and explain the decisions behind it.
   is ignored. Added 13 regression cases and documented the behavior in SECURITY.md.
 - Verification: 202 core tests and 73 CLI tests pass; core typecheck, repository
   lint, and core build pass. Local core build output now includes the fix.
-- Next: item 2, outbound privacy and secret redaction.
+- Item 2 complete: shared credential redaction covers quoted values and nested
+  sensitive fields. Imported timelines/arcs and outbound LLM, TTS, and HeyGen
+  content are sanitized; project labels replace absolute roots and local path
+  metadata is removed. Added offline `--preview-payload <file>` to run, narrate,
+  and render, with explicit preview scope and no network calls.
+- Item 2 verification: all 382 tests pass, plus workspace build, typecheck,
+  lint, and diff checks. Tests cover SDK boundaries, imported content, preview
+  equivalence, no-key/no-network operation, and overwrite protection.
+- Next: item 3, dependency security advisories.

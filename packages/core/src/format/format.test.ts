@@ -42,7 +42,9 @@ describe('format()', () => {
     expect(provider.generateFormat).toHaveBeenCalledOnce()
     const [calledArc, calledFormatType, calledPrompt] = (provider.generateFormat as ReturnType<typeof vi.fn>).mock
       .calls[0] as [StoryArc, string, string]
-    expect(calledArc).toBe(arc)
+    expect(calledArc.beats).toEqual(arc.beats)
+    expect(calledArc.metadata.sourceTimeline).toBe('test')
+    expect(arc.metadata.sourceTimeline).toBe('/test')
     expect(calledFormatType).toBe('outline')
     expect(typeof calledPrompt).toBe('string')
     expect(calledPrompt.length).toBeGreaterThan(0)
