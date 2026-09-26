@@ -11,7 +11,14 @@ export async function withConcurrency<T>(
   const results: T[] = []
   for (let i = 0; i < tasks.length; i += effectiveLimit) {
     const batch = tasks.slice(i, i + effectiveLimit).map((fn) => fn())
-    results.push(...(await Promise.all(batch)))
+    // Drain in-flight work before reporting failure/spend; never start a later
+    // batch after rejection. Reservations prevent parallel calls overspending.
+    const settled = await Promise.allSettled(batch)
+    const failure = settled.find((result) => result.status === 'rejected')
+    if (failure?.status === 'rejected') throw failure.reason
+    for (const result of settled) {
+      if (result.status === 'fulfilled') results.push(result.value)
+    }
   }
   return results
 }

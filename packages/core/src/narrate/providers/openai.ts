@@ -1,3 +1,5 @@
+import type { SpendBudget } from '../../budget.js'
+import { reserveLLM, llmCostUSD } from '../pricing.js'
 import { sanitizeOutboundText, sanitizeOutboundValue } from '../../privacy/outbound.js'
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
@@ -17,11 +19,13 @@ import { buildTimelinePayload } from '../tokens.js'
 export class OpenAIProvider implements LLMProvider {
   private readonly client: OpenAI
   private readonly model: string
+  private readonly budget: SpendBudget | undefined
   private _usage: UsageStats = { calls: 0, inputTokens: 0, outputTokens: 0 }
 
-  constructor({ apiKey, model = 'gpt-4o' }: { apiKey: string; model?: string }) {
-    this.client = new OpenAI({ apiKey, maxRetries: 2 })
+  constructor({ apiKey, model = 'gpt-4o', budget }: { apiKey: string; model?: string; budget?: SpendBudget | undefined }) {
+    this.client = new OpenAI({ apiKey, maxRetries: 0 })
     this.model = model
+    this.budget = budget
   }
 
   private trackUsage(usage: OpenAI.Completions.CompletionUsage | undefined) {
@@ -50,17 +54,22 @@ export class OpenAIProvider implements LLMProvider {
     const beatsJson = JSON.stringify(sanitizeOutboundValue(arc.beats), null, 2)
 
     // Plain text output — use create() not parse() (per D-04)
-    const completion = await this.client.chat.completions.create({
+    const request: Parameters<typeof this.client.chat.completions.create>[0] & { stream?: false } = {
       model: this.model,
+      max_completion_tokens: 4096,
       temperature: 0,
       messages: [
         { role: 'system', content: sanitizeOutboundText(systemPrompt) },
         { role: 'user', content: beatsJson },
       ],
-    })
+    }
+    const charge = reserveLLM(this.budget, 'openai', this.model, request, 4096)
+    const completion = await this.client.chat.completions.create(request)
 
     this.trackUsage(completion.usage ?? undefined)
+    if (completion.usage) charge?.settle(llmCostUSD('openai', { calls: 1, inputTokens: completion.usage.prompt_tokens, outputTokens: completion.usage.completion_tokens }), 'usage')
 
+    if (completion.choices[0]?.finish_reason === 'length') throw new Error('OpenAI output reached its token limit')
     const content = completion.choices[0]?.message.content
     if (content === null || content === undefined) {
       throw new Error('OpenAI generateFormat: unexpected response — no text content returned')
@@ -117,13 +126,17 @@ export class OpenAIProvider implements LLMProvider {
     }
 
     if (useParse && responseFormat !== undefined) {
-      const completion = await this.client.chat.completions.parse({
+      const request: Parameters<typeof this.client.chat.completions.parse>[0] = {
         model: this.model,
+        max_completion_tokens: 16384,
         temperature: 0,
         messages,
         response_format: responseFormat,
-      })
+      }
+      const charge = reserveLLM(this.budget, 'openai', this.model, request, 16384)
+      const completion = await this.client.chat.completions.parse(request)
       this.trackUsage(completion.usage ?? undefined)
+      if (completion.usage) charge?.settle(llmCostUSD('openai', { calls: 1, inputTokens: completion.usage.prompt_tokens, outputTokens: completion.usage.completion_tokens }), 'usage')
 
       const parsed = completion.choices[0]?.message.parsed
       if (parsed === null || parsed === undefined) {
@@ -134,8 +147,9 @@ export class OpenAIProvider implements LLMProvider {
 
     // Fallback path: manual json_schema response_format via z.toJSONSchema().
     const rawSchema = z.toJSONSchema(StoryArcSchema)
-    const completion = await this.client.chat.completions.create({
+    const request: Parameters<typeof this.client.chat.completions.create>[0] & { stream?: false } = {
       model: this.model,
+      max_completion_tokens: 16384,
       temperature: 0,
       messages,
       response_format: {
@@ -146,9 +160,13 @@ export class OpenAIProvider implements LLMProvider {
           strict: true,
         },
       },
-    })
+    }
+    const charge = reserveLLM(this.budget, 'openai', this.model, request, 16384)
+    const completion = await this.client.chat.completions.create(request)
     this.trackUsage(completion.usage ?? undefined)
+    if (completion.usage) charge?.settle(llmCostUSD('openai', { calls: 1, inputTokens: completion.usage.prompt_tokens, outputTokens: completion.usage.completion_tokens }), 'usage')
 
+    if (completion.choices[0]?.finish_reason === 'length') throw new Error('OpenAI output reached its token limit')
     const content = completion.choices[0]?.message.content
     if (content === null || content === undefined) {
       throw new Error('OpenAI failed to produce structured output (fallback path: content filter or length limit)')

@@ -1,3 +1,4 @@
+import { SpendBudget } from '@buildstory/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from 'node:fs/promises'
 import { EventEmitter } from 'node:events'
@@ -187,6 +188,25 @@ describe('paid job recovery with real disk state', () => {
     await renderWithHeyGen(multiArc, config, output, ignore)
     expect(fetch).not.toHaveBeenCalled()
     await expect(readdir(`${output}.parts`)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+
+  it('rejects a new paid chunk without creating an ambiguous submission marker', async () => {
+    await expect(renderWithHeyGen(arc, config, output, ignore, new SpendBudget(0.01))).rejects.toThrow('--max-cost')
+    expect(fetch).not.toHaveBeenCalled()
+    expect(await jobFiles()).toHaveLength(0)
+  })
+
+  it('resumes a saved job with no new charge even when the budget cannot fund a new job', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(submitted())
+    const firstBudget = new SpendBudget(2)
+    await expect(renderWithHeyGen(arc, { ...config, timeoutSeconds: 0 }, output, ignore, firstBudget)).rejects.toThrow('Timeout')
+    expect(firstBudget.snapshot()).toMatchObject([{ basis: 'estimate', usd: 0.99 }])
+    vi.mocked(fetch).mockClear().mockResolvedValueOnce(completed()).mockResolvedValueOnce(video())
+    const budget = new SpendBudget(0.01)
+    await renderWithHeyGen(arc, config, output, ignore, budget)
+    expect(budget.snapshot()).toMatchObject([{ basis: 'cached', usd: 0 }])
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
 })

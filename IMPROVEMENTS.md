@@ -20,7 +20,7 @@ story of the development process and explain the decisions behind it.
 4. [x] **High: resume paid HeyGen jobs.** Persist submission IDs immediately;
    resume polling and downloads, handle ambiguous submissions, and include
    dimensions in cache identity.
-5. [ ] **High: enforce spending controls per request.** Bound output, check
+5. [x] **High: enforce spending controls per request.** Bound output, check
    every extraction/synthesis request, and separate actual spend from estimates
    and cached audio.
 6. [ ] **Medium: unify video timing.** Use one frame schedule for scene starts,
@@ -94,4 +94,15 @@ story of the development process and explain the decisions behind it.
   cases covering real disk persistence, ambiguous responses, concurrent submit
   protection, disk failures, download/assembly recovery, dimensions, and legacy
   chunks. HeyGen requests and FFmpeg assembly were mocked; no paid calls made.
-- Next: item 5, spending controls per request.
+- Item 5 complete: shared budget reservations guard each extraction, synthesis,
+  text format, TTS request, and new HeyGen submission. LLM output limits match
+  the reservations; automatic SDK retries are disabled. Concurrent audio work
+  reserves funds before sending and drains before failure reporting. Cached
+  audio and saved HeyGen jobs incur no new reservation. Reports distinguish
+  usage-based costs, estimates, and uncertain outcomes, including on failures.
+- Item 5 verification: workspace build, typecheck, lint, all 419 tests, and diff
+  checks pass. Added 17 tests for request boundaries, concurrency reservations,
+  uncertain costs, resumed jobs, and CLI preservation/reporting. No paid calls
+  made. The cap uses configured rates and conservative local estimates, not a
+  guaranteed provider invoice ceiling; this limitation is documented.
+- Next: item 6, consistent scene, narration, and caption timing.

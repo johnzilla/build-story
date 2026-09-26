@@ -1,17 +1,16 @@
-import { buildNarrationPreview } from '@buildstory/core'
+import { buildNarrationPreview, SpendBudget, BudgetExceededError } from '@buildstory/core'
 import { writePayloadPreview } from '../preview.js'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { resolve, dirname, basename } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
 import { scan, narrate, format, createProvider } from '@buildstory/core'
-import type { FormatType } from '@buildstory/core'
+import type { FormatType, StoryArc } from '@buildstory/core'
 import { loadConfig, toScanOptions } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
 import { createTranscriptSource } from '../adapters/transcript-registry.js'
 import { ttsCostUSD } from '@buildstory/video/pricing'
-import { llmCostUSD, LLM_PRICE_PER_1M } from '../pricing-llm.js'
 import { claudeDirWarning } from '../warnings.js'
 import {
   checkProvider,
@@ -188,312 +187,246 @@ export async function run(
     return
   }
 
-  const narrateOpts = { provider, style, apiKey }
-
-  // Create ONE provider instance — pass to both narrate() and format() (no double instantiation)
+  const budget = new SpendBudget(maxCost)
+  const narrateOpts = { provider, style, apiKey, budget }
   const llmProvider = createProvider(narrateOpts)
 
-  // --- Spend tracking: --max-cost guardrail + end-of-run spend report (3.7) ---
-  // LLM cost is derived from the provider's actual accumulated token usage; TTS
-  // and HeyGen are tracked as each stage runs. spentUSD() is the live total.
-  let ttsChars = 0
-  let ttsUSD = 0
-  let heygenCredits = 0
-  let heygenUSD = 0
-  const spentUSD = (): number => llmCostUSD(provider, llmProvider.getUsage()) + ttsUSD + heygenUSD
-
-  /**
-   * Abort before a stage that would push total spend past --max-cost. Prints why
-   * and returns false; the caller stops the pipeline, leaving already-written
-   * results (story-arc.json + any earlier outputs) in place.
-   */
-  const withinBudget = (stage: string, estimateUSD: number): boolean => {
-    if (maxCost === undefined) return true
-    const projected = spentUSD() + estimateUSD
-    if (projected > maxCost) {
-      console.log(
-        chalk.yellow(
-          `\n  Stopping before ${stage}: would exceed --max-cost $${maxCost.toFixed(2)} ` +
-            `(spent $${spentUSD().toFixed(2)} + ${stage} ~$${estimateUSD.toFixed(2)} = ~$${projected.toFixed(2)}). ` +
-            `Partial results kept.`,
-        ),
-      )
-      return false
-    }
-    return true
+  function printSpendReport(): void {
+    const entries = budget.snapshot()
+    const total = (basis: string) => entries.filter((entry) => entry.basis === basis).reduce((sum, entry) => sum + entry.usd, 0)
+    const usage = llmProvider.getUsage()
+    console.log(chalk.bold('\n  Spend (this run, at configured rates)'))
+    console.log(chalk.dim(`    LLM reported usage: ${formatTokens(usage.inputTokens)} in / ${formatTokens(usage.outputTokens)} out, ${usage.calls} call(s) — $${total('usage').toFixed(4)}`))
+    console.log(chalk.dim(`    TTS / HeyGen estimates: $${total('estimate').toFixed(4)}`))
+    console.log(chalk.dim(`    Uncertain requests (reserved): $${total('unknown').toFixed(4)}`))
+    console.log(chalk.dim(`    Cached audio / existing jobs reused: ${entries.filter((entry) => entry.basis === 'cached').length} ($0 new requests)`))
+    console.log(chalk.bold(`    Accounted total: $${entries.reduce((sum, entry) => sum + entry.usd, 0).toFixed(4)}`) + (maxCost === undefined ? '' : ` (cap $${maxCost.toFixed(4)})`))
   }
 
-  // End-of-run spend report: actual LLM tokens/cost, TTS chars/cost, HeyGen
-  // credits/cost, and the total (vs the cap, if set). Hoisted so early aborts
-  // can print it too.
-  function printSpendReport(): void {
-    const usage = llmProvider.getUsage()
-    const llmUSD = llmCostUSD(provider, usage)
-    const total = llmUSD + ttsUSD + heygenUSD
-    console.log(chalk.bold('\n  Spend'))
-    console.log(
-      chalk.dim(
-        `    LLM:     ${formatTokens(usage.inputTokens)} in / ${formatTokens(usage.outputTokens)} out, ` +
-          `${usage.calls} call(s) (${provider}) — $${llmUSD.toFixed(2)}`,
+  let arc: StoryArc | undefined
+  const outputs: Record<string, string> = {}
+  let activeSpinner: ReturnType<typeof ora> | undefined
+  try {
+    // Step 2: Narrate
+    const narrateStart = Date.now()
+    const narrateSpinner = activeSpinner = ora(`[2/${totalSteps}] Extracting story arc...`).start()
+    arc = await narrate(timeline, narrateOpts, llmProvider)
+    narrateSpinner.succeed(
+      chalk.green(
+        `[2/${totalSteps}] Story arc extracted — ${arc.beats.length} beats (${formatDuration(Date.now() - narrateStart)})`,
       ),
     )
-    if (ttsChars > 0) {
-      console.log(chalk.dim(`    TTS:     ${ttsChars.toLocaleString()} chars (${ttsModel}) — $${ttsUSD.toFixed(2)}`))
-    }
-    if (heygenCredits > 0) {
-      console.log(chalk.dim(`    HeyGen:  ${heygenCredits} credit(s) — $${heygenUSD.toFixed(2)}`))
-    }
-    const cap = maxCost !== undefined ? ` (cap $${maxCost.toFixed(2)})` : ''
-    console.log(chalk.bold(`    Total:   `) + `$${total.toFixed(2)}${cap}`)
-  }
 
-  // Pre-narrate gate: a conservative estimate (full timeline JSON incl. rawContent
-  // over-counts input; ~4k output tokens) so a tiny cap aborts before any spend.
-  const llmPrice = LLM_PRICE_PER_1M[provider]
-  const narrateEstUSD =
-    (Math.ceil(JSON.stringify(timeline).length / 4) / 1_000_000) * llmPrice.input +
-    (4000 / 1_000_000) * llmPrice.output
-  if (!withinBudget('narration', narrateEstUSD)) {
-    printSpendReport()
-    return { timeline, arc: undefined, outputs: {} }
-  }
+    // Write output directory and story-arc.json
+    const outputDir = resolve(opts.output, projectName)
+    await mkdir(outputDir, { recursive: true })
+    await writeFile(resolve(outputDir, 'story-arc.json'), JSON.stringify(arc, null, 2))
 
-  // Step 2: Narrate
-  const narrateStart = Date.now()
-  const narrateSpinner = ora(`[2/${totalSteps}] Extracting story arc...`).start()
-  const arc = await narrate(timeline, narrateOpts, llmProvider)
-  narrateSpinner.succeed(
-    chalk.green(
-      `[2/${totalSteps}] Story arc extracted — ${arc.beats.length} beats (${formatDuration(Date.now() - narrateStart)})`,
-    ),
-  )
+    // Video pipeline (when not skipping video)
+    let mp4Path: string | undefined
+    let srtPath: string | undefined
 
-  // Write output directory and story-arc.json
-  const outputDir = resolve(opts.output, projectName)
-  await mkdir(outputDir, { recursive: true })
-  await writeFile(resolve(outputDir, 'story-arc.json'), JSON.stringify(arc, null, 2))
+    if (!skipVideo) {
+      if (renderer === 'heygen') {
+        // @buildstory/heygen is a hard workspace dep (always installed); the
+        // dynamic import only defers loading its module graph until render time.
+        const heygen = await import('@buildstory/heygen')
 
-  // Video pipeline (when not skipping video)
-  let mp4Path: string | undefined
-  let srtPath: string | undefined
+        // Satisfies HeyGenConfig -- defaulted fields are optional
+        const heygenOpts = {
+          apiKey: process.env['HEYGEN_API_KEY'] ?? '',
+          avatarId: config.heygen?.avatarId ?? '',
+          voiceId: config.heygen?.voiceId ?? '',
+        }
 
-  if (!skipVideo) {
-    if (renderer === 'heygen') {
-      // @buildstory/heygen is a hard workspace dep (always installed); the
-      // dynamic import only defers loading its module graph until render time.
-      const heygen = await import('@buildstory/heygen')
+        // Validate required fields and surface clear errors before preflight
+        const missingFields: string[] = []
+        if (!heygenOpts.apiKey) missingFields.push('HEYGEN_API_KEY env var')
+        if (!heygenOpts.avatarId) missingFields.push('heygen.avatarId in buildstory.toml')
+        if (!heygenOpts.voiceId) missingFields.push('heygen.voiceId in buildstory.toml')
+        if (missingFields.length > 0) {
+          console.error(chalk.red('\n  HeyGen configuration missing:\n'))
+          missingFields.forEach((f) => console.error(chalk.red(`    - ${f}`)))
+          console.error()
+          throw new Error('Rendering prerequisites failed; see details above')
+        }
 
-      // Satisfies HeyGenConfig -- defaulted fields are optional
-      const heygenOpts = {
-        apiKey: process.env['HEYGEN_API_KEY'] ?? '',
-        avatarId: config.heygen?.avatarId ?? '',
-        voiceId: config.heygen?.voiceId ?? '',
-      }
+        const preflight = await heygen.preflightHeyGenCheck(heygenOpts)
+        if (!preflight.ok) {
+          console.error(chalk.red('\n  Preflight check failed:\n'))
+          preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
+          console.error()
+          throw new Error('Rendering prerequisites failed; see details above')
+        }
 
-      // Validate required fields and surface clear errors before preflight
-      const missingFields: string[] = []
-      if (!heygenOpts.apiKey) missingFields.push('HEYGEN_API_KEY env var')
-      if (!heygenOpts.avatarId) missingFields.push('heygen.avatarId in buildstory.toml')
-      if (!heygenOpts.voiceId) missingFields.push('heygen.voiceId in buildstory.toml')
-      if (missingFields.length > 0) {
-        console.error(chalk.red('\n  HeyGen configuration missing:\n'))
-        missingFields.forEach((f) => console.error(chalk.red(`    - ${f}`)))
-        console.error()
-        process.exit(1)
-      }
-
-      const preflight = await heygen.preflightHeyGenCheck(heygenOpts)
-      if (!preflight.ok) {
-        console.error(chalk.red('\n  Preflight check failed:\n'))
-        preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
-        console.error()
-        process.exit(1)
-      }
-
-      const cost = heygen.estimateHeyGenCost(arc.beats, heygenOpts)
-      console.log(
-        chalk.dim(
-          `  ${cost.sceneCount} scenes | avatar: ${cost.avatarId} | ~${cost.creditsRequired} credits (~$${cost.estimatedCostUSD.toFixed(2)} estimated)\n`,
-        ),
-      )
-
-      // --max-cost gate: abort before the paid submit if it would exceed the cap.
-      if (!withinBudget('HeyGen render', cost.estimatedCostUSD)) {
-        printSpendReport()
-        return { timeline, arc, outputs: {} }
-      }
-
-      // HeyGen submission (HGVR-02, HGVR-03, HGVR-04)
-      const { renderWithHeyGen } = heygen
-
-      mp4Path = resolve(outputDir, `${projectName}.mp4`)
-
-      const heygenSpinner = ora(`[3/${totalSteps}] Submitting to HeyGen...`).start()
-
-      try {
-        const heygenResult = await renderWithHeyGen(
-          arc,
-          heygenOpts,
-          mp4Path,
-          (msg: string) => { heygenSpinner.text = `[3/${totalSteps}] ${msg}` },
+        const cost = heygen.estimateHeyGenCost(arc.beats, heygenOpts)
+        console.log(
+          chalk.dim(
+            `  ${cost.sceneCount} scenes | avatar: ${cost.avatarId} | ~${cost.creditsRequired} credits (~$${cost.estimatedCostUSD.toFixed(2)} estimated)\n`,
+          ),
         )
 
-        heygenSpinner.succeed(chalk.green(`[3/${totalSteps}] HeyGen render complete`))
-        mp4Path = heygenResult.videoPath
-        heygenCredits = cost.creditsRequired
-        heygenUSD = cost.estimatedCostUSD
+        // HeyGen submission (HGVR-02, HGVR-03, HGVR-04)
+        const { renderWithHeyGen } = heygen
 
-        if (heygenResult.warnings.length > 0) {
-          console.log(chalk.yellow('\n  Warnings:'))
-          heygenResult.warnings.forEach((w: string) => console.log(chalk.yellow(`    - ${w}`)))
+        mp4Path = resolve(outputDir, `${projectName}.mp4`)
+
+        const heygenSpinner = activeSpinner = ora(`[3/${totalSteps}] Submitting to HeyGen...`).start()
+
+        try {
+          const heygenResult = await renderWithHeyGen(
+            arc,
+            heygenOpts,
+            mp4Path,
+            (msg: string) => { heygenSpinner.text = `[3/${totalSteps}] ${msg}` },
+            budget,
+          )
+
+          heygenSpinner.succeed(chalk.green(`[3/${totalSteps}] HeyGen render complete`))
+          mp4Path = heygenResult.videoPath
+
+          if (heygenResult.warnings.length > 0) {
+            console.log(chalk.yellow('\n  Warnings:'))
+            heygenResult.warnings.forEach((w: string) => console.log(chalk.yellow(`    - ${w}`)))
+          }
+        } catch (err) {
+          heygenSpinner.fail(chalk.red(`[3/${totalSteps}] HeyGen render failed`))
+          if (err instanceof Error) {
+            console.error(chalk.red(`\n  ${err.message}\n`))
+          }
+          throw err
         }
-      } catch (err) {
-        heygenSpinner.fail(chalk.red(`[3/${totalSteps}] HeyGen render failed`))
-        if (err instanceof Error) {
-          console.error(chalk.red(`\n  ${err.message}\n`))
+      } else {
+        // === Remotion path ===
+        // @buildstory/video is a hard workspace dep; the dynamic import only defers
+        // loading its heavy module graph (Remotion) until render time.
+        const video = await import('@buildstory/video')
+
+        // Preflight check (REND-11, D-12)
+        const openaiKey = process.env['OPENAI_API_KEY'] ?? ''
+        const preflight = await video.preflightCheck({ openaiApiKey: openaiKey })
+        if (!preflight.ok) {
+          console.error(chalk.red('\n  Preflight check failed:\n'))
+          preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
+          console.error()
+          throw new Error('Rendering prerequisites failed; see details above')
         }
-        process.exit(1)
+
+        // TTS cost estimate (REND-03, D-16) — priced at the validated model.
+        const costEstimate = video.estimateTTSCost(arc.beats, ttsModel)
+        console.log(
+          chalk.dim(
+            `  Generating audio for ${costEstimate.sceneCount} scenes (~$${costEstimate.estimatedCostUSD.toFixed(2)} estimated)\n`,
+          ),
+        )
+
+        // TTS (REND-02) — voice/speed/model validated above; concurrency here.
+        const ttsConcurrency = config.tts?.concurrency ?? 2
+
+        const ttsSpinner = activeSpinner = ora(`[3/${totalSteps}] Generating TTS audio...`).start()
+        const audioManifest = await video.orchestrateTTS(
+          arc.beats,
+          outputDir,
+          { voice: ttsVoice, speed: ttsSpeed, apiKey: openaiKey, concurrency: ttsConcurrency, model: ttsModel, budget },
+          (completed: number, total: number) => {
+            ttsSpinner.text = `[3/${totalSteps}] Generating TTS audio... ${completed}/${total} scenes`
+          },
+        )
+        ttsSpinner.succeed(
+          chalk.green(
+            `[3/${totalSteps}] TTS complete — ${audioManifest.scenes.length} scenes (${audioManifest.totalDurationSeconds.toFixed(1)}s total)`,
+          ),
+        )
+
+        // Render (REND-04, REND-05, D-25)
+        mp4Path = resolve(outputDir, `${projectName}.mp4`)
+        srtPath = resolve(outputDir, `${projectName}.srt`)
+
+        // Card visibility: CLI --no-*-card forces off; else config; else on.
+        const showTitleCard = opts.titleCard === false ? false : (config.render?.titleCard ?? true)
+        const showStatsCard = opts.statsCard === false ? false : (config.render?.statsCard ?? true)
+
+        const renderSpinner = activeSpinner = ora(`[4/${totalSteps}] Rendering video...`).start()
+        await video.renderVideo(arc, audioManifest, {
+          outputPath: mp4Path,
+          srtPath,
+          showTitleCard,
+          showStatsCard,
+          // Use the Chrome/Chromium preflight already located, so a machine where
+          // preflight passes always renders (no second, divergent discovery).
+          ...(preflight.chromePath ? { browserExecutable: preflight.chromePath } : {}),
+          onProgress: (p: { renderedFrames: number; totalFrames: number; progress: number }) => {
+            const pct = Math.round(p.progress * 100)
+            renderSpinner.text = `[4/${totalSteps}] Rendering video... ${pct}% (frame ${p.renderedFrames}/${p.totalFrames})`
+          },
+        })
+        renderSpinner.succeed(chalk.green(`[4/${totalSteps}] Render complete`))
       }
-    } else {
-      // === Remotion path ===
-      // @buildstory/video is a hard workspace dep; the dynamic import only defers
-      // loading its heavy module graph (Remotion) until render time.
-      const video = await import('@buildstory/video')
-
-      // Preflight check (REND-11, D-12)
-      const openaiKey = process.env['OPENAI_API_KEY'] ?? ''
-      const preflight = await video.preflightCheck({ openaiApiKey: openaiKey })
-      if (!preflight.ok) {
-        console.error(chalk.red('\n  Preflight check failed:\n'))
-        preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
-        console.error()
-        process.exit(1)
-      }
-
-      // TTS cost estimate (REND-03, D-16) — priced at the validated model.
-      const costEstimate = video.estimateTTSCost(arc.beats, ttsModel)
-      console.log(
-        chalk.dim(
-          `  Generating audio for ${costEstimate.sceneCount} scenes (~$${costEstimate.estimatedCostUSD.toFixed(2)} estimated)\n`,
-        ),
-      )
-
-      // --max-cost gate: abort before the paid TTS calls if they'd exceed the cap.
-      if (!withinBudget('TTS + render', costEstimate.estimatedCostUSD)) {
-        printSpendReport()
-        return { timeline, arc, outputs: {} }
-      }
-
-      // TTS (REND-02) — voice/speed/model validated above; concurrency here.
-      const ttsConcurrency = config.tts?.concurrency ?? 2
-
-      const ttsSpinner = ora(`[3/${totalSteps}] Generating TTS audio...`).start()
-      const audioManifest = await video.orchestrateTTS(
-        arc.beats,
-        outputDir,
-        { voice: ttsVoice, speed: ttsSpeed, apiKey: openaiKey, concurrency: ttsConcurrency, model: ttsModel },
-        (completed: number, total: number) => {
-          ttsSpinner.text = `[3/${totalSteps}] Generating TTS audio... ${completed}/${total} scenes`
-        },
-      )
-      ttsSpinner.succeed(
-        chalk.green(
-          `[3/${totalSteps}] TTS complete — ${audioManifest.scenes.length} scenes (${audioManifest.totalDurationSeconds.toFixed(1)}s total)`,
-        ),
-      )
-      ttsChars = costEstimate.totalCharacters
-      ttsUSD = costEstimate.estimatedCostUSD
-
-      // Render (REND-04, REND-05, D-25)
-      mp4Path = resolve(outputDir, `${projectName}.mp4`)
-      srtPath = resolve(outputDir, `${projectName}.srt`)
-
-      // Card visibility: CLI --no-*-card forces off; else config; else on.
-      const showTitleCard = opts.titleCard === false ? false : (config.render?.titleCard ?? true)
-      const showStatsCard = opts.statsCard === false ? false : (config.render?.statsCard ?? true)
-
-      const renderSpinner = ora(`[4/${totalSteps}] Rendering video...`).start()
-      await video.renderVideo(arc, audioManifest, {
-        outputPath: mp4Path,
-        srtPath,
-        showTitleCard,
-        showStatsCard,
-        // Use the Chrome/Chromium preflight already located, so a machine where
-        // preflight passes always renders (no second, divergent discovery).
-        ...(preflight.chromePath ? { browserExecutable: preflight.chromePath } : {}),
-        onProgress: (p: { renderedFrames: number; totalFrames: number; progress: number }) => {
-          const pct = Math.round(p.progress * 100)
-          renderSpinner.text = `[4/${totalSteps}] Rendering video... ${pct}% (frame ${p.renderedFrames}/${p.totalFrames})`
-        },
-      })
-      renderSpinner.succeed(chalk.green(`[4/${totalSteps}] Render complete`))
     }
-  }
 
-  // Text format generation: always in skip-video mode; only with --include-text in video mode
-  const outputs: Record<string, string> = {}
-  if (skipVideo || includeText) {
-    const stepOffset = skipVideo ? 2 : heygenRenderer ? 3 : 4 // after scan+narrate, scan+narrate+HeyGen, or scan+narrate+TTS+render
-    // Rough per-format LLM estimate (beats + system prompt in, ~1.5k out) for the
-    // --max-cost gate; each generated format is written before the next is gated,
-    // so hitting the cap stops the loop with completed formats preserved.
-    const beatsTokens = Math.ceil(JSON.stringify(arc.beats).length / 4)
-    const perFormatEstUSD =
-      ((beatsTokens + 2000) / 1_000_000) * llmPrice.input + (1500 / 1_000_000) * llmPrice.output
-    for (let i = 0; i < formatTypes.length; i++) {
-      const ft = formatTypes[i]!
-      if (!withinBudget(`${ft} generation`, perFormatEstUSD)) break
-      const step = stepOffset + i + 1
-      const fmtStart = Date.now()
-      const fmtSpinner = ora(`[${step}/${totalSteps}] Generating ${ft}...`).start()
-      outputs[ft] = await format(arc, ft, llmProvider)
-      fmtSpinner.succeed(
-        chalk.green(`[${step}/${totalSteps}] ${ft}.md (${formatDuration(Date.now() - fmtStart)})`),
-      )
-      await writeFile(resolve(outputDir, `${ft}.md`), outputs[ft] ?? '')
+    // Text format generation: always in skip-video mode; only with --include-text in video mode
+    if (skipVideo || includeText) {
+      const stepOffset = skipVideo ? 2 : heygenRenderer ? 3 : 4 // after scan+narrate, scan+narrate+HeyGen, or scan+narrate+TTS+render
+      for (let i = 0; i < formatTypes.length; i++) {
+        const ft = formatTypes[i]!
+        const step = stepOffset + i + 1
+        const fmtStart = Date.now()
+        const fmtSpinner = activeSpinner = ora(`[${step}/${totalSteps}] Generating ${ft}...`).start()
+        outputs[ft] = await format(arc, ft, llmProvider)
+        fmtSpinner.succeed(
+          chalk.green(`[${step}/${totalSteps}] ${ft}.md (${formatDuration(Date.now() - fmtStart)})`),
+        )
+        await writeFile(resolve(outputDir, `${ft}.md`), outputs[ft] ?? '')
+      }
     }
+
+    // Final summary
+    const totalTime = formatDuration(Date.now() - pipelineStart)
+    const dateRange = timeline.dateRange
+    const dateStart = dateRange?.start ? new Date(dateRange.start).toLocaleDateString() : '?'
+    const dateEnd = dateRange?.end ? new Date(dateRange.end).toLocaleDateString() : '?'
+
+    const artifactCounts = timeline.events.reduce(
+      (acc, ev) => {
+        const key = ev.artifactType ?? 'unknown'
+        acc[key] = (acc[key] ?? 0) + 1
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+    console.log(chalk.bold(`\n  Done in ${totalTime}\n`))
+    console.log(chalk.bold(`  Project:    `) + projectName)
+    console.log(chalk.bold(`  Timeline:   `) + `${dateStart} → ${dateEnd}`)
+    console.log(chalk.bold(`  Events:     `) + `${timeline.events.length} scanned`)
+    console.log(
+      chalk.bold(`  Artifacts:  `) +
+        Object.entries(artifactCounts)
+          .map(([type, count]) => `${count} ${type}`)
+          .join(', '),
+    )
+    console.log(chalk.bold(`  Beats:      `) + `${arc.beats.length} narrative beats`)
+    console.log(chalk.bold(`  Output:     `) + outputDir)
+
+    if (!skipVideo && mp4Path && srtPath) {
+      console.log(chalk.bold(`  Video:      `) + mp4Path)
+      console.log(chalk.bold(`  Subtitles:  `) + srtPath)
+    }
+
+    const textFiles = Object.keys(outputs).map((ft) => `${ft}.md`)
+    const allFiles = ['story-arc.json', ...textFiles, ...(mp4Path ? [`${projectName}.mp4`] : []), ...(srtPath ? [`${projectName}.srt`] : [])]
+    console.log(chalk.bold(`  Files:      `) + allFiles.join(', '))
+
+
+    return { timeline, arc, outputs }
+  } catch (error) {
+    if (error instanceof BudgetExceededError) {
+      console.log(chalk.yellow(`\n  ${error.message}`))
+      return { timeline, arc, outputs }
+    }
+    throw error
+  } finally {
+    activeSpinner?.stop()
+    printSpendReport()
   }
-
-  // Final summary
-  const totalTime = formatDuration(Date.now() - pipelineStart)
-  const dateRange = timeline.dateRange
-  const dateStart = dateRange?.start ? new Date(dateRange.start).toLocaleDateString() : '?'
-  const dateEnd = dateRange?.end ? new Date(dateRange.end).toLocaleDateString() : '?'
-
-  const artifactCounts = timeline.events.reduce(
-    (acc, ev) => {
-      const key = ev.artifactType ?? 'unknown'
-      acc[key] = (acc[key] ?? 0) + 1
-      return acc
-    },
-    {} as Record<string, number>,
-  )
-
-  console.log(chalk.bold(`\n  Done in ${totalTime}\n`))
-  console.log(chalk.bold(`  Project:    `) + projectName)
-  console.log(chalk.bold(`  Timeline:   `) + `${dateStart} → ${dateEnd}`)
-  console.log(chalk.bold(`  Events:     `) + `${timeline.events.length} scanned`)
-  console.log(
-    chalk.bold(`  Artifacts:  `) +
-      Object.entries(artifactCounts)
-        .map(([type, count]) => `${count} ${type}`)
-        .join(', '),
-  )
-  console.log(chalk.bold(`  Beats:      `) + `${arc.beats.length} narrative beats`)
-  console.log(chalk.bold(`  Output:     `) + outputDir)
-
-  if (!skipVideo && mp4Path && srtPath) {
-    console.log(chalk.bold(`  Video:      `) + mp4Path)
-    console.log(chalk.bold(`  Subtitles:  `) + srtPath)
-  }
-
-  const textFiles = Object.keys(outputs).map((ft) => `${ft}.md`)
-  const allFiles = ['story-arc.json', ...textFiles, ...(mp4Path ? [`${projectName}.mp4`] : []), ...(srtPath ? [`${projectName}.srt`] : [])]
-  console.log(chalk.bold(`  Files:      `) + allFiles.join(', '))
-
-  // End-of-run spend report (actual LLM tokens, TTS chars, HeyGen credits).
-  printSpendReport()
-  console.log()
-
-  return { timeline, arc, outputs }
 }

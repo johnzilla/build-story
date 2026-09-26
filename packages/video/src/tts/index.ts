@@ -5,7 +5,7 @@ import OpenAI from 'openai'
 import type { StoryBeat } from '@buildstory/core'
 import { sanitizeOutboundValue } from '@buildstory/core'
 import type { TTSOptions, SceneAudio, AudioManifest, TTSCostEstimate } from './types.js'
-import { generateSceneAudio } from './generate.js'
+import { generateSceneAudio, prepareSpeechText } from './generate.js'
 import { measureAudioDuration } from './measure.js'
 import { ttsCostUSD, DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
 import { withConcurrency } from './concurrency.js'
@@ -15,7 +15,7 @@ export function estimateTTSCost(
   model: TTSModel = DEFAULT_TTS_MODEL,
 ): TTSCostEstimate {
   beats = sanitizeOutboundValue(beats)
-  const totalCharacters = beats.reduce((sum, b) => sum + b.summary.length, 0)
+  const totalCharacters = beats.reduce((sum, b) => sum + prepareSpeechText(b.summary).length, 0)
   return {
     totalCharacters,
     // Priced at the model actually used to synthesize (single source of truth).
@@ -80,8 +80,9 @@ export async function orchestrateTTS(
   const audioDir = join(outputDir, 'audio')
   await mkdir(audioDir, { recursive: true })
 
-  const client = new OpenAI({ apiKey: options.apiKey })
+  const client = new OpenAI({ apiKey: options.apiKey, maxRetries: 0 })
   const generateOpts = {
+    budget: options.budget,
     voice: options.voice,
     speed: options.speed,
     model: options.model ?? DEFAULT_TTS_MODEL,
@@ -103,6 +104,7 @@ export async function orchestrateTTS(
 
     const cached = priorManifest.get(key)
     const fileExists = await existingSceneFile(filePath)
+    if (fileExists) options.budget?.reuse('TTS cached scene')
 
     // Full reuse: this exact scene was completed on a prior run — skip the paid
     // TTS call AND the ffprobe measurement, trusting the recorded duration.

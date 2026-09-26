@@ -51,7 +51,7 @@ program
   .option('--skip-video', 'Skip video rendering, text-only output')
   .option('--include-text', 'Include text formats alongside video')
   .option('--dry-run', 'Show cost estimates without calling APIs')
-  .option('--max-cost <usd>', 'Abort before any stage that would exceed this total spend (USD)')
+  .option('--max-cost <usd>', 'Check each paid request against this run’s budget at configured rates (USD)')
   .option('--no-title-card', 'Disable auto-inserted title card')
   .option('--no-stats-card', 'Disable auto-inserted stats card')
   .option('--renderer <renderer>', 'Video renderer (remotion|heygen)')

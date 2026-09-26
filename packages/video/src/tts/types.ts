@@ -1,6 +1,8 @@
+import type { SpendBudget } from '@buildstory/core'
 import type { TTSModel } from './pricing.js'
 
 export interface TTSOptions {
+  budget?: SpendBudget
   voice: string
   speed: number
   apiKey: string

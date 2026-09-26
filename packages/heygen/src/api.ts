@@ -1,3 +1,4 @@
+import { BudgetExceededError } from '@buildstory/core'
 import { writeFile, unlink, rename, copyFile, mkdir, rm, stat, readFile } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
@@ -8,7 +9,7 @@ import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { z } from 'zod'
 import pRetry from 'p-retry'
-import type { StoryArc } from '@buildstory/core'
+import type { StoryArc, SpendBudget } from '@buildstory/core'
 import type { HeyGenConfig, HeyGenScene } from './types.js'
 import { HeyGenOptionsSchema } from './types.js'
 import { adaptStoryArc } from './adapter.js'
@@ -330,6 +331,7 @@ export async function renderWithHeyGen(
   config: HeyGenConfig,
   outputPath: string,
   onProgress: (msg: string) => void,
+  budget?: SpendBudget,
 ): Promise<HeyGenRenderResult> {
   // Validate at boundary — applies Zod defaults
   const opts = HeyGenOptionsSchema.parse(config)
@@ -360,6 +362,7 @@ export async function renderWithHeyGen(
 
     try {
       if (await existingFile(chunkPath)) {
+        budget?.reuse('HeyGen cached chunk')
         onProgress(`Chunk ${i + 1}/${chunks.length}: reusing already-rendered chunk (resume).`)
         completedChunks.push({ path: chunkPath })
         continue
@@ -369,6 +372,7 @@ export async function renderWithHeyGen(
       let videoId: string
       if (job?.state === 'submitting') throw uncertainSubmission(jobPath)
       if (job?.state === 'submitted') {
+        budget?.reuse('HeyGen existing job')
         videoId = job.videoId
         onProgress(`Chunk ${i + 1}: resuming video ID ${videoId}.`)
       } else {
@@ -380,9 +384,20 @@ export async function renderWithHeyGen(
         onProgress(`Submitting chunk ${i + 1}/${chunks.length} to HeyGen...`)
         // Exclusive creation prevents concurrent runs from both paying for this
         // request. A crash anywhere after this write leaves a blocking marker.
-        await writeFile(jobPath, JSON.stringify({ version: 1, key, state: 'submitting' }), { flag: 'wx', mode: 0o600, flush: true })
+        // HeyGen does not provide a binding price before submission. Keep its
+        // per-chunk reservation explicitly estimated, including minute rounding.
+        const minutes = chunk.reduce((sum, scene) => sum + scene.voice.input_text.trim().split(/\s+/).length / (150 * (scene.voice.speed ?? 1)), 0)
+        const estimate = Math.ceil(minutes) * 0.99
+        const charge = budget?.reserve('HeyGen submission', estimate)
+        try {
+          await writeFile(jobPath, JSON.stringify({ version: 1, key, state: 'submitting' }), { flag: 'wx', mode: 0o600, flush: true })
+        } catch (error) {
+          charge?.settle(0, 'estimate')
+          throw error
+        }
         try {
           videoId = await submitChunk(chunk, opts)
+          charge?.settle(estimate, 'estimate')
         } catch (error) {
           throw new Error(`${(error as Error).message}. ${uncertainSubmission(jobPath).message}`)
         }
@@ -413,6 +428,7 @@ export async function renderWithHeyGen(
 
       completedChunks.push({ path: chunkPath })
     } catch (err) {
+      if (err instanceof BudgetExceededError) throw err
       // Per D-06: stop on first failure; rethrow with context. partsDir is left
       // in place so the next run resumes from the chunks already completed.
       throw new Error(

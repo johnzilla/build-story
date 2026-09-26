@@ -1,3 +1,5 @@
+import type { SpendBudget } from '../../budget.js'
+import { reserveLLM, llmCostUSD } from '../pricing.js'
 import { sanitizeOutboundText, sanitizeOutboundValue } from '../../privacy/outbound.js'
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
@@ -15,11 +17,13 @@ import { buildTimelinePayload } from '../tokens.js'
 export class AnthropicProvider implements LLMProvider {
   private readonly client: Anthropic
   private readonly model: string
+  private readonly budget: SpendBudget | undefined
   private _usage: UsageStats = { calls: 0, inputTokens: 0, outputTokens: 0 }
 
-  constructor({ apiKey, model = 'claude-sonnet-4-5' }: { apiKey: string; model?: string }) {
-    this.client = new Anthropic({ apiKey, maxRetries: 2 })
+  constructor({ apiKey, model = 'claude-sonnet-4-5', budget }: { apiKey: string; model?: string; budget?: SpendBudget | undefined }) {
+    this.client = new Anthropic({ apiKey, maxRetries: 0 })
     this.model = model
+    this.budget = budget
   }
 
   private trackUsage(usage: { input_tokens: number; output_tokens: number }) {
@@ -35,7 +39,7 @@ export class AnthropicProvider implements LLMProvider {
   async extractStoryArc(timeline: Timeline, systemPrompt: string): Promise<StoryArc> {
     const payload = buildTimelinePayload(timeline)
 
-    const response = await this.client.messages.parse({
+    const request: Parameters<typeof this.client.messages.parse>[0] = {
       model: this.model,
       max_tokens: 16384,
       temperature: 0,
@@ -44,9 +48,12 @@ export class AnthropicProvider implements LLMProvider {
       output_config: {
         format: zodOutputFormat(StoryArcSchema),
       },
-    })
+    }
+    const charge = reserveLLM(this.budget, 'anthropic', this.model, request, 16384)
+    const response = await this.client.messages.parse(request)
 
     this.trackUsage(response.usage)
+    charge?.settle(llmCostUSD('anthropic', { calls: 1, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }), 'usage')
 
     if (response.parsed_output === null || response.parsed_output === undefined) {
       throw new Error('Anthropic refused to generate structured output')
@@ -60,16 +67,20 @@ export class AnthropicProvider implements LLMProvider {
     const beatsJson = JSON.stringify(sanitizeOutboundValue(arc.beats), null, 2)
 
     // Plain text output — use messages.create() not messages.parse() (per D-04)
-    const response = await this.client.messages.create({
+    const request: Parameters<typeof this.client.messages.create>[0] & { stream?: false } = {
       model: this.model,
       max_tokens: 4096,
       temperature: 0,
       system: sanitizeOutboundText(systemPrompt),
       messages: [{ role: 'user', content: beatsJson }],
-    })
+    }
+    const charge = reserveLLM(this.budget, 'anthropic', this.model, request, 4096)
+    const response = await this.client.messages.create(request)
 
     this.trackUsage(response.usage)
+    charge?.settle(llmCostUSD('anthropic', { calls: 1, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }), 'usage')
 
+    if (response.stop_reason === 'max_tokens') throw new Error('Anthropic output reached its token limit')
     const firstContent = response.content[0]
     if (firstContent === undefined || firstContent.type !== 'text') {
       throw new Error('Anthropic generateFormat: unexpected response — no text content in response')
@@ -89,7 +100,7 @@ export class AnthropicProvider implements LLMProvider {
       'Synthesize these beats from multiple chunks into a coherent single StoryArc — ' +
       'reorder chronologically, merge duplicates, ensure narrative flow, preserve all sourceEventIds.'
 
-    const response = await this.client.messages.parse({
+    const request: Parameters<typeof this.client.messages.parse>[0] = {
       model: this.model,
       max_tokens: 16384,
       temperature: 0,
@@ -98,9 +109,12 @@ export class AnthropicProvider implements LLMProvider {
       output_config: {
         format: zodOutputFormat(StoryArcSchema),
       },
-    })
+    }
+    const charge = reserveLLM(this.budget, 'anthropic', this.model, request, 16384)
+    const response = await this.client.messages.parse(request)
 
     this.trackUsage(response.usage)
+    charge?.settle(llmCostUSD('anthropic', { calls: 1, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }), 'usage')
 
     if (response.parsed_output === null || response.parsed_output === undefined) {
       throw new Error('Anthropic refused to generate structured output during arc synthesis')

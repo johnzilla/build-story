@@ -1,3 +1,4 @@
+import { SpendBudget } from '../../budget.js'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { StoryArcSchema } from '../../types/story.js'
 import type { StoryArc } from '../../types/story.js'
@@ -255,5 +256,37 @@ describe('AnthropicProvider', () => {
         'Anthropic refused to generate structured output during arc synthesis',
       )
     })
+  })
+})
+
+
+describe('per-request budget enforcement', () => {
+  beforeEach(() => { mockParse.mockReset(); mockCreate.mockReset() })
+  it.each(['extract', 'synthesize', 'format'])('blocks %s before its SDK request', async (operation) => {
+    const provider = new AnthropicProvider({ apiKey: 'test', budget: new SpendBudget(0.0001) })
+    const result = operation === 'extract' ? provider.extractStoryArc(makeTimeline(), 'prompt')
+      : operation === 'synthesize' ? provider.synthesizeArcs([makeArc()], 'prompt')
+        : provider.generateFormat(makeArc(), 'blog', 'prompt')
+    await expect(result).rejects.toThrow('--max-cost')
+    expect(mockParse).not.toHaveBeenCalled()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+  it('rechecks the next extraction and retains the first call’s reported usage', async () => {
+    const budget = new SpendBudget(.30)
+    const provider = new AnthropicProvider({ apiKey: 'test', budget })
+    mockParse.mockResolvedValue({ parsed_output: makeArc(), usage: { input_tokens: 100, output_tokens: 12000 } })
+    await provider.extractStoryArc(makeTimeline(), 'prompt')
+    await expect(provider.extractStoryArc(makeTimeline(), 'prompt')).rejects.toThrow('--max-cost')
+    expect(mockParse).toHaveBeenCalledTimes(1)
+    expect(budget.snapshot()[0]?.basis).toBe('usage')
+    expect(mockParse.mock.calls[0]![0].max_tokens).toBe(16384)
+  })
+  it('keeps the reservation on a lost response', async () => {
+    const budget = new SpendBudget(1)
+    mockParse.mockRejectedValue(new Error('Connection lost'))
+    const provider = new AnthropicProvider({ apiKey: 'test', budget })
+    await expect(provider.extractStoryArc(makeTimeline(), 'prompt')).rejects.toThrow('Connection lost')
+    expect(budget.snapshot()[0]?.basis).toBe('unknown')
+    expect(budget.snapshot()[0]?.usd).toBeGreaterThan(0)
   })
 })

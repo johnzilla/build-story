@@ -34,3 +34,7 @@ export type { LLMProvider, UsageStats } from './narrate/providers/interface.js'
 export { redactSecrets, SECRET_PATTERNS } from './privacy/redact.js'
 export { sanitizeOutboundText, sanitizeOutboundValue, sanitizeTimeline, sanitizeStoryArc } from './privacy/outbound.js'
 export { buildNarrationPreview } from './narrate/prepare.js'
+
+export { SpendBudget, BudgetExceededError } from './budget.js'
+export type { SpendEntry } from './budget.js'
+export { LLM_PRICE_PER_1M, llmCostUSD } from './narrate/pricing.js'

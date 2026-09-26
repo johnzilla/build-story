@@ -1,8 +1,9 @@
+import type { SpendBudget } from '@buildstory/core'
 import { writeFile, unlink } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import OpenAI from 'openai'
-import { DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
+import { DEFAULT_TTS_MODEL, ttsCostUSD, type TTSModel } from './pricing.js'
 import { getFfmpegPath } from './ffmpeg.js'
 import { truncateForTTS } from './truncate.js'
 import { sanitizeOutboundText } from '@buildstory/core'
@@ -15,6 +16,7 @@ export function prepareSpeechText(text: string): string {
 }
 
 interface GenerateOpts {
+  budget?: SpendBudget | undefined
   voice: string
   speed: number
   /** OpenAI TTS model. Defaults to DEFAULT_TTS_MODEL. */
@@ -36,13 +38,16 @@ export async function generateSceneAudio(
 
   const MAX_ATTEMPTS = 3
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const cost = ttsCostUSD(truncated.length, opts.model ?? DEFAULT_TTS_MODEL)
+    const charge = opts.budget?.reserve('TTS request', cost)
     try {
       const response = await client.audio.speech.create({
         model: opts.model ?? DEFAULT_TTS_MODEL,
         voice: opts.voice as 'nova' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'shimmer',
         input: truncated,
         speed: opts.speed,
-      })
+      }, { maxRetries: 0 })
+      charge?.settle(cost, 'estimate')
       const buffer = Buffer.from(await response.arrayBuffer())
 
       // OpenAI returns MP3 which has encoder padding that clips the first syllable
@@ -61,6 +66,7 @@ export async function generateSceneAudio(
       await unlink(tempMp3).catch(() => {})
       return
     } catch (err: unknown) {
+      if (isRateLimitError(err)) charge?.settle(0, 'estimate')
       if (attempt === MAX_ATTEMPTS) throw err
       if (isRateLimitError(err)) {
         await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000)) // 2s, 4s, 8s

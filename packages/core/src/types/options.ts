@@ -1,3 +1,4 @@
+import type { SpendBudget } from '../budget.js'
 /** Controls the `git-commit` event source (see `scan`). */
 export interface ScanCommitOptions {
   /** Collect commit events. Default: true (when the GitSource supports it). */
@@ -47,5 +48,6 @@ export interface NarrateOptions {
   provider: 'anthropic' | 'openai'
   style: 'technical' | 'overview' | 'retrospective' | 'pitch' | 'story'
   apiKey: string
+  budget?: SpendBudget
   maxInputTokens?: number
 }

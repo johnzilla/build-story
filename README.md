@@ -301,7 +301,25 @@ Typical run on a project with 50-200 events:
 
 Use `--dry-run` to see cost estimates before any API calls. The estimate is priced at the TTS model you've configured (`[tts] model`), matching what render actually calls.
 
-For a hard ceiling, pass `--max-cost <usd>` to `run`: BuildStory tracks spend as it goes (LLM tokens actual, TTS characters, HeyGen credits) and aborts before any stage that would push the total past the cap, keeping whatever's already been produced (e.g. `story-arc.json`). Every `run` ends with a spend report breaking down LLM / TTS / HeyGen cost and the total.
+Pass `--max-cost <usd>` to `run` to check each paid request against a shared
+budget. This includes every narration chunk, synthesis, text format, TTS request,
+and new HeyGen submission. LLM reservations include the serialized prompt/schema
+and bounded output (16,384 tokens for story arcs, 4,096 for text formats).
+Concurrent TTS calls reserve funds before starting. Completed output files remain
+available when the next request is blocked.
+
+The spend report separates LLM costs calculated from reported token usage,
+TTS/HeyGen estimates, uncertain request reservations, and cached audio or existing
+jobs reused for no new charge. Reservations for lost responses stay accounted
+for; automatic SDK retries are disabled. Explicit TTS rate-limit retries are
+checked individually. Estimates use only the speech text actually submitted.
+
+This is a **per-run budget at configured rates**, not a guaranteed provider invoice
+ceiling. Input tokens are conservatively estimated before sending, HeyGen pricing
+is estimated per chunk, and provider rates, discounts, and final charges can
+differ. Use provider account limits for an external billing ceiling. Existing
+jobs may have been charged in an earlier run; their old costs are not counted as
+new spend. The report also prints when a paid stage fails.
 
 ### Resuming a failed render
 

@@ -15,9 +15,9 @@ import { sanitizeStoryArc } from '../privacy/outbound.js'
 export function createProvider(options: NarrateOptions): LLMProvider {
   switch (options.provider) {
     case 'anthropic':
-      return new AnthropicProvider({ apiKey: options.apiKey })
+      return new AnthropicProvider({ apiKey: options.apiKey, budget: options.budget })
     case 'openai':
-      return new OpenAIProvider({ apiKey: options.apiKey })
+      return new OpenAIProvider({ apiKey: options.apiKey, budget: options.budget })
     default: {
       // TypeScript exhaustiveness check
       const _never: never = options.provider

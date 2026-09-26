@@ -1,3 +1,4 @@
+import { SpendBudget } from '@buildstory/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { StoryBeat } from '@buildstory/core'
 
@@ -73,7 +74,10 @@ describe('orchestrateTTS resume manifest', () => {
     genMock.mockClear()
     measureMock.mockClear()
 
-    const manifest = await orchestrateTTS(beats, '/out', opts)
+    const budget = new SpendBudget(0.000001)
+    const manifest = await orchestrateTTS(beats, '/out', { ...opts, budget })
+    expect(budget.snapshot()).toHaveLength(3)
+    expect(budget.snapshot().every((entry) => entry.basis === 'cached' && entry.usd === 0)).toBe(true)
 
     // Full reuse from disk + manifest.
     expect(genMock).not.toHaveBeenCalled()
