@@ -257,7 +257,7 @@ Default palette: dark navy (#1a1a2e) + warm red (#e94560) + off-white text (#eae
 @buildstory/heygen        HeyGen avatar rendering (loaded on demand at render time)
   adaptStoryArc(...)        StoryArc → HeyGen video_inputs with beat-type colors
   renderWithHeyGen(...)     Submit, poll, download, concat chunks → MP4
-                            (per-request timeouts, retry on transient faults, chunk resume)
+                            (per-request timeouts, status retries, paid job recovery)
   preflightHeyGenCheck(...) Validate API key, avatar, voice config
   estimateHeyGenCost(...)   Credit/USD cost estimation
 
@@ -308,7 +308,7 @@ For a hard ceiling, pass `--max-cost <usd>` to `run`: BuildStory tracks spend as
 Paid work is checkpointed so a mid-render failure doesn't re-bill you on the next run:
 
 - **TTS (Remotion path)** — each scene's audio is written under `audio/` with a filename keyed on the beat's content (voice + speed + model + text), and recorded in `audio/manifest.json`. A re-run reuses any scene whose content is unchanged — skipping both the paid TTS call and the duration probe — and regenerates only scenes that are missing or whose beat text changed. Editing a beat never reuses stale audio.
-- **HeyGen** — completed avatar chunks are kept in `<output>.mp4.parts/` (content-keyed) and reused on the next run; the directory is removed only on success. A failure part-way through a multi-chunk video re-submits only the chunks that didn't finish.
+- **HeyGen** — job IDs and completed avatar chunks are kept in `<output>.mp4.parts/`. Rerunning with the same story, settings, and output resumes polling or downloading the existing paid jobs. Cache identity includes dimensions. Submission POSTs are never automatically retried; uncertain outcomes stop with instructions to check the HeyGen account and recover the ID. The directory is removed after successful assembly. See [paid job recovery](packages/heygen/README.md#recovering-a-paid-job) for recovery steps and legacy cache handling.
 
 ## Data safety
 

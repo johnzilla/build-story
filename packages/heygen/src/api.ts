@@ -1,4 +1,4 @@
-import { writeFile, unlink, rename, copyFile, mkdir, rm, stat } from 'node:fs/promises'
+import { writeFile, unlink, rename, copyFile, mkdir, rm, stat, readFile } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
@@ -18,7 +18,7 @@ import { adaptStoryArc } from './adapter.js'
 // ---------------------------------------------------------------------------
 
 const HeyGenSubmitResponseSchema = z.object({
-  data: z.object({ video_id: z.string() }).nullable(),
+  data: z.object({ video_id: z.string().min(1) }).nullable(),
   error: z.object({ code: z.string(), message: z.string() }).nullable(),
 })
 
@@ -119,50 +119,31 @@ async function submitChunk(
     dimension: { width: opts.width ?? 1280, height: opts.height ?? 720 },
   }
 
-  // Retry the whole request+parse. HeyGenApiError is terminal (4xx / structured
-  // API error); everything else (5xx, non-JSON bodies, timeouts, network) retries.
-  const data = await pRetry(
-    async () => {
-      const response = await fetchWithTimeout(
-        'https://api.heygen.com/v2/video/generate',
-        {
-          method: 'POST',
-          headers: { 'X-Api-Key': opts.apiKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        },
-        SUBMIT_TIMEOUT_MS,
-      )
-
-      // Read as text first, then try to parse — a 5xx often returns an HTML
-      // error page, and calling .json() on that throws an opaque SyntaxError.
-      const text = await response.text()
-      let json: unknown
-      try {
-        json = JSON.parse(text)
-      } catch {
-        if (response.status >= 500) {
-          throw new Error(`HeyGen submit: HTTP ${response.status} (non-JSON response)`)
-        }
-        throw new HeyGenApiError(String(response.status), `Non-JSON response (HTTP ${response.status})`)
-      }
-
-      const parsed = HeyGenSubmitResponseSchema.parse(json)
-      if (parsed.error || !parsed.data) {
-        // Structured API error (e.g. 400140 daily rate limit) — terminal.
-        throw new HeyGenApiError(
-          parsed.error?.code ?? String(response.status),
-          parsed.error?.message ?? 'Unknown error',
-        )
-      }
-      return parsed.data
-    },
+  // A lost response can still mean a paid job was accepted. Never retry POST.
+  const response = await fetchWithTimeout(
+    'https://api.heygen.com/v2/video/generate',
     {
-      retries: 3,
-      shouldRetry: (err) => !(err instanceof HeyGenApiError),
+      method: 'POST',
+      headers: { 'X-Api-Key': opts.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     },
+    SUBMIT_TIMEOUT_MS,
   )
-
-  return data.video_id
+  const text = await response.text()
+  let json: unknown
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new Error(`HeyGen submit: HTTP ${response.status} (non-JSON response)`)
+  }
+  const parsed = HeyGenSubmitResponseSchema.parse(json)
+  if (!response.ok || parsed.error || !parsed.data) {
+    throw new HeyGenApiError(
+      parsed.error?.code ?? String(response.status),
+      parsed.error?.message ?? 'Submission did not return a successful job',
+    )
+  }
+  return parsed.data.video_id
 }
 
 // ---------------------------------------------------------------------------
@@ -171,7 +152,7 @@ async function submitChunk(
 
 async function fetchVideoStatus(videoId: string, apiKey: string) {
   const response = await fetchWithTimeout(
-    `https://api.heygen.com/v2/videos/${videoId}`,
+    `https://api.heygen.com/v2/videos/${encodeURIComponent(videoId)}`,
     { headers: { 'X-Api-Key': apiKey } },
     STATUS_TIMEOUT_MS,
   )
@@ -306,10 +287,32 @@ async function concatMp4s(
 // renderWithHeyGen (public)
 // ---------------------------------------------------------------------------
 
-/** A short content hash of a chunk's scenes — resume reuses a downloaded chunk
- * only when the arc that produced it is unchanged. */
-function chunkKey(scenes: HeyGenScene[]): string {
-  return createHash('sha1').update(JSON.stringify(scenes)).digest('hex').slice(0, 12)
+/** Hash the complete paid request, including dimensions. Legacy scene-only
+ * cache files cannot prove their dimensions and are deliberately not reused. */
+function chunkKey(scenes: HeyGenScene[], width: number, height: number): string {
+  return createHash('sha256')
+    .update(JSON.stringify({ video_inputs: scenes, dimension: { width, height } }))
+    .digest('hex')
+}
+
+const JobSchema = z.discriminatedUnion('state', [
+  z.object({ version: z.literal(1), key: z.string(), state: z.literal('submitting') }),
+  z.object({ version: z.literal(1), key: z.string(), state: z.literal('submitted'), videoId: z.string().min(1) }),
+])
+
+async function readJob(path: string, key: string) {
+  try {
+    const job = JobSchema.parse(JSON.parse(await readFile(path, 'utf8')))
+    if (job.key !== key) throw new Error('Request fingerprint does not match')
+    return job
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw new Error(`Cannot read HeyGen job record ${path}; no new job will be submitted. ${(error as Error).message}`)
+  }
+}
+
+function uncertainSubmission(path: string): Error {
+  return new Error(`Submission outcome is uncertain. No automatic resubmission will be made. Check your HeyGen account before retrying. Recovery record: ${path}. If a job exists, set state to "submitted" and add its "videoId" to this record; otherwise remove the record only after confirming no job was created. Stop other renders using this output before recovery.`)
 }
 
 /** True if a chunk file already exists and is non-empty (resumable from disk). */
@@ -342,8 +345,8 @@ export async function renderWithHeyGen(
 
   // Output-scoped parts dir (not the shared tmpdir, so no cross-run collision)
   // that PERSISTS across a failure. Each completed chunk lands here under a
-  // content-keyed name; a re-run reuses matching chunks so a mid-render failure
-  // never re-bills HeyGen for chunks already paid for. Removed only on success.
+  // content-keyed name; job records preserve paid IDs across failures.
+  // Removed only on success.
   const partsDir = `${outputPath}.parts`
   await mkdir(partsDir, { recursive: true })
 
@@ -351,7 +354,9 @@ export async function renderWithHeyGen(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i]!
-    const chunkPath = join(partsDir, `chunk-${i}-${chunkKey(chunk)}.mp4`)
+    const key = chunkKey(chunk, opts.width, opts.height)
+    const chunkPath = join(partsDir, `chunk-${i}-${key}.mp4`)
+    const jobPath = join(partsDir, `chunk-${i}-${key}.job.json`)
 
     try {
       if (await existingFile(chunkPath)) {
@@ -360,17 +365,37 @@ export async function renderWithHeyGen(
         continue
       }
 
-      onProgress(`Submitting chunk ${i + 1}/${chunks.length} to HeyGen...`)
-
-      const videoId = await submitChunk(chunk, {
-        apiKey: opts.apiKey,
-        width: opts.width,
-        height: opts.height,
-      })
-
-      onProgress(
-        `Chunk ${i + 1}: submitted (video ID: ${videoId}). Polling for completion...`,
-      )
+      const job = await readJob(jobPath, key)
+      let videoId: string
+      if (job?.state === 'submitting') throw uncertainSubmission(jobPath)
+      if (job?.state === 'submitted') {
+        videoId = job.videoId
+        onProgress(`Chunk ${i + 1}: resuming video ID ${videoId}.`)
+      } else {
+        const legacyKey = createHash('sha1').update(JSON.stringify(chunk)).digest('hex').slice(0, 12)
+        const legacyPath = join(partsDir, `chunk-${i}-${legacyKey}.mp4`)
+        if (await existingFile(legacyPath)) {
+          throw new Error(`Legacy paid chunk found at ${legacyPath}, but its dimensions are unknown. No new job was submitted. Verify its content and dimensions before renaming it to ${chunkPath}, then rerun.`)
+        }
+        onProgress(`Submitting chunk ${i + 1}/${chunks.length} to HeyGen...`)
+        // Exclusive creation prevents concurrent runs from both paying for this
+        // request. A crash anywhere after this write leaves a blocking marker.
+        await writeFile(jobPath, JSON.stringify({ version: 1, key, state: 'submitting' }), { flag: 'wx', mode: 0o600, flush: true })
+        try {
+          videoId = await submitChunk(chunk, opts)
+        } catch (error) {
+          throw new Error(`${(error as Error).message}. ${uncertainSubmission(jobPath).message}`)
+        }
+        // Save the ID before callbacks, polling, or downloading can fail.
+        try {
+          const temporary = `${jobPath}.tmp`
+          await writeFile(temporary, JSON.stringify({ version: 1, key, state: 'submitted', videoId }), { mode: 0o600, flush: true })
+          await rename(temporary, jobPath)
+        } catch (error) {
+          throw new Error(`Paid job ${videoId} was accepted but its ID could not be saved to ${jobPath}. Record this videoId before retrying. ${(error as Error).message}`)
+        }
+        onProgress(`Chunk ${i + 1}: submitted (video ID: ${videoId}). Polling for completion...`)
+      }
 
       const videoUrl = await pollUntilComplete(
         videoId,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { stat } from 'node:fs/promises'
+import { stat, writeFile } from 'node:fs/promises'
 import type { StoryArc, StoryBeat } from '@buildstory/core'
 import type { HeyGenConfig } from '../types.js'
 
@@ -15,6 +15,7 @@ import type { HeyGenConfig } from '../types.js'
 // chunk (≤10 beats) — so node:child_process needs no mock.
 // ---------------------------------------------------------------------------
 vi.mock('node:fs/promises', () => ({
+  readFile: vi.fn(async () => { throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }) }),
   writeFile: vi.fn(async () => {}),
   unlink: vi.fn(async () => {}),
   rename: vi.fn(async () => {}),
@@ -499,7 +500,7 @@ describe('HTTP hardening (fault injection)', () => {
 
   it('surfaces a 5xx HTML error page instead of an opaque JSON parse error', async () => {
     // Submit always returns a 500 with an HTML body (not JSON). Fresh Response
-    // per call — a Response body can only be read once, and submit retries.
+    // per call — a Response body can only be read once.
     vi.mocked(fetch).mockImplementation(
       async () =>
         new Response('<html><body>502 Bad Gateway</body></html>', {
@@ -596,5 +597,28 @@ describe('chunk resume', () => {
     expect(fetch).not.toHaveBeenCalled()
     expect(result.videoPath).toBe('/tmp/resume.mp4')
     expect(progress.some((m) => m.includes('resume'))).toBe(true)
+  })
+})
+
+
+describe('job persistence failures', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    global.fetch = vi.fn()
+  })
+
+  it('does not submit if the intent record cannot be written', async () => {
+    vi.mocked(writeFile).mockRejectedValueOnce(new Error('Disk full'))
+    const { renderWithHeyGen } = await import('../api.js')
+    await expect(renderWithHeyGen(makeArc([makeBeat()]), defaultConfig, '/tmp/disk-full.mp4', () => {})).rejects.toThrow('Disk full')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('reports the paid ID if saving it fails, without starting polling', async () => {
+    vi.mocked(writeFile).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Disk full'))
+    vi.mocked(fetch).mockResolvedValueOnce(makeSuccessSubmitResponse('paid-save-failed'))
+    const { renderWithHeyGen } = await import('../api.js')
+    await expect(renderWithHeyGen(makeArc([makeBeat()]), defaultConfig, '/tmp/id-save.mp4', () => {})).rejects.toThrow('Paid job paid-save-failed was accepted')
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })

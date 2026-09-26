@@ -17,7 +17,7 @@ story of the development process and explain the decisions behind it.
 
 ## Reliability and cost
 
-4. [ ] **High: resume paid HeyGen jobs.** Persist submission IDs immediately;
+4. [x] **High: resume paid HeyGen jobs.** Persist submission IDs immediately;
    resume polling and downloads, handle ambiguous submissions, and include
    dimensions in cache identity.
 5. [ ] **High: enforce spending controls per request.** Bound output, check
@@ -84,4 +84,14 @@ story of the development process and explain the decisions behind it.
 - Item 3 verification: all 385 tests pass, plus workspace build, typecheck,
   lint, frozen-lockfile install, and diff checks. Audit reports zero advisories
   with none ignored. A real 1080p H.264/AAC render with synthetic audio completed.
-- Next: item 4, resumable paid HeyGen jobs.
+- Item 4 complete: write an exclusive submission marker before each paid POST,
+  save returned IDs atomically before polling, and resume existing jobs after
+  polling/download failures. Uncertain outcomes block resubmission with manual
+  recovery instructions. Cache fingerprints include dimensions; legacy chunks
+  require verification before reuse. Job records omit credentials and narration.
+- Item 4 verification: workspace build, typecheck, lint, and tests pass (402
+  tests, including 75 HeyGen tests after the final recovery cases). Added 17
+  cases covering real disk persistence, ambiguous responses, concurrent submit
+  protection, disk failures, download/assembly recovery, dimensions, and legacy
+  chunks. HeyGen requests and FFmpeg assembly were mocked; no paid calls made.
+- Next: item 5, spending controls per request.
