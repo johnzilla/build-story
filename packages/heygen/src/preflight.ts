@@ -6,12 +6,7 @@ import type { HeyGenConfig, PreflightResult } from './types.js'
 const VALIDATE_URL = 'https://api.heygen.com/v1/user/remaining_quota'
 const VALIDATE_TIMEOUT_MS = 15_000
 
-/**
- * Validate the API key against a cheap endpoint. Returns a failure message only
- * on a clear auth rejection (401/403); transient failures (network, timeout,
- * 5xx) are swallowed so an offline machine or a HeyGen outage doesn't block a
- * render the key may well be fine for.
- */
+/** Verify the key before paid work; unavailable verification fails closed. */
 async function validateApiKey(apiKey: string): Promise<string | null> {
   const controller = new AbortController()
   const timer = setTimeout(
@@ -26,10 +21,10 @@ async function validateApiKey(apiKey: string): Promise<string | null> {
     if (res.status === 401 || res.status === 403) {
       return `HeyGen API key rejected (HTTP ${res.status}). Check HEYGEN_API_KEY.`
     }
+    if (!res.ok) return `HeyGen preflight could not verify credentials (HTTP ${res.status}). Retry before paid work.`
     return null
   } catch {
-    // Transient — don't block preflight on it.
-    return null
+    return 'HeyGen preflight could not reach the service. Retry before paid work.'
   } finally {
     clearTimeout(timer)
   }
@@ -56,7 +51,7 @@ export async function preflightHeyGenCheck(opts: HeyGenConfig): Promise<Prefligh
 
   // Only reach out to HeyGen once the required config is present — validating the
   // key cheaply here means a bad key fails before any paid submission.
-  if (opts.apiKey) {
+  if (failures.length === 0) {
     const keyFailure = await validateApiKey(opts.apiKey)
     if (keyFailure) failures.push(keyFailure)
   }

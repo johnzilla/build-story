@@ -1,5 +1,6 @@
+import { checkOutputDirectory, requireNarrationKey } from '../preflight.js'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { resolve, dirname, basename } from 'node:path'
+import { resolve, dirname } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
 import {
@@ -11,7 +12,7 @@ import {
   buildNarrationPreview,
 } from '@buildstory/core'
 import type { FormatType, NarrateOptions } from '@buildstory/core'
-import { loadConfig } from '../config.js'
+import { loadConfig, resolveOutputDir, projectLabel } from '../config.js'
 import { writePayloadPreview } from '../preview.js'
 import {
   checkProvider,
@@ -42,15 +43,15 @@ export async function narrateCommand(
     format?: string
     provider?: string
     style?: string
-    output: string
+    output?: string
     previewPayload?: string
   },
 ): Promise<void> {
   const pipelineStart = Date.now()
 
   // Load config from the directory containing the timeline file or cwd
-  const projectRoot = opts.config ? dirname(resolve(opts.config)) : process.cwd()
-  const config = loadConfig(projectRoot)
+  const projectRoot = dirname(resolve(timelinePath))
+  const config = loadConfig(projectRoot, opts.config)
 
   // Validate inputs before any paid call. Precedence: flag > config > default.
   const errors: string[] = []
@@ -87,7 +88,7 @@ export async function narrateCommand(
   }
 
   // Derive project name from timeline rootDir
-  const projectName = basename(timeline.rootDir)
+  const projectName = projectLabel(timeline.rootDir)
   loadSpinner.succeed(
     chalk.green(`Loaded timeline: ${chalk.bold(projectName)} — ${timeline.events.length} events`),
   )
@@ -97,6 +98,10 @@ export async function narrateCommand(
     provider === 'anthropic'
       ? (process.env['ANTHROPIC_API_KEY'] ?? '')
       : (process.env['OPENAI_API_KEY'] ?? '')
+
+  requireNarrationKey(provider, apiKey)
+  const outputDir = resolveOutputDir(opts.output, config, projectRoot, projectName)
+  await checkOutputDirectory(outputDir, ['story-arc.json', ...(opts.format ? [opts.format] : ['outline', 'thread', 'blog', 'video-script']).map(type => `${type}.md`)])
 
   const narrateOpts: NarrateOptions = { provider, style, apiKey }
 
@@ -127,7 +132,6 @@ export async function narrateCommand(
   )
 
   // Resolve output directory with project name subfolder
-  const outputDir = resolve(opts.output, projectName)
   await mkdir(outputDir, { recursive: true })
 
   // Write StoryArc JSON

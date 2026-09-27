@@ -13,7 +13,7 @@ vi.mock('os', async (importOriginal) => {
 })
 
 // Import after mock setup
-const { loadConfig } = await import('../config.js')
+const { loadConfig, resolveOutputDir } = await import('../config.js')
 const os = await import('os')
 
 describe('loadConfig', () => {
@@ -42,13 +42,9 @@ describe('loadConfig', () => {
     expect(config.style).toBe('technical')
   })
 
-  it('handles malformed TOML without throwing', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('rejects malformed TOML instead of silently using defaults', () => {
     writeFileSync(join(tmpDir, 'buildstory.toml'), '{{invalid toml')
-    const config = loadConfig(tmpDir)
-    expect(config).toEqual({ scan: {}, commits: {}, transcripts: {}, tts: {}, render: {}, video: {}, heygen: {} })
-    expect(spy).toHaveBeenCalled()
-    spy.mockRestore()
+    expect(() => loadConfig(tmpDir)).toThrow('Cannot load config')
   })
 
   it('deep-merges nested scan config (partial project override preserves global fields)', () => {
@@ -82,4 +78,65 @@ describe('loadConfig', () => {
     expect(config.scan?.patterns).toEqual(['**/*.md'])
     expect(config.scan?.maxDepth).toBe(5)
   })
+
+  it('loads the exact explicit filename and does not read a neighboring default file', () => {
+    writeFileSync(join(tmpDir, 'buildstory.toml'), 'provider = "anthropic"')
+    const custom = join(tmpDir, 'custom.toml')
+    writeFileSync(custom, 'provider = "openai"')
+    expect(loadConfig('/unused-target', custom).provider).toBe('openai')
+    expect(() => loadConfig(tmpDir, join(tmpDir, 'missing.toml'))).toThrow('Cannot load config')
+  })
+
+  it.each([
+    'typo = true', '[scan]\nmaxDepth = -1', '[scan]\nincludeFiles = "false"',
+    '[scan]\npatterns = [1]', '[commits]\nmax = 1.5', '[commits]\nincludeMerges = 1',
+    '[tts]\nconcurrency = 0', '[tts]\nconcurrency = 65', '[tts]\nspeed = "1.0"',
+    '[tts]\nmodel = "unknown"', '[render]\ntitleCard = "false"',
+    '[video]\nrenderer = "unknown"', '[heygen]\navatarId = 123',
+    '[transcripts]\nsince = "not a date"', '[transcripts]\ncorrelate = "yes"',
+    '[tts]\nconcurreny = 2', 'scan = "wrong"',
+  ])('rejects malformed configuration fields: %s', (toml) => {
+    writeFileSync(join(tmpDir, 'buildstory.toml'), toml)
+    expect(() => loadConfig(tmpDir)).toThrow('Invalid config')
+  })
+
+  it('resolves inherited paths beside their defining files before merging', () => {
+    const home = join(tmpDir, 'home')
+    const globalDir = join(home, '.config', 'buildstory')
+    mkdirSync(globalDir, { recursive: true })
+    vi.mocked(os.homedir).mockReturnValue(home)
+    writeFileSync(join(globalDir, 'config.toml'), 'outputDir = "./global-output"\n[transcripts]\npiPath = "./sessions"\n[tts]\nvoice = "alloy"')
+    writeFileSync(join(tmpDir, 'buildstory.toml'), '[tts]\nspeed = 1.25')
+    const config = loadConfig(tmpDir)
+    expect(config.outputDir).toBe(join(globalDir, 'global-output'))
+    expect(config.transcripts?.piPath).toBe(join(globalDir, 'sessions'))
+    expect(config.tts).toEqual({ voice: 'alloy', speed: 1.25 })
+    expect(resolveOutputDir(undefined, config, tmpDir, 'demo')).toBe(join(globalDir, 'global-output', 'demo'))
+    expect(resolveOutputDir('/explicit', config, tmpDir, '..')).toBe('/explicit/project')
+  })
+
+  it('fails on a broken global file even when a project override exists', () => {
+    const home = join(tmpDir, 'home')
+    const globalDir = join(home, '.config', 'buildstory')
+    mkdirSync(globalDir, { recursive: true })
+    vi.mocked(os.homedir).mockReturnValue(home)
+    writeFileSync(join(globalDir, 'config.toml'), '[tts]\nconcurrency = "bad"')
+    writeFileSync(join(tmpDir, 'buildstory.toml'), '[tts]\nconcurrency = 2')
+    expect(() => loadConfig(tmpDir)).toThrow('tts.concurrency')
+  })
+
+  it('expands home paths in output and transcript configuration', () => {
+    vi.mocked(os.homedir).mockReturnValue(join(tmpDir, 'home'))
+    writeFileSync(join(tmpDir, 'buildstory.toml'), 'outputDir = "~/videos"\n[transcripts]\nclaudeCodePath = "~/.claude/projects"\npiPath = "~"')
+    const config = loadConfig(tmpDir)
+    expect(config.outputDir).toBe(join(tmpDir, 'home/videos'))
+    expect(config.transcripts?.claudeCodePath).toBe(join(tmpDir, 'home/.claude/projects'))
+    expect(config.transcripts?.piPath).toBe(join(tmpDir, 'home'))
+  })
+
+  it('rejects reversed transcript date ranges', () => {
+    writeFileSync(join(tmpDir, 'buildstory.toml'), '[transcripts]\nsince = "2026-09-01"\nuntil = "2026-01-01"')
+    expect(() => loadConfig(tmpDir)).toThrow('since must not follow')
+  })
+
 })

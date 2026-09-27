@@ -27,7 +27,7 @@ story of the development process and explain the decisions behind it.
    narration padding, captions, and total duration.
 7. [x] **Medium: preserve all narration.** Split oversized TTS input instead of
    truncating it; keep spoken text, captions, and visible text consistent.
-8. [ ] **Medium: unify configuration and preflight.** Honor the exact config
+8. [x] **Medium: unify configuration and preflight.** Honor the exact config
    file, target repository, and outputDir; validate all fields; check prerequisites
    before paid work. Using the selected Chrome executable throughout rendering
    was completed with item 3.
@@ -132,4 +132,14 @@ story of the development process and explain the decisions behind it.
   real FFmpeg check joined three synthetic MP3 responses into exactly 0.600 seconds
   of PCM audio using a path with spaces and an apostrophe. No paid calls made.
   Persisting completed chunks within an unfinished TTS scene remains for item 10.
-- Next: item 8, configuration and preflight consistency.
+- Item 8 complete: exact config-file selection, target/input-based discovery,
+  field validation, and per-file path resolution now apply consistently across
+  commands. Explicit output flags override configured directories. Normal runs
+  check keys, output permissions, and renderer prerequisites before narration;
+  previews and dry runs remain offline. Invalid browser overrides fail explicitly,
+  and unavailable HeyGen credential verification blocks paid work.
+- Item 8 verification: workspace build, typecheck, lint, and 476 tests pass.
+  Coverage includes config precedence and paths, invalid fields, preflight order,
+  output failures, browser propagation, offline dry runs, and unavailable HeyGen
+  verification. No paid calls made.
+- Next: item 9, network and assembly deadlines.

@@ -37,10 +37,23 @@ describe('preflightHeyGenCheck', () => {
     expect(result.failures.some((f) => f.includes('rejected') && f.includes('401'))).toBe(true)
   })
 
-  it('does not block on a transient network error (key may be fine)', async () => {
+  it('blocks paid work when credential verification is unavailable', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('ECONNRESET'))
     const result = await preflightHeyGenCheck(config)
-    expect(result.ok).toBe(true)
-    expect(result.failures).toEqual([])
+    expect(result.ok).toBe(false)
+    expect(result.failures[0]).toContain('could not reach')
+  })
+
+  it('blocks paid work when verification returns a service error', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response('unavailable', { status: 503 }))
+    const result = await preflightHeyGenCheck(config)
+    expect(result.ok).toBe(false)
+    expect(result.failures[0]).toContain('503')
+  })
+
+  it('skips remote verification when the avatar is missing', async () => {
+    const result = await preflightHeyGenCheck({ ...config, avatarId: '' })
+    expect(result.ok).toBe(false)
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

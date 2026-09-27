@@ -33,7 +33,7 @@ export async function findChrome(): Promise<string | null> {
   // 1 + 2. Explicit env-var overrides
   for (const envVar of ['PUPPETEER_EXECUTABLE_PATH', 'CHROME_PATH'] as const) {
     const p = process.env[envVar]
-    if (p && existsSync(p)) return p
+    if (p) return existsSync(p) ? p : null
   }
 
   // 3. Puppeteer cache — `npx puppeteer browsers install chrome` lands here.
@@ -125,7 +125,7 @@ export async function preflightCheck(opts: {
   //    missing ffmpeg would only surface mid-render — check it up front.
   const ffmpegPath = getFfmpegPath()
   try {
-    await execFileAsync(ffmpegPath, ['-version'])
+    await execFileAsync(ffmpegPath, ['-version'], { timeout: 10000 })
   } catch {
     failures.push(
       `ffmpeg not found at "${ffmpegPath}". Install FFmpeg or set FFMPEG_PATH env var. https://ffmpeg.org/download.html`
@@ -134,7 +134,7 @@ export async function preflightCheck(opts: {
 
   const ffprobePath = getFfprobePath()
   try {
-    await execFileAsync(ffprobePath, ['-version'])
+    await execFileAsync(ffprobePath, ['-version'], { timeout: 10000 })
   } catch {
     failures.push(
       `ffprobe not found at "${ffprobePath}". Install FFmpeg or set FFPROBE_PATH env var. https://ffmpeg.org/download.html`
@@ -152,8 +152,16 @@ export async function preflightCheck(opts: {
     )
   }
 
+  if (chromePath) {
+    try {
+      await execFileAsync(chromePath, ['--version'], { timeout: 10000 })
+    } catch {
+      failures.push(`Chrome/Chromium could not execute at "${chromePath}". Check the browser override and permissions.`)
+    }
+  }
+
   // 4. Check OPENAI_API_KEY for TTS
-  if (!opts.openaiApiKey) {
+  if (!opts.openaiApiKey?.trim()) {
     failures.push(
       'OPENAI_API_KEY not set. Required for TTS audio generation.'
     )

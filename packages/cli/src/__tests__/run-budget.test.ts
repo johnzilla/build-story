@@ -31,12 +31,14 @@ vi.mock('@buildstory/core', async (original) => ({
 let directory: string
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'buildstory-budget-'))
+  vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
   state.formats = 0
   state.failNarration = false
   vi.spyOn(console, 'log').mockImplementation(() => {})
 })
 afterEach(async () => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
   await rm(directory, { recursive: true, force: true })
 })
 it('keeps completed outputs and reports spend when the next request is blocked', async () => {

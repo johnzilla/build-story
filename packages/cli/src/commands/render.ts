@@ -1,11 +1,12 @@
+import { checkOutputDirectory, checkVideoPrerequisites } from '../preflight.js'
 import { writePayloadPreview } from '../preview.js'
 import { readFile, mkdir } from 'node:fs/promises'
-import { resolve, dirname, basename } from 'node:path'
+import { resolve, dirname } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
 import type { StoryArc } from '@buildstory/core'
 import { StoryArcSchema, sanitizeStoryArc } from '@buildstory/core'
-import { loadConfig } from '../config.js'
+import { loadConfig, resolveOutputDir, projectLabel } from '../config.js'
 import {
   checkRenderer,
   checkVoice,
@@ -25,7 +26,7 @@ export async function renderCommand(
   storyArcPath: string,
   opts: {
     config?: string
-    output: string
+    output?: string
     dryRun?: boolean
     previewPayload?: string
     // commander maps `--no-title-card`/`--no-stats-card` to these (default true).
@@ -34,8 +35,8 @@ export async function renderCommand(
     renderer?: string
   },
 ): Promise<void> {
-  const projectRoot = opts.config ? dirname(resolve(opts.config)) : process.cwd()
-  const config = loadConfig(projectRoot)
+  const projectRoot = dirname(resolve(storyArcPath))
+  const config = loadConfig(projectRoot, opts.config)
 
   // Validate inputs before any paid call. Precedence: flag > config > default.
   const errors: string[] = []
@@ -52,7 +53,7 @@ export async function renderCommand(
   const storyArc: StoryArc = sanitizeStoryArc(StoryArcSchema.parse(JSON.parse(raw)))
 
   const projectName = storyArc.metadata.sourceTimeline
-    ? basename(storyArc.metadata.sourceTimeline)
+    ? projectLabel(storyArc.metadata.sourceTimeline)
     : 'project'
 
   console.log(chalk.bold('\n  BuildStory Render\n'))
@@ -92,6 +93,13 @@ export async function renderCommand(
     return
   }
 
+  const outputDir = resolveOutputDir(opts.output, config, projectRoot, projectName)
+  let preflight: { chromePath?: string } = {}
+  if (!opts.dryRun) {
+    await checkOutputDirectory(outputDir, [`${projectName}.mp4`, `${projectName}.srt`])
+    preflight = await checkVideoPrerequisites(renderer, config)
+  }
+
   if (renderer === 'heygen') {
     // @buildstory/heygen is a hard workspace dep; the dynamic import only defers
     // loading its module graph until render time.
@@ -103,27 +111,6 @@ export async function renderCommand(
       apiKey: process.env['HEYGEN_API_KEY'] ?? '',
       avatarId: config.heygen?.avatarId ?? '',
       voiceId: config.heygen?.voiceId ?? '',
-    }
-
-    // Validate required fields and surface clear errors before preflight
-    const missingFields: string[] = []
-    if (!heygenOpts.apiKey) missingFields.push('HEYGEN_API_KEY env var')
-    if (!heygenOpts.avatarId) missingFields.push('heygen.avatarId in buildstory.toml')
-    if (!heygenOpts.voiceId) missingFields.push('heygen.voiceId in buildstory.toml')
-    if (missingFields.length > 0) {
-      console.error(chalk.red('\n  HeyGen configuration missing:\n'))
-      missingFields.forEach((f) => console.error(chalk.red(`    - ${f}`)))
-      console.error()
-      process.exit(1)
-    }
-
-    // Preflight (SAFE-01, SAFE-04, D-06)
-    const preflight = await heygen.preflightHeyGenCheck(heygenOpts)
-    if (!preflight.ok) {
-      console.error(chalk.red('\n  Preflight check failed:\n'))
-      preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
-      console.error()
-      process.exit(1)
     }
 
     // Cost estimate (SAFE-02, D-04, D-05)
@@ -143,7 +130,6 @@ export async function renderCommand(
     // HeyGen submission (HGVR-02, HGVR-03, HGVR-04)
     const { renderWithHeyGen } = heygen
 
-    const outputDir = resolve(opts.output, projectName)
     await mkdir(outputDir, { recursive: true })
     const outputPath = resolve(outputDir, `${projectName}.mp4`)
 
@@ -180,15 +166,7 @@ export async function renderCommand(
     // loading its heavy module graph (Remotion) until render time.
     const video = await import('@buildstory/video')
 
-    // Preflight (REND-11, D-12)
     const openaiKey = process.env['OPENAI_API_KEY'] ?? ''
-    const preflight = await video.preflightCheck({ openaiApiKey: openaiKey })
-    if (!preflight.ok) {
-      console.error(chalk.red('\n  Preflight check failed:\n'))
-      preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
-      console.error()
-      process.exit(1)
-    }
 
     // TTS cost estimate (REND-03, D-16) — priced at the model actually called
     const costEstimate = video.estimateTTSCost(storyArc.beats, ttsModel)
@@ -203,7 +181,6 @@ export async function renderCommand(
       return
     }
 
-    const outputDir = resolve(opts.output, projectName)
     await mkdir(outputDir, { recursive: true })
 
     // TTS (REND-02) — voice/speed/model validated above; concurrency here.

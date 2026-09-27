@@ -1,12 +1,13 @@
+import { checkOutputDirectory, checkVideoPrerequisites, requireNarrationKey } from '../preflight.js'
 import { buildNarrationPreview, SpendBudget, BudgetExceededError } from '@buildstory/core'
 import { writePayloadPreview } from '../preview.js'
-import { writeFile, mkdir } from 'node:fs/promises'
-import { resolve, dirname, basename } from 'node:path'
+import { writeFile, mkdir, stat } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
 import { scan, narrate, format, createProvider } from '@buildstory/core'
 import type { FormatType, StoryArc } from '@buildstory/core'
-import { loadConfig, toScanOptions } from '../config.js'
+import { loadConfig, toScanOptions, resolveOutputDir, projectLabel } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
 import { createGitSource } from '../adapters/git-source.js'
 import { createTranscriptSource } from '../adapters/transcript-registry.js'
@@ -49,7 +50,7 @@ export async function run(
     config?: string
     provider?: string
     style?: string
-    output: string
+    output?: string
     skipVideo?: boolean
     includeText?: boolean
     dryRun?: boolean
@@ -63,11 +64,10 @@ export async function run(
 ) {
   const pipelineStart = Date.now()
 
-  // Eng review amendment: use --config path to determine project root
-  const projectRoot = opts.config ? dirname(resolve(opts.config)) : process.cwd()
-  const config = loadConfig(projectRoot)
-  const rootDir = path ?? process.cwd()
-  const projectName = basename(resolve(rootDir))
+  const rootDir = resolve(path ?? process.cwd())
+  if (!(await stat(rootDir)).isDirectory()) throw new Error(`Scan target is not a directory: ${rootDir}`)
+  const config = loadConfig(rootDir, opts.config)
+  const projectName = projectLabel(rootDir)
 
   console.log(chalk.bold('\n  BuildStory\n'))
 
@@ -187,6 +187,14 @@ export async function run(
     return
   }
 
+  requireNarrationKey(provider, apiKey)
+  const outputDir = resolveOutputDir(opts.output, config, rootDir, projectName)
+  await checkOutputDirectory(outputDir, [
+    'story-arc.json', ...(skipVideo || includeText ? formatTypes.map(type => `${type}.md`) : []),
+    ...(!skipVideo ? [`${projectName}.mp4`, `${projectName}.srt`] : []),
+  ])
+  const videoPreflight = skipVideo ? {} : await checkVideoPrerequisites(renderer, config)
+
   const budget = new SpendBudget(maxCost)
   const narrateOpts = { provider, style, apiKey, budget }
   const llmProvider = createProvider(narrateOpts)
@@ -218,7 +226,6 @@ export async function run(
     )
 
     // Write output directory and story-arc.json
-    const outputDir = resolve(opts.output, projectName)
     await mkdir(outputDir, { recursive: true })
     await writeFile(resolve(outputDir, 'story-arc.json'), JSON.stringify(arc, null, 2))
 
@@ -237,26 +244,6 @@ export async function run(
           apiKey: process.env['HEYGEN_API_KEY'] ?? '',
           avatarId: config.heygen?.avatarId ?? '',
           voiceId: config.heygen?.voiceId ?? '',
-        }
-
-        // Validate required fields and surface clear errors before preflight
-        const missingFields: string[] = []
-        if (!heygenOpts.apiKey) missingFields.push('HEYGEN_API_KEY env var')
-        if (!heygenOpts.avatarId) missingFields.push('heygen.avatarId in buildstory.toml')
-        if (!heygenOpts.voiceId) missingFields.push('heygen.voiceId in buildstory.toml')
-        if (missingFields.length > 0) {
-          console.error(chalk.red('\n  HeyGen configuration missing:\n'))
-          missingFields.forEach((f) => console.error(chalk.red(`    - ${f}`)))
-          console.error()
-          throw new Error('Rendering prerequisites failed; see details above')
-        }
-
-        const preflight = await heygen.preflightHeyGenCheck(heygenOpts)
-        if (!preflight.ok) {
-          console.error(chalk.red('\n  Preflight check failed:\n'))
-          preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
-          console.error()
-          throw new Error('Rendering prerequisites failed; see details above')
         }
 
         const cost = heygen.estimateHeyGenCost(arc.beats, heygenOpts)
@@ -302,16 +289,7 @@ export async function run(
         // loading its heavy module graph (Remotion) until render time.
         const video = await import('@buildstory/video')
 
-        // Preflight check (REND-11, D-12)
         const openaiKey = process.env['OPENAI_API_KEY'] ?? ''
-        const preflight = await video.preflightCheck({ openaiApiKey: openaiKey })
-        if (!preflight.ok) {
-          console.error(chalk.red('\n  Preflight check failed:\n'))
-          preflight.failures.forEach((f: string) => console.error(chalk.red(`    - ${f}`)))
-          console.error()
-          throw new Error('Rendering prerequisites failed; see details above')
-        }
-
         // TTS cost estimate (REND-03, D-16) — priced at the validated model.
         const costEstimate = video.estimateTTSCost(arc.beats, ttsModel)
         console.log(
@@ -354,7 +332,7 @@ export async function run(
           showStatsCard,
           // Use the Chrome/Chromium preflight already located, so a machine where
           // preflight passes always renders (no second, divergent discovery).
-          ...(preflight.chromePath ? { browserExecutable: preflight.chromePath } : {}),
+          ...(videoPreflight.chromePath ? { browserExecutable: videoPreflight.chromePath } : {}),
           onProgress: (p: { renderedFrames: number; totalFrames: number; progress: number }) => {
             const pct = Math.round(p.progress * 100)
             renderSpinner.text = `[4/${totalSteps}] Rendering video... ${pct}% (frame ${p.renderedFrames}/${p.totalFrames})`

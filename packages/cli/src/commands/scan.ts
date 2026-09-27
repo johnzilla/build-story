@@ -1,5 +1,5 @@
 import { resolve } from 'path'
-import { writeFileSync } from 'fs'
+import { writeFileSync, statSync } from 'fs'
 import chalk from 'chalk'
 import ora from 'ora'
 import { scan } from '@buildstory/core'
@@ -17,7 +17,8 @@ export async function scanCommand(
   },
 ) {
   const rootDir = resolve(path ?? process.cwd())
-  const config = loadConfig(opts.config ? resolve(opts.config, '..') : process.cwd())
+  if (!statSync(rootDir).isDirectory()) throw new Error(`Scan target is not a directory: ${rootDir}`)
+  const config = loadConfig(rootDir, opts.config)
 
   const source = createFsSource(rootDir)
   const spinner = ora('Detecting git repository...').start()

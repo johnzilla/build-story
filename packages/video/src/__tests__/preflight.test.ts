@@ -31,10 +31,10 @@ describe('findChrome (preflight path logic)', () => {
     expect(await findChrome()).toBe('/opt/chrome')
   })
 
-  it('ignores an env-var override that does not exist on disk', async () => {
+  it('rejects an invalid explicit override instead of falling back', async () => {
     process.env['PUPPETEER_EXECUTABLE_PATH'] = '/nope/chrome'
-    mockExists.mockReturnValue(false)
-    // Falls through to the other search steps, which also find nothing → null.
+    mockExists.mockImplementation((p) => p !== '/nope/chrome')
+    // Other candidates exist, but the explicit selection must be honored.
     expect(await findChrome()).toBeNull()
   })
 

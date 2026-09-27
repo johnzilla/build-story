@@ -159,7 +159,7 @@ enabled = false        # opt-in: distill coding-agent sessions into events
 [tts]
 voice = "nova"         # OpenAI TTS voice: nova, alloy, echo, fable, onyx, shimmer
 speed = 1.0            # Playback speed (0.25 - 4.0)
-concurrency = 2        # Parallel TTS requests
+concurrency = 2        # Parallel TTS requests (integer, 1–64)
 model = "tts-1-hd"     # OpenAI TTS model: "tts-1-hd" (default) or "tts-1" (cheaper)
 
 [render]
@@ -174,9 +174,35 @@ avatarId = "your_avatar_id"   # Required for HeyGen renderer
 voiceId = "your_voice_id"     # Required for HeyGen renderer
 ```
 
-Global defaults at `~/.config/buildstory/config.toml` (project config overrides global).
+Global defaults live at `~/.config/buildstory/config.toml`. Project settings override
+them field by field, and command-line flags take precedence over both.
 
-**Precedence:** a command-line flag overrides the value in `buildstory.toml`, which overrides the built-in default (`flag > config > default`). Invalid values for `--provider`, `--style`, `--renderer`, `tts.voice`, `tts.speed`, or `--max-cost` are rejected up front, before any API call.
+- `run <directory>` and `scan <directory>` discover `buildstory.toml` inside that
+  target directory (the current directory when omitted).
+- `narrate <timeline.json>` and `render <story-arc.json>` discover configuration
+  beside the input JSON. Use `--config /path/to/custom.toml` to select a project
+  config explicitly.
+- `--config` reads that exact file, replaces automatic project-config discovery,
+  and still inherits global defaults. It does not change the scan target.
+- Relative `outputDir` and transcript-store paths resolve beside the config file
+  that defines them; `~/` expands to your home directory. Scan patterns remain
+  relative to the target repository.
+- `run`, `narrate`, and `render` write into a project-named subfolder of the
+  configured `outputDir`. An explicit `--output` overrides that base directory
+  and resolves relative to the current working directory. Without either setting,
+  the base is `buildstory-out` inside the target repository or beside the input
+  JSON. `scan --output` continues to name a single JSON file.
+
+Malformed TOML, unknown fields, incorrect types, invalid enum values, and
+out-of-range numbers stop the command before API calls. Transcript dates must be
+quoted date strings, with `since` no later than `until`.
+
+Normal runs check required API-key presence, output-directory writeability, and
+the selected renderer before narration. Remotion checks FFmpeg, FFprobe, and the
+selected Chrome executable; HeyGen checks FFmpeg, avatar/voice settings, and
+remote API-key verification. Unavailable HeyGen verification blocks paid work.
+LLM key presence checks do not authenticate those keys remotely. Payload previews
+and dry runs remain offline and require no API keys or rendering tools.
 
 API keys via `.env` file (recommended) or environment variables:
 - `ANTHROPIC_API_KEY` -- for Claude (narration)
@@ -189,7 +215,7 @@ The CLI automatically loads `.env` from the current working directory.
 
 - **Node.js 22+** (enforced via `engines`)
 - **pnpm 10** — pinned via the `packageManager` field; run `corepack enable` to use the exact version
-- **ffmpeg _and_ ffprobe** -- for audio processing (mp3→wav conversion and duration measurement); usually pre-installed on Linux/macOS. Override the binaries with `FFMPEG_PATH` / `FFPROBE_PATH`. `buildstory render` preflight checks both before spending anything.
+- **ffmpeg _and_ ffprobe** -- for Remotion audio processing (mp3→wav conversion and duration measurement). HeyGen requires FFmpeg for multi-job assembly. Override the binaries with `FFMPEG_PATH` / `FFPROBE_PATH`. Both `run` and `render` check their renderer's requirements before paid work.
 - **Headless Chrome** -- for Remotion video rendering
 
 All BuildStory packages (`@buildstory/video`, `@buildstory/heygen`) install with the CLI via `pnpm install` — there is no separate install step. Rendering requires an installed Chrome/Chromium. Automatic browser downloads are disabled to avoid archive-extraction risks. Install a browser ahead of time from a trusted source, or point `PUPPETEER_EXECUTABLE_PATH` / `CHROME_PATH` at an existing binary.
