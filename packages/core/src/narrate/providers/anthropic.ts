@@ -1,3 +1,4 @@
+import { withLLMDeadline } from './deadline.js'
 import type { SpendBudget } from '../../budget.js'
 import { reserveLLM, llmCostUSD } from '../pricing.js'
 import { sanitizeOutboundText, sanitizeOutboundValue } from '../../privacy/outbound.js'
@@ -50,7 +51,7 @@ export class AnthropicProvider implements LLMProvider {
       },
     }
     const charge = reserveLLM(this.budget, 'anthropic', this.model, request, 16384)
-    const response = await this.client.messages.parse(request)
+    const response = await withLLMDeadline(signal => this.client.messages.parse(request, { signal }))
 
     this.trackUsage(response.usage)
     charge?.settle(llmCostUSD('anthropic', { calls: 1, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }), 'usage')
@@ -75,7 +76,7 @@ export class AnthropicProvider implements LLMProvider {
       messages: [{ role: 'user', content: beatsJson }],
     }
     const charge = reserveLLM(this.budget, 'anthropic', this.model, request, 4096)
-    const response = await this.client.messages.create(request)
+    const response = await withLLMDeadline(signal => this.client.messages.create(request, { signal }))
 
     this.trackUsage(response.usage)
     charge?.settle(llmCostUSD('anthropic', { calls: 1, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }), 'usage')
@@ -111,7 +112,7 @@ export class AnthropicProvider implements LLMProvider {
       },
     }
     const charge = reserveLLM(this.budget, 'anthropic', this.model, request, 16384)
-    const response = await this.client.messages.parse(request)
+    const response = await withLLMDeadline(signal => this.client.messages.parse(request, { signal }))
 
     this.trackUsage(response.usage)
     charge?.settle(llmCostUSD('anthropic', { calls: 1, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }), 'usage')

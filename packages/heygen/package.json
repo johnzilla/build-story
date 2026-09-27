@@ -34,7 +34,6 @@
   },
   "dependencies": {
     "@buildstory/core": "workspace:*",
-    "p-retry": "^6.2.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -7,7 +7,7 @@ export const HeyGenOptionsSchema = z.object({
   width: z.number().default(1280),
   height: z.number().default(720),
   speed: z.number().min(0.5).max(2.0).default(1.0),
-  timeoutSeconds: z.number().default(600),
+  timeoutSeconds: z.number().finite().nonnegative().max(86400).default(600),
 })
 
 /** Full output type -- all fields required (after Zod defaults applied). Used for Phase 7 API submission. */

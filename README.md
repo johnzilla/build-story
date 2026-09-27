@@ -77,7 +77,7 @@ buildstory render <story-arc>   Render video from an existing story arc
 - `--max-cost <usd>` -- Abort before any stage that would push total spend past this cap; partial results are kept
 - `--no-title-card` -- Disable auto-inserted title card
 - `--no-stats-card` -- Disable auto-inserted stats card
-- `-o, --output <path>` -- Output directory (default: ./buildstory-out)
+- `-o, --output <path>` -- Output base directory (overrides `outputDir`; see [Configuration](#configuration))
 - `-c, --config <path>` -- Path to buildstory.toml
 
 **scan**
@@ -88,18 +88,18 @@ buildstory render <story-arc>   Render video from an existing story arc
 - `-f, --format <format>` -- Single format: outline, thread, blog, video-script (default: all)
 - `--provider <provider>` -- LLM provider: anthropic or openai (default: anthropic)
 - `--style <style>` -- Narrative style (default: story)
-- `-o, --output <path>` -- Output directory (default: ./buildstory-out)
+- `-o, --output <path>` -- Output base directory (overrides `outputDir`; see [Configuration](#configuration))
 
 **render**
 - `--renderer <renderer>` -- Video renderer: remotion or heygen (default: remotion)
 - `--dry-run` -- Show cost estimate without calling APIs
 - `--no-title-card` -- Disable auto-inserted title card (Remotion only)
 - `--no-stats-card` -- Disable auto-inserted stats card (Remotion only)
-- `-o, --output <path>` -- Output directory (default: ./buildstory-out)
+- `-o, --output <path>` -- Output base directory (overrides `outputDir`; see [Configuration](#configuration))
 
 HeyGen rendering can take ~10 minutes per minute of video; BuildStory submits,
 polls, and downloads on your behalf. Every request has a timeout so a hung
-connection can't stall a render forever, transient server errors are retried,
+connection or stalled response body cannot stall a render forever. Transient status-poll errors are retried,
 and a server error page surfaces as a clear HTTP status rather than an opaque
 parse error — so a long render fails fast and legibly when something is wrong.
 
@@ -353,6 +353,31 @@ Paid work is checkpointed so a mid-render failure doesn't re-bill you on the nex
 
 - **TTS (Remotion path)** — each scene's audio is written under `audio/` with a filename keyed on the beat's content (voice + speed + model + text), and recorded in `audio/manifest.json`. A re-run reuses any scene whose content is unchanged — skipping both the paid TTS call and the duration probe — and regenerates only scenes that are missing or whose beat text changed. Editing a beat never reuses stale audio.
 - **HeyGen** — job IDs and completed avatar chunks are kept in `<output>.mp4.parts/`. Rerunning with the same story, settings, and output resumes polling or downloading the existing paid jobs. Cache identity includes dimensions. Submission POSTs are never automatically retried; uncertain outcomes stop with instructions to check the HeyGen account and recover the ID. The directory is removed after successful assembly. See [paid job recovery](packages/heygen/README.md#recovering-a-paid-job) for recovery steps and legacy cache handling.
+
+### Operation deadlines
+
+Deadlines include response-body reads, not just the wait for headers:
+
+| Operation | Deadline |
+| --- | --- |
+| Each narration request | 10 minutes |
+| Each speech request | 2 minutes |
+| HeyGen submit or status request | 30 seconds |
+| Each HeyGen download | 5 minutes |
+| Each FFmpeg audio conversion or final assembly | 5 minutes |
+| Audio duration probe | 30 seconds |
+
+HeyGen polling defaults to 10 minutes per saved job; waits, retry delays, and
+status reads all share that deadline. Library callers may set `timeoutSeconds`
+from 0 to 86,400. It does not include submission or downloading. Local browser
+rendering is separate from the FFmpeg assembly deadline.
+
+A timed-out download removes its partial file and preserves the paid job ID.
+Failed or timed-out assembly preserves completed chunks and the previous final
+video; a successful assembly replaces the final video atomically. FFmpeg handles
+paths with spaces and apostrophes, drains diagnostics, and honors `FFMPEG_PATH`.
+Timed-out paid submissions are never automatically retried because the provider
+may already have accepted them.
 
 ## Data safety
 

@@ -10,7 +10,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn(), rename: vi.fn(), rm: vi.fn(),
 }))
 vi.mock('node:child_process', () => ({
-  execFile: vi.fn((_bin: string, _args: string[], callback: (error: Error | null, stdout: string, stderr: string) => void) => callback(null, '', '')),
+  execFile: vi.fn((_bin: string, _args: string[], _options: unknown, callback: (error: Error | null, stdout: string, stderr: string) => void) => callback(null, '', '')),
 }))
 const create = vi.fn()
 const client = { audio: { speech: { create } } } as unknown as OpenAI
@@ -53,4 +53,24 @@ it('does not run concatenation for a single speech chunk', async () => {
   expect(create).toHaveBeenCalledTimes(1)
   expect(execFile).toHaveBeenCalledTimes(1)
   expect(rename).toHaveBeenCalledWith('/scratch/part-0.wav', '/out.wav')
+})
+
+it('aborts a stalled speech body without retrying or publishing incomplete audio', async () => {
+  vi.useFakeTimers()
+  try {
+    create.mockImplementationOnce(async (_request, options) => ({
+      arrayBuffer: () => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+      }),
+    }))
+    const caught = generateSceneAudio(client, 'Short narration.', '/existing.wav', opts).catch(e => e)
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(await caught).toMatchObject({ message: expect.stringContaining('timed out') })
+    expect(create).toHaveBeenCalledOnce()
+    expect(rename).not.toHaveBeenCalled()
+    expect(rm).toHaveBeenCalledWith('/scratch', { recursive: true, force: true })
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
 })

@@ -622,3 +622,31 @@ describe('job persistence failures', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('overall polling deadline', () => {
+  beforeEach(() => { vi.resetAllMocks(); vi.stubGlobal('fetch', vi.fn()); vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+
+  it('stops during the first wait when the configured deadline is shorter than the interval', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeSuccessSubmitResponse('short-wait'))
+    const { renderWithHeyGen } = await import('../api.js')
+    const caught = renderWithHeyGen(makeArc([makeBeat()]), { ...defaultConfig, timeoutSeconds: 1 }, '/tmp/short.mp4', () => {}).catch(e => e)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(await caught).toMatchObject({ message: expect.stringContaining('Timeout after 1s') })
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('caps a stalled status body by the remaining polling deadline', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(makeSuccessSubmitResponse('short-body'))
+      .mockImplementationOnce(async (_url, init) => new Response(new ReadableStream({
+        start(controller) { init!.signal!.addEventListener('abort', () => controller.error(init!.signal!.reason), { once: true }) },
+      })))
+    const { renderWithHeyGen } = await import('../api.js')
+    const caught = renderWithHeyGen(makeArc([makeBeat()]), { ...defaultConfig, timeoutSeconds: 16 }, '/tmp/short-body.mp4', () => {}).catch(e => e)
+    await vi.advanceTimersByTimeAsync(16_000)
+    expect(await caught).toMatchObject({ message: expect.stringContaining('Timeout after 16s') })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})

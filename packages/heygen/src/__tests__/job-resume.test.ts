@@ -75,6 +75,30 @@ describe('paid job recovery with real disk state', () => {
     expect(vi.mocked(fetch).mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true)
   })
 
+  it('aborts a stalled download body, removes the partial file, and resumes the saved job', async () => {
+    vi.mocked(setTimeout).mockRestore()
+    const nativeTimer = globalThis.setTimeout
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation(((...args: Parameters<typeof setTimeout>) => {
+      const [fn, delay, ...rest] = args
+      return nativeTimer(fn, delay === 15_000 ? 0 : delay === 300_000 ? 30 : delay, ...rest)
+    }) as typeof setTimeout)
+    const cancel = vi.fn()
+    const body = new ReadableStream({
+      start(controller) { controller.enqueue(new Uint8Array([1, 2, 3])) },
+      cancel,
+    })
+    vi.mocked(fetch).mockResolvedValueOnce(submitted()).mockResolvedValueOnce(completed())
+      .mockResolvedValueOnce(new Response(body))
+    await expect(renderWithHeyGen(arc, config, output, ignore)).rejects.toThrow()
+    expect(cancel).toHaveBeenCalledOnce()
+    const files = await readdir(`${output}.parts`)
+    expect(files.some(name => name.endsWith('.partial') || name.endsWith('.mp4'))).toBe(false)
+    expect(JSON.parse((await savedJob()).text).videoId).toBe('paid-123')
+    vi.mocked(fetch).mockClear().mockResolvedValueOnce(completed()).mockResolvedValueOnce(video())
+    await renderWithHeyGen(arc, config, output, ignore)
+    expect(vi.mocked(fetch).mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true)
+  })
+
   it('saves the ID before progress callbacks can interrupt the render', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(submitted())
     await expect(renderWithHeyGen(arc, config, output, (message) => {
@@ -171,18 +195,20 @@ describe('paid job recovery with real disk state', () => {
       if (message.startsWith('Chunk 2: submitted')) throw new Error('Interrupted after second submission')
     })).rejects.toThrow('Interrupted after second submission')
     vi.mocked(fetch).mockClear().mockResolvedValueOnce(completed()).mockResolvedValueOnce(video())
+    await writeFile(output, 'previous complete video')
     vi.mocked(spawn).mockImplementationOnce(() => {
       const process = new EventEmitter()
       queueMicrotask(() => process.emit('close', 1))
       return process as ReturnType<typeof spawn>
     })
     await expect(renderWithHeyGen(multiArc, config, output, ignore)).rejects.toThrow('FFmpeg concat exited')
+    expect(await readFile(output, 'utf8')).toBe('previous complete video')
     expect(fetch).toHaveBeenCalledTimes(2)
     expect((await readdir(`${output}.parts`)).filter((name) => name.endsWith('.mp4'))).toHaveLength(2)
     vi.mocked(fetch).mockClear()
-    vi.mocked(spawn).mockImplementationOnce(() => {
+    vi.mocked(spawn).mockImplementationOnce((_bin, args) => {
       const process = new EventEmitter()
-      queueMicrotask(() => process.emit('close', 0))
+      void writeFile(args!.at(-1)!, 'assembled video').then(() => process.emit('close', 0))
       return process as ReturnType<typeof spawn>
     })
     await renderWithHeyGen(multiArc, config, output, ignore)

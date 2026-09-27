@@ -1,3 +1,4 @@
+import { consumeWithTimeout } from './http.js'
 import type { HeyGenConfig, PreflightResult } from './types.js'
 
 // A cheap authenticated GET used only to validate the API key before the
@@ -8,25 +9,18 @@ const VALIDATE_TIMEOUT_MS = 15_000
 
 /** Verify the key before paid work; unavailable verification fails closed. */
 async function validateApiKey(apiKey: string): Promise<string | null> {
-  const controller = new AbortController()
-  const timer = setTimeout(
-    () => controller.abort(new DOMException(`Request timed out after ${VALIDATE_TIMEOUT_MS}ms`, 'TimeoutError')),
-    VALIDATE_TIMEOUT_MS,
-  )
   try {
-    const res = await fetch(VALIDATE_URL, {
+    return await consumeWithTimeout(VALIDATE_URL, {
       headers: { 'X-Api-Key': apiKey },
-      signal: controller.signal,
+    }, VALIDATE_TIMEOUT_MS, async (res) => {
+      if (res.status === 401 || res.status === 403) {
+        return `HeyGen API key rejected (HTTP ${res.status}). Check HEYGEN_API_KEY.`
+      }
+      if (!res.ok) return `HeyGen preflight could not verify credentials (HTTP ${res.status}). Retry before paid work.`
+      return null
     })
-    if (res.status === 401 || res.status === 403) {
-      return `HeyGen API key rejected (HTTP ${res.status}). Check HEYGEN_API_KEY.`
-    }
-    if (!res.ok) return `HeyGen preflight could not verify credentials (HTTP ${res.status}). Retry before paid work.`
-    return null
   } catch {
     return 'HeyGen preflight could not reach the service. Retry before paid work.'
-  } finally {
-    clearTimeout(timer)
   }
 }
 

@@ -38,20 +38,24 @@ async function requestSpeech(client: OpenAI, input: string, opts: GenerateOpts):
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const cost = ttsCostUSD(input.length, opts.model ?? DEFAULT_TTS_MODEL)
     const charge = opts.budget?.reserve('TTS request', cost)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(new Error('TTS request timed out after 120s')), 120_000)
     try {
       const response = await client.audio.speech.create({
         model: opts.model ?? DEFAULT_TTS_MODEL,
         voice: opts.voice as 'nova' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'shimmer',
         input,
         speed: opts.speed,
-      }, { maxRetries: 0 })
+      }, { maxRetries: 0, signal: controller.signal })
       charge?.settle(cost, 'estimate')
       return Buffer.from(await response.arrayBuffer())
     } catch (err: unknown) {
       if (isRateLimitError(err)) charge?.settle(0, 'estimate')
       if (attempt === MAX_ATTEMPTS || !isRateLimitError(err)) throw err
-      await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000))
+    } finally {
+      clearTimeout(timer)
     }
+    await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000))
   }
   throw new Error('TTS attempts exhausted')
 }
@@ -76,7 +80,7 @@ export async function generateSceneAudio(
       // before concatenation; never concatenate raw encoded MP3 bytes.
       await execFileAsync(getFfmpegPath(), [
         '-y', '-i', mp3, '-acodec', 'pcm_s16le', '-ar', '24000', '-ac', '1', wav,
-      ])
+      ], { timeout: 300_000, killSignal: 'SIGKILL' })
       files.push(`part-${i}.wav`)
     }
     let completed = join(workDir, files[0]!)
@@ -88,7 +92,7 @@ export async function generateSceneAudio(
       completed = join(workDir, 'complete.wav')
       await execFileAsync(getFfmpegPath(), [
         '-y', '-f', 'concat', '-safe', '1', '-i', list, '-c:a', 'copy', completed,
-      ])
+      ], { timeout: 300_000, killSignal: 'SIGKILL' })
     }
     // A partial scene must never be mistaken for a complete cached narration.
     await rename(completed, outputPath)

@@ -1,3 +1,4 @@
+import { withLLMDeadline } from './deadline.js'
 import type { SpendBudget } from '../../budget.js'
 import { reserveLLM, llmCostUSD } from '../pricing.js'
 import { sanitizeOutboundText, sanitizeOutboundValue } from '../../privacy/outbound.js'
@@ -64,7 +65,7 @@ export class OpenAIProvider implements LLMProvider {
       ],
     }
     const charge = reserveLLM(this.budget, 'openai', this.model, request, 4096)
-    const completion = await this.client.chat.completions.create(request)
+    const completion = await withLLMDeadline(signal => this.client.chat.completions.create(request, { signal }))
 
     this.trackUsage(completion.usage ?? undefined)
     if (completion.usage) charge?.settle(llmCostUSD('openai', { calls: 1, inputTokens: completion.usage.prompt_tokens, outputTokens: completion.usage.completion_tokens }), 'usage')
@@ -134,7 +135,7 @@ export class OpenAIProvider implements LLMProvider {
         response_format: responseFormat,
       }
       const charge = reserveLLM(this.budget, 'openai', this.model, request, 16384)
-      const completion = await this.client.chat.completions.parse(request)
+      const completion = await withLLMDeadline(signal => this.client.chat.completions.parse(request, { signal }))
       this.trackUsage(completion.usage ?? undefined)
       if (completion.usage) charge?.settle(llmCostUSD('openai', { calls: 1, inputTokens: completion.usage.prompt_tokens, outputTokens: completion.usage.completion_tokens }), 'usage')
 
@@ -162,7 +163,7 @@ export class OpenAIProvider implements LLMProvider {
       },
     }
     const charge = reserveLLM(this.budget, 'openai', this.model, request, 16384)
-    const completion = await this.client.chat.completions.create(request)
+    const completion = await withLLMDeadline(signal => this.client.chat.completions.create(request, { signal }))
     this.trackUsage(completion.usage ?? undefined)
     if (completion.usage) charge?.settle(llmCostUSD('openai', { calls: 1, inputTokens: completion.usage.prompt_tokens, outputTokens: completion.usage.completion_tokens }), 'usage')
 

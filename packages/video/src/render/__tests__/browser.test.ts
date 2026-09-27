@@ -8,7 +8,7 @@ vi.mock('node:fs/promises', () => ({
   mkdtemp: vi.fn().mockResolvedValue('/staged'), rename: vi.fn(), rm: vi.fn(),
 }))
 vi.mock('node:child_process', () => ({
-  execFile: vi.fn((_bin: string, _args: string[], callback: (error: Error | null, stdout: string, stderr: string) => void) => callback(null, '', '')),
+  execFile: vi.fn((_bin: string, _args: string[], _options: unknown, callback: (error: Error | null, stdout: string, stderr: string) => void) => callback(null, '', '')),
 }))
 vi.mock('@remotion/bundler', () => ({ bundle: vi.fn().mockResolvedValue('/test-bundle') }))
 vi.mock('@remotion/renderer', () => ({
@@ -62,7 +62,7 @@ describe('installed-browser rendering policy', () => {
     expect(renderOptions.separateAudioTo).toBe('/staged/audio.wav')
     expect(execFile).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining([
       '-c:a', 'aac', '-c:v', 'copy', '/staged/audio.wav', '/staged/final.mp4',
-    ]), expect.any(Function))
+    ]), { timeout: 300_000, killSignal: 'SIGKILL' }, expect.any(Function))
   })
 
   it('rejects mismatched scenes before starting browser or render work', async () => {

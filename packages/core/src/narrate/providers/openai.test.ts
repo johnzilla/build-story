@@ -330,3 +330,23 @@ describe('per-request budget enforcement', () => {
     expect(budget.snapshot()[0]?.usd).toBeGreaterThan(0)
   })
 })
+
+
+it('aborts a stalled SDK response without retrying and retains uncertain spending', async () => {
+  vi.useFakeTimers()
+  try {
+    mockParse.mockClear().mockImplementationOnce((_request, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+    }))
+    const budget = new SpendBudget(10)
+    const provider = new OpenAIProvider({ apiKey: 'test', budget })
+    const caught = provider.extractStoryArc(makeTimeline(), 'test prompt').catch(e => e)
+    await vi.advanceTimersByTimeAsync(600_000)
+    expect(await caught).toMatchObject({ message: expect.stringContaining('timed out') })
+    expect(mockParse).toHaveBeenCalledOnce()
+    expect(budget.snapshot()[0]?.basis).toBe('unknown')
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+  }
+})

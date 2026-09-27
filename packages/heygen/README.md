@@ -47,6 +47,11 @@ or signed download URLs. Keep the parts directory until recovery is complete.
 Changing narration, avatar, voice, speed, dimensions, or output path can require
 new paid jobs. Legacy cached chunks omit dimensions; BuildStory stops and gives
 instructions to verify and rename them rather than silently replacing them.
+Assembly has a five-minute deadline, drains FFmpeg diagnostics, and honors
+`FFMPEG_PATH`. Safe relative concat entries support output paths with spaces and
+apostrophes. Assembly failures keep completed chunks and any previous final video;
+success publishes the assembled file atomically. Downloads have a five-minute
+deadline through the final byte and remove incomplete files on failure.
 The parts directory is removed after successful assembly, so a later render
 after success starts new work. This is interruption recovery, not a permanent
 video archive. Avoid simultaneous renders to the same output; the exclusive

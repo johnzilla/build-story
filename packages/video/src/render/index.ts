@@ -146,7 +146,7 @@ export async function renderVideo(
       '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy',
       '-c:a', 'aac', '-b:a', '320k', '-movflags', '+faststart',
       '-t', String(composition.durationInFrames / VIDEO_FPS), finalPath,
-    ])
+    ], { timeout: 300_000, killSignal: 'SIGKILL' })
     await rename(finalPath, options.outputPath)
   } finally {
     await rm(workDir, { recursive: true, force: true })

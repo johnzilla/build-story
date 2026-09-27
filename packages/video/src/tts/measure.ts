@@ -13,7 +13,7 @@ export async function measureAudioDuration(filePath: string): Promise<number> {
     '-show_entries', 'format=duration',
     '-of', 'csv=p=0',
     filePath,
-  ])
+  ], { timeout: 30_000, killSignal: 'SIGKILL' })
   const duration = parseFloat(stdout.trim())
   if (isNaN(duration)) throw new Error(`ffprobe returned non-numeric duration for ${filePath}`)
   return duration

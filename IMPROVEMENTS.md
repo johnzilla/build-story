@@ -31,7 +31,7 @@ story of the development process and explain the decisions behind it.
    file, target repository, and outputDir; validate all fields; check prerequisites
    before paid work. Using the selected Chrome executable throughout rendering
    was completed with item 3.
-9. [ ] **Medium: bound network and assembly work.** Apply deadlines through
+9. [x] **Medium: bound network and assembly work.** Apply deadlines through
    response-body consumption; test stalled downloads and multi-chunk FFmpeg
    assembly, including paths with spaces and apostrophes.
 10. [ ] **Medium: strengthen TTS recovery.** Write completed audio atomically,
@@ -142,4 +142,14 @@ story of the development process and explain the decisions behind it.
   Coverage includes config precedence and paths, invalid fields, preflight order,
   output failures, browser propagation, offline dry runs, and unavailable HeyGen
   verification. No paid calls made.
-- Next: item 9, network and assembly deadlines.
+- Item 9 complete: deadlines now cover HeyGen response bodies/download streams,
+  narration SDK operations, and speech responses. Poll waits, retries, and status
+  reads share the overall deadline. FFmpeg processing and probes are bounded;
+  HeyGen assembly drains bounded diagnostics, honors FFMPEG_PATH, and uses safe
+  relative concat entries. Failed downloads remove partial files; failed assembly
+  preserves paid chunks and previous output, publishing atomically on success.
+- Item 9 verification: workspace build, typecheck, lint, and all 490 tests pass.
+  Added 14 cases for stalled bodies, poll deadlines, uncertain spend, assembly
+  termination/diagnostics, and recovery. A real FFmpeg test joined two clips into
+  a 0.4-second MP4 under a path with spaces and an apostrophe. No paid calls made.
+- Next: item 10, stronger TTS recovery.
