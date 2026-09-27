@@ -64,6 +64,7 @@ async function collectFileEvents(
       source: 'file',
       path: filePath,
       summary: parsed.summary,
+      excerpts: parsed.excerpts,
       metadata: parsed.metadata,
       dateConfidence,
       rawContent: parsed.rawContent,

@@ -1,3 +1,4 @@
+import { extractExcerpts } from './evidence.js'
 import type { TimelineEvent } from '../types/timeline.js'
 import type { CommitRecord } from '../types/git-source.js'
 import { generateEventId } from './timeline-builder.js'
@@ -62,6 +63,7 @@ export function buildCommitEvents(commits: CommitRecord[]): TimelineEvent[] {
       date: commit.date,
       source: 'git-commit' as const,
       summary: buildCommitSummary(commit),
+      excerpts: extractExcerpts([commit.subject.trim(), commit.body.trim()].filter(Boolean).join('\n\n')),
       metadata: {
         hash: commit.hash,
         shortHash: commit.hash.slice(0, 8),

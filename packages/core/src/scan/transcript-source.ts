@@ -1,3 +1,6 @@
+import { extractExcerpts, selectExcerpts } from './evidence.js'
+import type { SourceExcerpt } from '../types/evidence.js'
+import { sanitizeOutboundText } from '../privacy/outbound.js'
 import type { TimelineEvent } from '../types/timeline.js'
 import type { TranscriptSession } from '../types/transcript.js'
 import { generateEventId } from './timeline-builder.js'
@@ -56,6 +59,20 @@ function buildTranscriptRawContent(session: TranscriptSession): string {
     .join('\n')
 }
 
+function transcriptExcerpts(session: TranscriptSession): SourceExcerpt[] {
+  const candidates: SourceExcerpt[] = []
+  for (const [index, turn] of session.turns.entries()) {
+    if (turn.kind !== 'message' || (turn.role !== 'user' && turn.role !== 'agent')) continue
+    for (const excerpt of extractExcerpts(turn.text)) {
+      candidates.push({ ...excerpt, locator: {
+        kind: 'turn', turnIndex: index + 1, role: turn.role,
+        ...(turn.timestamp ? { timestamp: sanitizeOutboundText(turn.timestamp) } : {}),
+      } })
+    }
+  }
+  return selectExcerpts(candidates)
+}
+
 export function buildTranscriptEvents(sessions: TranscriptSession[]): TimelineEvent[] {
   return sessions
     .filter((s) => s.id !== '' && (s.startedAt ?? '') !== '')
@@ -70,6 +87,7 @@ export function buildTranscriptEvents(sessions: TranscriptSession[]): TimelineEv
         date,
         source: 'transcript' as const,
         summary: buildTranscriptSummary(session),
+        excerpts: transcriptExcerpts(session),
         metadata: {
           sessionId: session.id,
           harness: session.harness,

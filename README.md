@@ -297,6 +297,34 @@ to each matching commit, looking back at most 24 hours and no earlier than the
 previous commit. This is a heuristic: proximity does not prove why a change was
 made. Disable it with `transcripts.correlate = false`.
 
+### Decision evidence
+
+Timeline events now include an optional `excerpts` array with up to six passages
+about problems, alternatives, decisions, and outcomes. Each passage contains at
+most 400 Unicode characters after secret/path redaction, plus a bounded section
+label where available. Selection uses English keywords and section headings;
+it can miss implicit or non-English reasoning and does not verify claims.
+
+- **Files:** paragraph and list-item prose, alongside the existing heading
+  summary. Fenced code, HTML blocks, and frontmatter are excluded from excerpts.
+- **Commits:** selected passages from the normalized subject/body, including
+  rationale beyond the short summary's body cutoff.
+- **Transcripts:** attributed human and agent message passages, including later
+  turns. Private thinking, tool calls/results, and plan records are excluded.
+  Transcripts remain opt-in.
+
+Excerpts retain line ranges in scanned content or a 1-based normalized transcript
+turn index and speaker. Redaction can shift source line numbers; these references
+are not revision-pinned permalinks. Truncated passages are marked explicitly.
+An agent's statement records what it said, not proof that the action succeeded.
+
+Excerpts appear in narration requests and `--preview-payload` output; full
+`rawContent` still stays local. They can contain private project details even
+after redaction, and they add input tokens. Review the preview before generation.
+The narrator is instructed to use them for reasons and tradeoffs while retaining
+parent event IDs. Automatic factual/chronological validation remains planned.
+Existing timeline JSON without excerpts remains accepted; rescan to add them.
+
 ## Video Output
 
 Both renderers speak the sanitized `summary` of each story beat. Remotion uses
@@ -482,8 +510,8 @@ prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
 
-The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–10 are
-complete; items 11–17 cover decision evidence, editorial controls, and
+The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–11 are
+complete; items 12–17 cover claim validation, editorial controls, and
 video quality. Historical plans are not descriptions of implemented features.
 
 

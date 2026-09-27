@@ -40,3 +40,6 @@ export type { SpendEntry } from './budget.js'
 export { LLM_PRICE_PER_1M, llmCostUSD } from './narrate/pricing.js'
 
 export { splitNarration } from './narration-text.js'
+
+export { SourceExcerptSchema, EvidenceTopicSchema } from './types/evidence.js'
+export type { SourceExcerpt, EvidenceTopic } from './types/evidence.js'

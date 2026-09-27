@@ -40,7 +40,7 @@ story of the development process and explain the decisions behind it.
 
 ## Development stories and video quality
 
-11. [ ] **Preserve decision evidence.** Extract bounded, redacted passages about
+11. [x] **Preserve decision evidence.** Extract bounded, redacted passages about
     problems, alternatives, choices, and outcomes instead of headings alone.
 12. [ ] **Validate narrative claims and chronology.** Distinguish documented
     facts from inference, retain source links, surface unsupported beats, and
@@ -165,4 +165,18 @@ story of the development process and explain the decisions behind it.
   A real FFmpeg test resumes synthetic MP3 responses after a failed second
   request and verifies the assembled PCM duration against FFprobe, using a path
   with spaces and an apostrophe. No paid calls made.
-- Next: item 11, preserving decision evidence.
+- Item 11 complete: optional source excerpts now accompany heading summaries,
+  commit messages, and opt-in transcript events. Selection preserves up to six
+  redacted prose passages of 400 Unicode characters each, balancing problem,
+  alternative, decision, and outcome topics. Excerpts include scanned-line or
+  attributed transcript-turn references and explicit truncation markers. Code,
+  HTML blocks, frontmatter, private thinking, and tool records are excluded.
+  Narration prompts use excerpts as untrusted source data; old timelines remain
+  valid, and rawContent stays out of provider payloads.
+- Item 11 verification: workspace build, typecheck, lint, and all 530 tests pass.
+  Added 17 cases covering late rationale, topic coverage, Unicode bounds,
+  redaction, source attribution, schema compatibility, and preview propagation.
+  A real offline CLI preview preserved a decision's reason while excluding a
+  synthetic secret and raw-only marker. No paid calls made. Extraction uses
+  English keyword/heading heuristics; factual validation remains item 12.
+- Next: item 12, narrative claim and chronology validation.

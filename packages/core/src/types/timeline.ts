@@ -1,3 +1,4 @@
+import { SourceExcerptSchema } from './evidence.js'
 import { z } from 'zod'
 
 export const TimelineEventSchema = z.object({
@@ -6,6 +7,7 @@ export const TimelineEventSchema = z.object({
   source: z.enum(['file', 'git-commit', 'git-tag', 'transcript']),
   path: z.string().optional(),
   summary: z.string(),
+  excerpts: z.array(SourceExcerptSchema).max(6).optional(),
   metadata: z.record(z.string(), z.unknown()),
   dateConfidence: z.enum(['exact', 'inferred', 'estimated', 'unknown']),
   rawContent: z.string(),

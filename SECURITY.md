@@ -30,17 +30,27 @@ maintenance commands can also access the network; the table describes generation
 
 **Event `rawContent` is never sent to the LLM.** `buildTimelinePayload` strips
 it, including when a timeline is imported from JSON. Summaries still contain
-selected commit-body and transcript excerpts. Outbound `rootDir` and
+selected commit-body and transcript excerpts. Events can also include bounded
+`excerpts` selected from file prose, commit messages, and human/agent transcript
+messages; these are sent to the narrator and appear in payload previews. Outbound `rootDir` and
 `sourceTimeline` use a project label instead of an absolute directory. Local
 `cwd`, `rootDir`, and `homeDir` metadata fields are removed recursively;
 recognizable absolute paths in text are replaced with `[LOCAL_PATH]`.
 
 ### Ingress sources (what becomes event `summary`/`metadata`)
 
-- **Files** — markdown heading outlines, frontmatter metadata, cross-references.
+- **Files** — markdown heading outlines, frontmatter metadata, cross-references,
+  and bounded decision-related prose excerpts.
 - **Git** — commit subjects/bodies and tag names/messages.
-- **Transcripts** — bounded human-prompt excerpts and session metadata
-  (opt-in; off by default). Agent message excerpts may remain in local `rawContent`.
+- **Transcripts** — bounded human prompts, session metadata, and selected
+  human/agent message excerpts with speaker attribution (opt-in; off by default).
+  Private thinking and tool calls/results are excluded from the excerpt field.
+
+Each event has at most six extracted passages, capped at 400 Unicode characters
+each after sanitization. Excerpt selection is a heuristic, and source text remains
+untrusted. Section labels and locations provide context, not factual validation.
+Imported excerpts are sanitized again at the outbound boundary. Excluding code or
+frontmatter from excerpts does not remove metadata or headings from other fields.
 
 ### Secret redaction
 

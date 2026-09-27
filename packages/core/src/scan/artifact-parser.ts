@@ -1,3 +1,5 @@
+import { extractExcerpts } from './evidence.js'
+import type { SourceExcerpt } from '../types/evidence.js'
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -140,6 +142,7 @@ export async function extractCrossRefs(
 }
 
 export interface ParsedArtifact {
+  excerpts: SourceExcerpt[]
   summary: string
   rawContent: string
   metadata: Record<string, unknown>
@@ -159,6 +162,7 @@ export async function parseArtifact(
 
   return {
     summary,
+    excerpts: extractExcerpts(content),
     rawContent: content,
     metadata,
     crossRefs,
