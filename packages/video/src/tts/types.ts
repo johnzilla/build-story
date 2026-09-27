@@ -15,11 +15,13 @@ export interface SceneAudio {
   beatIndex: number
   filePath: string
   durationSeconds: number
+  /** Derived narration start on the default video frame schedule. */
   startOffsetSeconds: number
 }
 
 export interface AudioManifest {
   scenes: SceneAudio[]
+  /** Derived frame-aligned total, including audio lead, gaps, and bookends. */
   totalDurationSeconds: number
   silenceGapSeconds: number
   bookendSilenceSeconds: number

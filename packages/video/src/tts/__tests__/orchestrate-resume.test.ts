@@ -64,6 +64,8 @@ describe('orchestrateTTS resume manifest', () => {
     expect(genMock).toHaveBeenCalledTimes(3)
     expect(measureMock).toHaveBeenCalledTimes(3)
     expect(manifest.scenes).toHaveLength(3)
+    expect(manifest.scenes.map((scene) => scene.startOffsetSeconds)).toEqual([1.2, 3.7, 6.2])
+    expect(manifest.totalDurationSeconds).toBe(9.2)
     // A manifest.json was written into the audio dir.
     expect(disk.has('/out/audio/manifest.json')).toBe(true)
   })

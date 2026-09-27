@@ -1,4 +1,8 @@
-import { writeFile, copyFile, mkdir } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { getFfmpegPath } from '../tts/ffmpeg.js'
+import { VIDEO_FPS } from '../timing.js'
+import { writeFile, copyFile, mkdir, mkdtemp, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { bundle } from '@remotion/bundler'
@@ -8,6 +12,8 @@ import { sanitizeStoryArc } from '@buildstory/core'
 import type { AudioManifest } from '../tts/types.js'
 import { generateSRT } from './srt.js'
 import { findChrome } from '../preflight.js'
+
+const execFileAsync = promisify(execFile)
 
 export interface RenderProgress {
   renderedFrames: number
@@ -54,6 +60,8 @@ export async function renderVideo(
   options: RenderOptions,
 ): Promise<void> {
   storyArc = sanitizeStoryArc(storyArc)
+  // Validate timing and captions before expensive bundling or rendering.
+  const srt = generateSRT(storyArc.beats, audioManifest, VIDEO_FPS)
   // Always supply an installed browser to BOTH renderer calls. Omitting it
   // lets Remotion download and extract a browser archive implicitly.
   const browserExecutable = options.browserExecutable ?? await findChrome()
@@ -94,7 +102,7 @@ export async function renderVideo(
   const inputProps = {
     storyArc,
     audioManifest: audioManifestForRemotion,
-    fps: 30,
+    fps: VIDEO_FPS,
     showTitleCard: options.showTitleCard ?? true,
     showStatsCard: options.showStatsCard ?? true,
   }
@@ -107,25 +115,43 @@ export async function renderVideo(
     browserExecutable,
   })
 
-  // Step 3: Render MP4 (H.264 + AAC per REND-05). Pin the browser to the binary
-  // preflight verified so a machine that passes preflight always renders.
-  await renderMedia({
-    composition,
-    serveUrl: bundleLocation,
-    codec: 'h264',
-    outputLocation: options.outputPath,
-    inputProps,
-    browserExecutable,
-    onProgress: (p) => {
-      options.onProgress?.({
-        renderedFrames: p.renderedFrames,
-        totalFrames: composition.durationInFrames,
-        progress: p.progress,
-      })
-    },
-  })
+  // Preserve PCM through mixing. Remotion's raw AAC intermediate loses
+  // encoder-delay metadata, so encode AAC once while assembling the final MP4.
+  await mkdir(path.dirname(options.outputPath), { recursive: true })
+  const workDir = await mkdtemp(path.join(path.dirname(options.outputPath), '.buildstory-render-'))
+  try {
+    const videoPath = path.join(workDir, 'video.mp4')
+    const audioPath = path.join(workDir, 'audio.wav')
+    const finalPath = path.join(workDir, 'final.mp4')
+    await renderMedia({
+      composition,
+      serveUrl: bundleLocation,
+      codec: 'h264',
+      audioCodec: 'pcm-16',
+      separateAudioTo: audioPath,
+      enforceAudioTrack: true,
+      outputLocation: videoPath,
+      inputProps,
+      browserExecutable,
+      onProgress: (p) => {
+        options.onProgress?.({
+          renderedFrames: p.renderedFrames,
+          totalFrames: composition.durationInFrames,
+          progress: p.progress,
+        })
+      },
+    })
+    await execFileAsync(getFfmpegPath(), [
+      '-y', '-i', videoPath, '-i', audioPath,
+      '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy',
+      '-c:a', 'aac', '-b:a', '320k', '-movflags', '+faststart',
+      '-t', String(composition.durationInFrames / VIDEO_FPS), finalPath,
+    ])
+    await rename(finalPath, options.outputPath)
+  } finally {
+    await rm(workDir, { recursive: true, force: true })
+  }
 
   // Step 4: Generate SRT subtitles (REND-06)
-  const srt = generateSRT(storyArc.beats, audioManifest.scenes)
   await writeFile(options.srtPath, srt, 'utf-8')
 }

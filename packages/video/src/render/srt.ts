@@ -1,9 +1,11 @@
+import { createFrameSchedule, VIDEO_FPS } from '../timing.js'
 import { stringifySync } from 'subtitle'
 import type { StoryBeat } from '@buildstory/core'
 import { sanitizeOutboundText } from '@buildstory/core'
-import type { SceneAudio } from '../tts/types.js'
+import type { AudioManifest } from '../tts/types.js'
 
-export function generateSRT(beats: StoryBeat[], scenes: SceneAudio[]): string {
+export function generateSRT(beats: StoryBeat[], manifest: AudioManifest, fps = VIDEO_FPS): string {
+  const scenes = manifest.scenes
   // Subtitles are keyed to audio scenes positionally; a length mismatch means the
   // beat/scene arrays drifted (a dropped or extra scene). Fail with a clear error
   // rather than crashing on an undefined scene or silently emitting skewed cues.
@@ -13,10 +15,11 @@ export function generateSRT(beats: StoryBeat[], scenes: SceneAudio[]): string {
         `Subtitles are aligned positionally, so these must match.`,
     )
   }
+  const schedule = createFrameSchedule(manifest, fps)
   const nodes = beats.map((beat, i) => {
-    const scene = scenes[i]!
-    const startMs = Math.round(scene.startOffsetSeconds * 1000)
-    const endMs = Math.round((scene.startOffsetSeconds + scene.durationSeconds) * 1000)
+    const timing = schedule.scenes[i]!
+    const startMs = Math.round(timing.audioStartFrame * 1000 / fps)
+    const endMs = Math.round(timing.audioEndFrame * 1000 / fps)
     return {
       type: 'cue' as const,
       data: {

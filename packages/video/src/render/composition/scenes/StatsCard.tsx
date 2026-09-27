@@ -2,15 +2,14 @@ import React from 'react'
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { BeatWithFrames } from '../types.js'
 
-const FADE_FRAMES = 9
-
 export const StatsCard: React.FC<{ beat: BeatWithFrames }> = ({ beat }) => {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
+  const fadeFrames = Math.min(9, durationInFrames / 3)
 
   const opacity = interpolate(
     frame,
-    [0, FADE_FRAMES, durationInFrames - FADE_FRAMES, durationInFrames],
+    [0, fadeFrames, durationInFrames - fadeFrames, durationInFrames],
     [0, 1, 1, 0],
     { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
   )

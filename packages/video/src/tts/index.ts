@@ -1,10 +1,11 @@
+import { createFrameSchedule } from '../timing.js'
 import { mkdir, stat, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import OpenAI from 'openai'
 import type { StoryBeat } from '@buildstory/core'
 import { sanitizeOutboundValue } from '@buildstory/core'
-import type { TTSOptions, SceneAudio, AudioManifest, TTSCostEstimate } from './types.js'
+import type { TTSOptions, AudioManifest, TTSCostEstimate } from './types.js'
 import { generateSceneAudio, prepareSpeechText } from './generate.js'
 import { measureAudioDuration } from './measure.js'
 import { ttsCostUSD, DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
@@ -92,8 +93,6 @@ export async function orchestrateTTS(
   const SILENCE_GAP = 0.3
   const BOOKEND_SILENCE = 1.0
 
-  const scenes: SceneAudio[] = []
-
   const manifestPath = join(audioDir, MANIFEST_FILE)
   const priorManifest = await loadManifest(manifestPath)
 
@@ -139,20 +138,16 @@ export async function orchestrateTTS(
   }
   await writeFile(manifestPath, JSON.stringify(nextManifest, null, 2)).catch(() => {})
 
-  // Calculate cumulative start offsets with silence gaps (D-15)
-  let offset = BOOKEND_SILENCE // 1s before first scene
-  for (const scene of rawScenes) {
-    scene.startOffsetSeconds = offset
-    offset += scene.durationSeconds + SILENCE_GAP
-    scenes.push(scene)
-  }
-
-  // Replace last gap with bookend silence
-  const totalDuration = offset - SILENCE_GAP + BOOKEND_SILENCE
+  const schedule = createFrameSchedule({
+    scenes: rawScenes, silenceGapSeconds: SILENCE_GAP, bookendSilenceSeconds: BOOKEND_SILENCE,
+  })
+  const scenes = rawScenes.map((scene, i) => ({
+    ...scene, startOffsetSeconds: schedule.scenes[i]!.audioStartFrame / schedule.fps,
+  }))
 
   return {
     scenes,
-    totalDurationSeconds: totalDuration,
+    totalDurationSeconds: schedule.durationInFrames / schedule.fps,
     silenceGapSeconds: SILENCE_GAP,
     bookendSilenceSeconds: BOOKEND_SILENCE,
   }

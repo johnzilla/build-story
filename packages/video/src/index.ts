@@ -13,3 +13,6 @@ export type { PreflightResult } from './preflight.js'
 export type { RenderProgress, RenderOptions } from './render/index.js'
 export type { TTSOptions, SceneAudio, AudioManifest, TTSCostEstimate } from './tts/types.js'
 export type { BuildStoryInputProps, BeatWithFrames } from './render/composition/types.js'
+
+export { createFrameSchedule, VIDEO_FPS } from './timing.js'
+export type { FrameSchedule, SceneFrames } from './timing.js'

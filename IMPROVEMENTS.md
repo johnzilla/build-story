@@ -23,7 +23,7 @@ story of the development process and explain the decisions behind it.
 5. [x] **High: enforce spending controls per request.** Bound output, check
    every extraction/synthesis request, and separate actual spend from estimates
    and cached audio.
-6. [ ] **Medium: unify video timing.** Use one frame schedule for scene starts,
+6. [x] **Medium: unify video timing.** Use one frame schedule for scene starts,
    narration padding, captions, and total duration.
 7. [ ] **Medium: preserve all narration.** Split oversized TTS input instead of
    truncating it; keep spoken text, captions, and visible text consistent.
@@ -105,4 +105,17 @@ story of the development process and explain the decisions behind it.
   uncertain costs, resumed jobs, and CLI preservation/reporting. No paid calls
   made. The cap uses configured rates and conservative local estimates, not a
   guaranteed provider invoice ceiling; this limitation is documented.
-- Next: item 6, consistent scene, narration, and caption timing.
+- Item 6 complete: one frame schedule drives visuals, audio, captions, manifest
+  offsets, and composition duration. It includes each scene's 200 ms audio lead,
+  gaps, and bookends; audio durations round up to avoid clipped tails. Opening
+  visuals cover the initial pause, and fades accommodate short scenes. SRT now
+  accepts the full manifest. Final assembly encodes PCM directly to MP4/AAC,
+  removing the ~43 ms offset measured with Remotion's raw AAC intermediate.
+- Item 6 verification: workspace build/typecheck/lint/tests passed, followed by
+  the final video build/typecheck, lint, and 44 video tests (434 tests total).
+  Added 15 cases covering fractional durations, 200-scene schedules at 24/30/60
+  fps, short/empty scenes, invalid inputs, shared boundaries, and final encoding.
+  A real 1080p render has 142 frames and matching 4.733-second audio/video tracks;
+  synthetic tone starts match SRT starts within 0.1 ms. Opening frame inspected.
+  No paid calls made.
+- Next: item 7, preserve all narration instead of truncating oversized TTS input.

@@ -1,3 +1,4 @@
+import { createFrameSchedule } from '../../timing.js'
 import React from 'react'
 import { AbsoluteFill, Sequence, Audio } from 'remotion'
 import type { BuildStoryInputProps, BeatWithFrames } from './types.js'
@@ -33,43 +34,32 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
   showTitleCard = true,
   showStatsCard = true,
 }) => {
-  // Convert beats to BeatWithFrames using audio manifest durations
+  if (storyArc.beats.length !== audioManifest.scenes.length) {
+    throw new Error('Timing: beat/scene count mismatch')
+  }
+  const schedule = createFrameSchedule(audioManifest, fps)
   const beatsWithFrames: BeatWithFrames[] = storyArc.beats.map((beat, i) => {
-    const scene = audioManifest.scenes[i]
-    const durationSeconds = scene?.durationSeconds ?? (beat.duration_seconds ?? 5)
-    // Add silence gap to frame duration (except last beat gets bookend instead)
-    const gapSeconds = i < storyArc.beats.length - 1
-      ? audioManifest.silenceGapSeconds
-      : audioManifest.bookendSilenceSeconds
-    return {
-      ...beat,
-      durationInFrames: Math.ceil((durationSeconds + gapSeconds) * fps),
-    }
+    const timing = schedule.scenes[i]!
+    return { ...beat, durationInFrames: timing.endFrame - timing.visualStartFrame }
   })
-
-  let cumulativeFrame = Math.ceil(audioManifest.bookendSilenceSeconds * fps) // 1s bookend at start
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#1a1a2e' }}>
       {beatsWithFrames.map((beat, i) => {
-        const startFrame = cumulativeFrame
+        const timing = schedule.scenes[i]!
+        const startFrame = timing.visualStartFrame
         const frames = beat.durationInFrames
-        cumulativeFrame += frames
         // Cards are toggleable (--no-title-card / --no-stats-card / [render]
         // config). When off, these beats render with their natural scene type.
         const isFirst = showTitleCard && i === 0
         const isLast = showTitleCard && i === beatsWithFrames.length - 1
         const isStats = showStatsCard && i === beatsWithFrames.length - 2
 
-        // Delay audio start by a small pad (6 frames = 200ms at 30fps) so the visual
-        // scene appears first and audio doesn't clip at the Sequence boundary.
-        const audioPadFrames = 6
-
         return (
           <Sequence key={`beat-${i}`} from={startFrame} durationInFrames={frames}>
             <SceneForBeat beat={beat} isFirst={isFirst} isLast={isLast} isStats={isStats} />
             {audioManifest.scenes[i] && (
-              <Sequence from={audioPadFrames}>
+              <Sequence from={timing.audioStartFrame - startFrame} durationInFrames={timing.audioEndFrame - timing.audioStartFrame}>
                 <Audio src={audioManifest.scenes[i]!.filePath} />
               </Sequence>
             )}
