@@ -5,7 +5,7 @@ import { writeFile, mkdir, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
-import { scan, narrate, format, createProvider } from '@buildstory/core'
+import { scan, narrate, format, createProvider, renderSourceReview } from '@buildstory/core'
 import type { FormatType, StoryArc } from '@buildstory/core'
 import { loadConfig, toScanOptions, resolveOutputDir, projectLabel } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
@@ -190,7 +190,7 @@ export async function run(
   requireNarrationKey(provider, apiKey)
   const outputDir = resolveOutputDir(opts.output, config, rootDir, projectName)
   await checkOutputDirectory(outputDir, [
-    'story-arc.json', ...(skipVideo || includeText ? formatTypes.map(type => `${type}.md`) : []),
+    'story-arc.json', 'source-review.md', ...(skipVideo || includeText ? formatTypes.map(type => `${type}.md`) : []),
     ...(!skipVideo ? [`${projectName}.mp4`, `${projectName}.srt`] : []),
   ])
   const videoPreflight = skipVideo ? {} : await checkVideoPrerequisites(renderer, config)
@@ -228,6 +228,10 @@ export async function run(
     // Write output directory and story-arc.json
     await mkdir(outputDir, { recursive: true })
     await writeFile(resolve(outputDir, 'story-arc.json'), JSON.stringify(arc, null, 2))
+    await writeFile(resolve(outputDir, 'source-review.md'), renderSourceReview(arc))
+    if (arc.metadata.warnings?.length) {
+      console.log(chalk.yellow(`  Source review: ${arc.metadata.warnings.length} notes — see source-review.md before publishing.`))
+    }
 
     // Video pipeline (when not skipping video)
     let mp4Path: string | undefined
@@ -392,7 +396,7 @@ export async function run(
     }
 
     const textFiles = Object.keys(outputs).map((ft) => `${ft}.md`)
-    const allFiles = ['story-arc.json', ...textFiles, ...(mp4Path ? [`${projectName}.mp4`] : []), ...(srtPath ? [`${projectName}.srt`] : [])]
+    const allFiles = ['story-arc.json', 'source-review.md', ...textFiles, ...(mp4Path ? [`${projectName}.mp4`] : []), ...(srtPath ? [`${projectName}.srt`] : [])]
     console.log(chalk.bold(`  Files:      `) + allFiles.join(', '))
 
 

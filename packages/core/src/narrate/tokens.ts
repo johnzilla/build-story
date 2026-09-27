@@ -24,6 +24,7 @@ export function buildTimelinePayload(timeline: Timeline): string {
     rootDir: timeline.rootDir,
     scannedAt: timeline.scannedAt,
     dateRange: timeline.dateRange,
+    ...(timeline.coverage ? { coverage: timeline.coverage } : {}),
     events: timeline.events.map((event: TimelineEvent) => {
       // Destructure to explicitly exclude rawContent
       const { rawContent: _rawContent, ...rest } = event

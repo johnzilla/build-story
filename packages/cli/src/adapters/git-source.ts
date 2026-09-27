@@ -107,7 +107,9 @@ export async function createGitSource(rootDir: string): Promise<GitSource | null
     return map
   }
 
+  let commitWarnings: string[] = []
   return {
+    getCommitWarnings: () => [...commitWarnings],
     getFileDate: async (relativePath: string): Promise<string | null> => {
       const map = await ensureFileDateMap()
       return map.get(relativePath) ?? null
@@ -138,6 +140,14 @@ export async function createGitSource(rootDir: string): Promise<GitSource | null
     },
 
     getCommits: async (options?: GetCommitsOptions): Promise<CommitRecord[]> => {
+      commitWarnings = ['Commit history covers the current HEAD ancestry, not all branches.']
+      try {
+        if ((await git.revparse(['--is-shallow-repository'])).trim() === 'true') {
+          commitWarnings.push('Shallow repository: older commit history is missing.')
+        }
+      } catch {
+        commitWarnings.push('Could not determine whether the repository is shallow.')
+      }
       const args = ['log', `--pretty=format:${COMMIT_FORMAT}`, '--numstat']
       if (!options?.includeMerges) args.push('--no-merges')
       args.push(`--max-count=${options?.max ?? DEFAULT_MAX_COMMITS}`)
@@ -146,8 +156,13 @@ export async function createGitSource(rootDir: string): Promise<GitSource | null
 
       try {
         const raw = await git.raw(args)
-        return parseCommitLog(raw)
+        const commits = parseCommitLog(raw)
+        if (commits.length >= (options?.max ?? DEFAULT_MAX_COMMITS)) {
+          commitWarnings.push(`Commit cap reached (${options?.max ?? DEFAULT_MAX_COMMITS}); older history may be omitted.`)
+        }
+        return commits
       } catch {
+        commitWarnings.push('Commit history could not be read; no commits were collected.')
         return []
       }
     },

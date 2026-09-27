@@ -17,6 +17,7 @@ export const StoryBeatSchema = z.object({
   title: z.string(),
   summary: z.string(),
   evidence: z.array(z.string()),
+  claimBasis: z.enum(['documented', 'inference']).optional(),
   sourceEventIds: z.array(z.string()),
   significance: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   visual_cue: z.string().optional(),
@@ -32,7 +33,26 @@ export const StoryArcSchema = z.object({
     style: z.string(),
     sourceTimeline: z.string(),
     warnings: z.array(z.string()).optional(),
+    review: z.object({
+      version: z.literal('1'),
+      beats: z.array(z.object({
+        beatIndex: z.number().int().nonnegative(),
+        status: z.enum(['source-matched', 'needs-review', 'inference']),
+        matchedEvidence: z.array(z.object({ text: z.string(), eventIds: z.array(z.string()) })),
+        unmatchedEvidence: z.array(z.string()),
+        sources: z.array(z.object({
+          eventId: z.string(), path: z.string().optional(), date: z.string(),
+          dateMeaning: z.string(), references: z.array(z.string()),
+        })),
+        notes: z.array(z.string()),
+      })),
+    }).optional(),
   }),
+})
+
+// Providers generate narrative claims; only local code creates the source review.
+export const GeneratedStoryArcSchema = StoryArcSchema.extend({
+  metadata: StoryArcSchema.shape.metadata.omit({ review: true }),
 })
 
 export const FormatTypeSchema = z.enum(['outline', 'thread', 'blog', 'video-script'])

@@ -107,5 +107,5 @@ export function buildFormatPrompt(formatType: FormatType): string {
       `Unknown format type: "${formatType}". Valid formats: ${Object.keys(FORMAT_PROMPTS).join(', ')}`,
     )
   }
-  return prompt
+  return prompt + '\nPreserve sourceEventIds as source references and distinguish documented statements from inference. Honor metadata.review and metadata.warnings: qualify unsupported claims, uncertain dates, and incomplete coverage. Never turn an inferred cause or source-reported outcome into an independently verified fact.'
 }

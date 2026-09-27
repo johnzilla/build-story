@@ -5,6 +5,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import {
   narrate,
+  renderSourceReview,
   format,
   createProvider,
   TimelineSchema,
@@ -101,7 +102,7 @@ export async function narrateCommand(
 
   requireNarrationKey(provider, apiKey)
   const outputDir = resolveOutputDir(opts.output, config, projectRoot, projectName)
-  await checkOutputDirectory(outputDir, ['story-arc.json', ...(opts.format ? [opts.format] : ['outline', 'thread', 'blog', 'video-script']).map(type => `${type}.md`)])
+  await checkOutputDirectory(outputDir, ['story-arc.json', 'source-review.md', ...(opts.format ? [opts.format] : ['outline', 'thread', 'blog', 'video-script']).map(type => `${type}.md`)])
 
   const narrateOpts: NarrateOptions = { provider, style, apiKey }
 
@@ -136,6 +137,10 @@ export async function narrateCommand(
 
   // Write StoryArc JSON
   await writeFile(resolve(outputDir, 'story-arc.json'), JSON.stringify(arc, null, 2))
+  await writeFile(resolve(outputDir, 'source-review.md'), renderSourceReview(arc))
+  if (arc.metadata.warnings?.length) {
+    console.log(chalk.yellow(`  Source review: ${arc.metadata.warnings.length} notes — see source-review.md before publishing.`))
+  }
 
   // Steps 2+: Format — StoryArc -> text outputs, reuse the SAME LLMProvider instance
   for (let i = 0; i < formatTypes.length; i++) {
@@ -186,7 +191,7 @@ export async function narrateCommand(
   console.log(chalk.bold(`  Output:     `) + outputDir)
   console.log(
     chalk.bold(`  Files:      `) +
-      ['story-arc.json', ...formatTypes.map((ft) => `${ft}.md`)].join(', '),
+      ['story-arc.json', 'source-review.md', ...formatTypes.map((ft) => `${ft}.md`)].join(', '),
   )
   console.log()
 }

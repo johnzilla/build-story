@@ -172,10 +172,23 @@ export async function scan(
 
   // buildTimeline assigns ids to events without one, appends git-tag events,
   // sorts chronologically, computes dateRange, and validates via Zod.
-  return buildTimeline({
+  const timeline = await buildTimeline({
     rootDir: options.rootDir,
     scannedAt,
     fileEvents: events,
     gitSource: git,
   })
+  const warnings: string[] = []
+  if (options.commits?.enabled === false) warnings.push('Commit collection was disabled.')
+  else if (!git?.getCommits) warnings.push('Commit history is unavailable from this source.')
+  else {
+    warnings.push(...(git.getCommitWarnings?.() ?? ['Commit coverage is unknown for this source.']))
+    if (!(options.commits?.includeMerges ?? false)) warnings.push('Merge commits were excluded.')
+    if (options.commits?.since) warnings.push(`Commit history is filtered since ${options.commits.since}.`)
+    if (options.commits?.paths?.length) warnings.push(`Commit history is restricted to paths: ${options.commits.paths.join(', ')}.`)
+    if (options.commits?.max !== undefined && commitEvents.length >= options.commits.max) {
+      warnings.push(`Configured commit cap reached (${options.commits.max}); history may be incomplete.`)
+    }
+  }
+  return { ...timeline, coverage: { commitCount: commitEvents.length, warnings } }
 }

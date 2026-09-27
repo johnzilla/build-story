@@ -15,6 +15,8 @@ import { scan, narrate, format, createProvider } from '@buildstory/core'
 
 - `scan(source, options, gitSource?, transcriptSource?)` → `Timeline`
 - `narrate(timeline, options, provider?)` → `StoryArc`
+- `reviewStoryArc(arc, timeline)` → locally reviewed `StoryArc` (no model calls)
+- `renderSourceReview(arc)` → Markdown source review
 - `format(arc, formatType, provider)` → text (outline / thread / blog / video-script)
 
 `TimelineEvent.excerpts` optionally carries up to six redacted source passages
@@ -30,6 +32,18 @@ when truncated. File/commit line ranges refer to scanned/normalized text, not a
 pinned revision. These passages are included in narration payloads and previews;
 `rawContent` is still omitted. Speaker attribution and source locations do not
 verify whether a claim is true.
+
+`narrate` recomputes `metadata.review` after synthesis: it checks cited IDs,
+matches evidence against cited summaries/excerpts, and flags uncertain dates and
+reverse commit/tag chronology. A matching quote is not semantic fact checking.
+`claimBasis` is the model's documented/inference classification; older beats
+without it remain accepted and are flagged as unclassified. Provider response
+schemas exclude the locally generated review. Existing warnings are preserved.
+
+`Timeline.coverage` records commit count and limitations. Git adapters can expose
+`getCommitWarnings()` after `getCommits()` to report shallow/capped/failed history
+reads; adapters without it are marked as having unknown coverage. Coverage travels
+through previews and all narration chunks. Old timelines are still accepted.
 
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for the
 full pipeline and CLI.

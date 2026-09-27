@@ -21,6 +21,7 @@ export const TimelineSchema = z.object({
   scannedAt: z.string(),
   dateRange: z.object({ start: z.string(), end: z.string() }),
   events: z.array(TimelineEventSchema),
+  coverage: z.object({ commitCount: z.number().int().nonnegative(), warnings: z.array(z.string()) }).optional(),
 })
 
 export type Timeline = z.infer<typeof TimelineSchema>

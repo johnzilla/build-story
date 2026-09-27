@@ -5,7 +5,7 @@ import { sanitizeOutboundText, sanitizeOutboundValue } from '../../privacy/outbo
 import OpenAI from 'openai'
 import { zodResponseFormat } from 'openai/helpers/zod'
 import { z } from 'zod'
-import { StoryArcSchema } from '../../types/story.js'
+import { GeneratedStoryArcSchema as StoryArcSchema } from '../../types/story.js'
 import type { StoryArc, FormatType } from '../../types/story.js'
 import type { Timeline } from '../../types/timeline.js'
 import type { LLMProvider, UsageStats } from './interface.js'

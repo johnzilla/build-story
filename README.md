@@ -48,7 +48,8 @@ With no output setting, `run ~/my-project` writes to
 `~/my-project/buildstory-out/my-project/`. `--output` and `outputDir` can change
 the base directory; see [Configuration](#configuration).
 
-- `story-arc.json` — structured narrative beats, saved before rendering
+- `story-arc.json` — structured narrative beats and local source review, saved before rendering
+- `source-review.md` — evidence matches, source references, chronology and coverage notes
 - `<project>.mp4` — narrated video
 - `<project>.srt` — separate subtitle file, **Remotion only**
 
@@ -322,8 +323,45 @@ Excerpts appear in narration requests and `--preview-payload` output; full
 `rawContent` still stays local. They can contain private project details even
 after redaction, and they add input tokens. Review the preview before generation.
 The narrator is instructed to use them for reasons and tradeoffs while retaining
-parent event IDs. Automatic factual/chronological validation remains planned.
+parent event IDs. Local source and chronology checks are described below.
 Existing timeline JSON without excerpts remains accepted; rescan to add them.
+
+### Reviewing claims and chronology
+
+`run` and `narrate` save `source-review.md` beside `story-arc.json`, before text
+formatting or rendering. The CLI prints a note when the review has warnings.
+The JSON retains the same review under `metadata.review` and notes under
+`metadata.warnings`.
+
+- Beats carry a model-supplied `claimBasis`: `documented` or `inference`. Prompts
+  ask the narrator to express uncertainty in the spoken summary itself.
+- Local checks remove unknown source IDs and flag missing citations, missing
+  evidence, and evidence that cannot be matched to the cited summaries/excerpts.
+  Matching normalizes whitespace and surrounding double quotes; it requires at
+  least 12 characters and rejects redaction placeholders. Paraphrases and short
+  references can be valid but require manual review.
+- The report retains source IDs, available paths/commit hashes, excerpt line or
+  turn references, source dates, and their meaning. `source-matched` means the
+  quoted text was found; it does **not** prove that the source is true or that
+  every claim in the beat follows from it. `needs-review` and `inference` identify
+  beats needing closer attention. These statuses are recomputed locally after
+  narration, not accepted from the model.
+- Chronology checks flag beats whose precise commit/tag dates fall wholly before
+  the preceding dated beat. Beats are not automatically reordered. File update
+  times and session starts do not establish decision times; the report flags
+  that uncertainty. Invalid dates are excluded from date ranges, and valid
+  dates are sorted by their actual instant, including timezone offsets.
+- Coverage notes disclose disabled/unavailable commit history, merge exclusions,
+  date/path filters, reached caps, shallow repositories, and failed history reads.
+  The CLI reads the current HEAD ancestry; reaching a cap means older history
+  **may** be omitted. Older timelines and custom sources without coverage details
+  are reported as unknown.
+
+These checks require no additional model calls. They do not block video generation
+or independently fact-check formatted prose or speech. Read the report and edit
+claims before publishing. After manual edits, the saved report can be stale;
+re-narrate the timeline for a fresh review, or use the core `reviewStoryArc` helper
+with your edited arc and its original timeline. Old version-1 JSON remains accepted.
 
 ## Video Output
 
@@ -510,8 +548,8 @@ prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
 
-The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–11 are
-complete; items 12–17 cover claim validation, editorial controls, and
+The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–12 are
+complete; items 13–17 cover editorial controls and
 video quality. Historical plans are not descriptions of implemented features.
 
 

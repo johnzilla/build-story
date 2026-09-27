@@ -1,7 +1,7 @@
 import type { Timeline } from '../types/timeline.js'
 import type { NarrateOptions } from '../types/options.js'
 import type { StoryArc } from '../types/story.js'
-import { StoryArcSchema } from '../types/story.js'
+import { reviewStoryArc } from './review.js'
 import type { LLMProvider } from './providers/interface.js'
 import { AnthropicProvider } from './providers/anthropic.js'
 import { OpenAIProvider } from './providers/openai.js'
@@ -38,8 +38,8 @@ export function createProvider(options: NarrateOptions): LLMProvider {
  * 3. If over limit: chunk by phase, guard each chunk individually, narrate each,
  *    then synthesize via provider.synthesizeArcs
  *
- * Post-narration: validates all sourceEventIds against timeline event IDs (NARR-05)
- * and filters out any hallucinated references with warnings.
+ * Post-narration: locally reviews source IDs, evidence quotes, chronology,
+ * and history coverage. A matching quote does not verify semantic claims.
  */
 export async function narrate(
   timeline: Timeline,
@@ -63,37 +63,5 @@ export async function narrate(
     ? chunkArcs[0]!
     : sanitizeStoryArc(await llmProvider.synthesizeArcs(chunkArcs, prepared.systemPrompt))
 
-  // Post-narration: validate sourceEventIds against actual timeline event IDs (NARR-05)
-  const validIds = new Set(timeline.events.map((e) => e.id))
-  const warnings: string[] = []
-
-  const validatedBeats = finalArc.beats.map((beat) => {
-    const badIds = beat.sourceEventIds.filter((id) => !validIds.has(id))
-    if (badIds.length > 0) {
-      for (const badId of badIds) {
-        warnings.push(
-          `Beat "${beat.title}" references unknown event ID "${badId}" — LLM hallucinated a source link`,
-        )
-      }
-      const filtered = beat.sourceEventIds.filter((id) => validIds.has(id))
-      if (filtered.length === 0) {
-        warnings.push(`Beat "${beat.title}" has no valid sourceEventIds after filtering hallucinated IDs`)
-      }
-      return { ...beat, sourceEventIds: filtered }
-    }
-    return beat
-  })
-
-  const validatedArc: StoryArc = {
-    ...finalArc,
-    beats: validatedBeats,
-    metadata: {
-      ...finalArc.metadata,
-      generatedAt: new Date().toISOString(),
-      sourceTimeline: timeline.rootDir,
-      ...(warnings.length > 0 ? { warnings } : {}),
-    },
-  }
-
-  return StoryArcSchema.parse(validatedArc)
+  return reviewStoryArc(finalArc, timeline)
 }

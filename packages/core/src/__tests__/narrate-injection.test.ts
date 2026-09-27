@@ -91,7 +91,7 @@ describe('NARR-05 prompt-injection provenance validation', () => {
     expect(warnings).toContain('totally-fake')
   })
 
-  it('leaves a clean arc (all real ids) untouched with no warnings', async () => {
+  it('keeps real IDs but still flags unsupported evidence', async () => {
     const cleanArc: StoryArc = {
       ...poisonedArc,
       beats: [{ ...poisonedArc.beats[0]!, sourceEventIds: ['e1', 'e2'] }],
@@ -102,6 +102,6 @@ describe('NARR-05 prompt-injection provenance validation', () => {
       mockProvider(cleanArc),
     )
     expect(arc.beats[0]?.sourceEventIds).toEqual(['e1', 'e2'])
-    expect(arc.metadata.warnings).toBeUndefined()
+    expect(arc.metadata.warnings?.join(' ')).toContain('could not be matched')
   })
 })

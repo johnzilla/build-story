@@ -49,5 +49,7 @@ export interface GitSource {
    * Optional so existing GitSource implementations (and test doubles) remain
    * valid — `scan()` only collects commit events when this method is present.
    */
+  /** Coverage limitations from the most recent commit read. */
+  getCommitWarnings?(): string[]
   getCommits?(options?: GetCommitsOptions): Promise<CommitRecord[]>
 }

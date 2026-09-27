@@ -90,11 +90,11 @@ function computeDateRange(events: TimelineEvent[]): { start: string; end: string
   if (events.length === 0) {
     return { start: '', end: '' }
   }
-  const dates = events.map((e) => e.date).filter((d) => d !== '')
+  const dates = events.filter(e => e.dateConfidence === 'exact' || e.dateConfidence === 'estimated').map((e) => e.date).filter((d) => Number.isFinite(Date.parse(d)))
   if (dates.length === 0) {
     return { start: '', end: '' }
   }
-  const sorted = [...dates].sort()
+  const sorted = [...dates].sort((a, b) => Date.parse(a) - Date.parse(b))
   return { start: sorted[0] ?? '', end: sorted[sorted.length - 1] ?? '' }
 }
 
@@ -143,7 +143,7 @@ export function chunkTimeline(timeline: Timeline, maxInputTokens: number): Timel
   for (const [, events] of groups) {
     for (const subEvents of splitEventsToBudget(events, wrapperChars, maxInputTokens)) {
       chunks.push({
-        version: timeline.version,
+        ...timeline,
         rootDir: timeline.rootDir,
         scannedAt: timeline.scannedAt,
         dateRange: computeDateRange(subEvents),

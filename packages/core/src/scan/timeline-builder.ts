@@ -73,18 +73,18 @@ export async function buildTimeline(input: BuildTimelineInput): Promise<Timeline
   const allEvents: TimelineEvent[] = [...eventsWithIds, ...tagEvents]
 
   // 4. Sort chronologically by date (ascending)
-  allEvents.sort((a, b) => a.date.localeCompare(b.date))
+  allEvents.sort((a, b) => (Number.isFinite(Date.parse(a.date)) ? Date.parse(a.date) : Infinity) - (Number.isFinite(Date.parse(b.date)) ? Date.parse(b.date) : Infinity))
 
   // 5. Compute dateRange from events with dateConfidence 'exact' or 'estimated'
   const reliableEvents = allEvents.filter(
-    (e) => e.dateConfidence === 'exact' || e.dateConfidence === 'estimated',
+    (e) => Number.isFinite(Date.parse(e.date)) && (e.dateConfidence === 'exact' || e.dateConfidence === 'estimated'),
   )
 
   let dateRange: { start: string; end: string }
   if (reliableEvents.length === 0) {
     dateRange = { start: '', end: '' }
   } else {
-    const dates = reliableEvents.map((e) => e.date).sort()
+    const dates = reliableEvents.map((e) => e.date).sort((a, b) => Date.parse(a) - Date.parse(b))
     dateRange = {
       start: dates[0] ?? '',
       end: dates[dates.length - 1] ?? '',

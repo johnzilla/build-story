@@ -19,7 +19,7 @@ vi.mock('@buildstory/core', async (original) => ({
     const charge = state.budget!.reserve('narration', 0.3)
     if (state.failNarration) throw new Error('Lost response')
     charge.settle(0.1, 'usage')
-    return { version: '1', beats: [], metadata: {} }
+    return { version: '1', beats: [], metadata: { warnings: ['Incomplete history'] } }
   },
   format: async () => {
     const charge = state.budget!.reserve('format', 0.3)
@@ -44,6 +44,8 @@ afterEach(async () => {
 it('keeps completed outputs and reports spend when the next request is blocked', async () => {
   const result = await run(directory, { output: directory, skipVideo: true, maxCost: '0.5' })
   expect(state.formats).toBe(1)
+  expect(await readFile(join(directory, basename(directory), 'source-review.md'), 'utf8')).toContain('Incomplete history')
+  expect(vi.mocked(console.log).mock.calls.flat().join(' ')).toContain('see source-review.md before publishing')
   expect(result?.outputs).toEqual({ outline: 'Completed format' })
   expect(await readFile(join(directory, basename(directory), 'outline.md'), 'utf8')).toBe('Completed format')
   expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain('Accounted total: $0.3000')

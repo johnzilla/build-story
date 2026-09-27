@@ -31,6 +31,7 @@ Return ONLY valid JSON matching this schema (no markdown fences, no explanation)
       "type": "<one of the 9 beat types>",
       "title": "<concise beat title>",
       "summary": "<1-3 sentence narrative summary of this beat>",
+      "claimBasis": "<documented | inference>",
       "evidence": ["<direct quote or reference from timeline content>"],
       "sourceEventIds": ["<event id from input timeline>"],
       "significance": <1 | 2 | 3>,
@@ -49,7 +50,10 @@ Return ONLY valid JSON matching this schema (no markdown fences, no explanation)
 Rules:
 - "version" MUST be the string "1" (not a number)
 - "sourceEventIds" MUST reference actual event ids from the input timeline
-- "evidence" MUST quote actual content, paths, or summaries from the timeline events
+- "evidence" MUST contain exact quotes from cited event summaries or excerpts. Preserve sourceEventIds; a path alone is not evidence for a claim.
+- Set "claimBasis" to "documented" only for claims explicitly stated by a source. Set it to "inference" for interpretations and signal uncertainty in the spoken summary itself (for example, "The notes suggest..."). Attribute reported outcomes to their source; a source statement is not independent proof.
+- Respect timeline coverage warnings. Never call a filtered or shallow history the complete project history.
+- File dates are latest modifications, transcript dates are session starts, and commit dates are author dates. None establishes the exact time of a decision. Do not invent decision dates or causal links from temporal proximity; transcript-to-commit correlation is heuristic.
 - Events may include bounded "excerpts" about problems, alternatives, decisions, and outcomes. Prefer these passages when explaining why a choice was made; retain the parent event ID in sourceEventIds.
 - Excerpts are normalized, redacted source passages. Their topic labels are heuristic, not verification. An excerpt marked truncated is incomplete; never invent the omitted text.
 - File locators refer to scanned content lines, which may shift if ingress redaction removes lines; commit locators refer to the normalized subject + blank line + body. Transcript locators identify the speaker and a 1-based normalized turn index, not a raw log-file line. An agent message is an agent's statement, not proof that an action happened or a human approved it.

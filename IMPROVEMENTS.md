@@ -42,7 +42,7 @@ story of the development process and explain the decisions behind it.
 
 11. [x] **Preserve decision evidence.** Extract bounded, redacted passages about
     problems, alternatives, choices, and outcomes instead of headings alone.
-12. [ ] **Validate narrative claims and chronology.** Distinguish documented
+12. [x] **Validate narrative claims and chronology.** Distinguish documented
     facts from inference, retain source links, surface unsupported beats, and
     disclose incomplete commit coverage and uncertain decision dates.
 13. [ ] **Add editorial control.** Choose a central question, pivotal decisions,
@@ -179,4 +179,20 @@ story of the development process and explain the decisions behind it.
   A real offline CLI preview preserved a decision's reason while excluding a
   synthetic secret and raw-only marker. No paid calls made. Extraction uses
   English keyword/heading heuristics; factual validation remains item 12.
-- Next: item 12, narrative claim and chronology validation.
+- Item 12 complete: model-supplied documented/inference labels, local quote and
+  source-ID checks, saved source-review.md, and explicit source-date meanings.
+  Reviews preserve IDs, paths, commit hashes, and excerpt locators. Chronology
+  checks flag reversed source dates without changing editorial order; timeline
+  sorting/ranges now use real instants and exclude invalid dates from ranges.
+  Coverage notes disclose current-HEAD scope, merge/date/path filters, caps,
+  shallow repositories, unavailable/failed history, and legacy unknown coverage.
+  Reports distinguish matching text from semantic truth; review is advisory and
+  adds no paid calls. Manually edited arcs need a fresh review.
+- Item 12 verification: workspace build, typecheck, lint, and all 547 tests pass.
+  Added source-review and Git-coverage cases, including unsupported/missing
+  evidence, inference labels, legacy input, timezone ordering, invalid dates,
+  chunk propagation, report escaping, and shallow/failed/capped history. The
+  budget-stop test verifies the report survives later request failures. A real
+  offline CLI preview confirmed current-HEAD and cap disclosures with rawContent
+  excluded. No paid calls made.
+- Next: item 13, editorial controls.

@@ -43,3 +43,5 @@ export { splitNarration } from './narration-text.js'
 
 export { SourceExcerptSchema, EvidenceTopicSchema } from './types/evidence.js'
 export type { SourceExcerpt, EvidenceTopic } from './types/evidence.js'
+
+export { reviewStoryArc, renderSourceReview } from './narrate/review.js'
