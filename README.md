@@ -250,7 +250,7 @@ The CLI automatically loads `.env` from the current working directory.
 
 - **Node.js 22+** (enforced via `engines`)
 - **pnpm 10** — pinned via the `packageManager` field; run `corepack enable` to use the exact version
-- **ffmpeg _and_ ffprobe** -- for Remotion audio processing (mp3→wav conversion and duration measurement). HeyGen requires FFmpeg for multi-job assembly. Override the binaries with `FFMPEG_PATH` / `FFPROBE_PATH`. Both `run` and `render` check their renderer's requirements before paid work.
+- **ffmpeg _and_ ffprobe** -- for Remotion’s current preflight requirements. FFmpeg decodes and assembles audio; PCM durations are now derived directly from validated WAV data. HeyGen requires FFmpeg for multi-job assembly. Override the binaries with `FFMPEG_PATH` / `FFPROBE_PATH`. Both `run` and `render` check their renderer's requirements before paid work.
 - **Headless Chrome** -- for Remotion video rendering
 
 Both renderer packages (`@buildstory/video`, `@buildstory/heygen`) install with the CLI via `pnpm install` — there is no separate install step. Remotion rendering requires an installed Chrome/Chromium; HeyGen does not. Automatic browser downloads are disabled to avoid archive-extraction risks. Install a browser ahead of time from a trusted source, or point `PUPPETEER_EXECUTABLE_PATH` / `CHROME_PATH` at an existing binary.
@@ -414,19 +414,31 @@ Use `render` with the **same story arc, settings, and output base** to recover
 rendering work. Running `run` again repeats the paid narration stage and may
 produce different beats.
 
-- **TTS (Remotion):** scene filenames include both the beat index and a hash of
-  narration, voice, speed, and model. Existing nonempty files at the same index
-  can be reused. Reordering beats can therefore regenerate audio. A saved
-  `audio/manifest.json` allows duration-probe reuse; without it, files are probed
-  again. The manifest is written after all scenes finish, and cached audio is
-  not fully integrity-checked. Completed scenes are published atomically, but
-  chunks inside an unfinished long scene are not saved for reuse.
+- **TTS (Remotion):** scenes use content-based filenames under `audio/`, keyed
+  by the exact outbound narration, voice, speed, model, and encoding version.
+  Reordering or duplicating beats reuses the same audio. Each cached WAV is
+  checked for a complete PCM structure and, when recorded, its SHA-256 checksum.
+  Duration is derived from the validated PCM data rather than trusted metadata.
+  The manifest is replaced atomically after each completed scene; failures to
+  save it stop the run and leave completed audio available for retry.
+  Validated chunks inside long scenes are retained under `audio/chunks/`, so a
+  later request or assembly failure does not discard earlier chunks. Intact
+  files can be recovered when metadata is missing; without a saved checksum,
+  only structural validation is possible. Compatible legacy scene files are
+  migrated automatically, including after reordering; older potentially
+  truncated long-scene files are regenerated.
 - **HeyGen:** job IDs and completed chunks remain in `<project>.mp4.parts/` after
   interruption. Reruns resume saved jobs and downloads. Submission POSTs are
   never retried automatically; uncertain outcomes require checking the account
   and recovering the ID. Successful assembly removes the parts directory, so a
   later successful rerender starts new paid jobs. See
   [paid job recovery](packages/heygen/README.md#recovering-a-paid-job).
+
+Keep the `audio/` directory to preserve TTS recovery; removing it requires new
+speech requests. Scene and chunk caches both consume disk space and are not
+pruned automatically. Avoid simultaneous renders into the same output directory;
+request sharing applies within one invocation. An interrupted request or decode
+that has not yet produced a validated, saved chunk may need to be paid for again.
 
 ### Operation deadlines
 
@@ -470,8 +482,8 @@ prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
 
-The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–9 are
-complete; items 10–17 cover recovery, decision evidence, editorial controls, and
+The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–10 are
+complete; items 11–17 cover decision evidence, editorial controls, and
 video quality. Historical plans are not descriptions of implemented features.
 
 

@@ -5,7 +5,9 @@ import type OpenAI from 'openai'
 
 vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn(), mkdtemp: vi.fn().mockResolvedValue('/temporary'), rm: vi.fn(),
-  writeFile: vi.fn(), rename: vi.fn(),
+  writeFile: vi.fn(), rename: vi.fn(), copyFile: vi.fn(),
+  readFile: vi.fn(async () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }) }),
+  lstat: vi.fn(async () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }) }),
 }))
 
 describe('speech privacy boundary', () => {

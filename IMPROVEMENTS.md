@@ -34,7 +34,7 @@ story of the development process and explain the decisions behind it.
 9. [x] **Medium: bound network and assembly work.** Apply deadlines through
    response-body consumption; test stalled downloads and multi-chunk FFmpeg
    assembly, including paths with spaces and apostrophes.
-10. [ ] **Medium: strengthen TTS recovery.** Write completed audio atomically,
+10. [x] **Medium: strengthen TTS recovery.** Write completed audio atomically,
     validate cached files, persist progress incrementally, and reuse unchanged
     narration after scene reordering.
 
@@ -152,4 +152,17 @@ story of the development process and explain the decisions behind it.
   Added 14 cases for stalled bodies, poll deadlines, uncertain spend, assembly
   termination/diagnostics, and recovery. A real FFmpeg test joined two clips into
   a 0.4-second MP4 under a path with spaces and an apostrophe. No paid calls made.
-- Next: item 10, stronger TTS recovery.
+- Item 10 complete: scene keys no longer include beat position; identical scenes
+  and chunks share requests within a run. Reuse checks complete PCM structure
+  and recorded SHA-256 checksums and derives duration from audio bytes. Each
+  completed scene updates the manifest atomically, with write errors surfaced.
+  Validated chunks persist across later request/budget/assembly failures. Legacy
+  compatible scenes migrate by hash without trusting manifest paths; potentially
+  truncated old long-scene caches regenerate.
+- Item 10 verification: workspace build, typecheck, lint, and all 513 tests pass.
+  Coverage includes reordering, duplicate requests, corrupted WAVs/checksums,
+  missing metadata, interrupted scenes, manifest-write failures, and migration.
+  A real FFmpeg test resumes synthetic MP3 responses after a failed second
+  request and verifies the assembled PCM duration against FFprobe, using a path
+  with spaces and an apostrophe. No paid calls made.
+- Next: item 11, preserving decision evidence.

@@ -1,6 +1,6 @@
 import { MAX_TTS_CHARS } from './split.js'
 import { createFrameSchedule } from '../timing.js'
-import { mkdir, stat, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import OpenAI from 'openai'
@@ -8,7 +8,7 @@ import type { StoryBeat } from '@buildstory/core'
 import { sanitizeOutboundValue } from '@buildstory/core'
 import type { TTSOptions, AudioManifest, TTSCostEstimate } from './types.js'
 import { generateSceneAudio, prepareSpeechText } from './generate.js'
-import { measureAudioDuration } from './measure.js'
+import { audioKey, atomicCopy, atomicWrite, isAudioRecord, readAudio, type AudioRecord } from './cache.js'
 import { ttsCostUSD, DEFAULT_TTS_MODEL, type TTSModel } from './pricing.js'
 import { withConcurrency } from './concurrency.js'
 
@@ -26,49 +26,23 @@ export function estimateTTSCost(
   }
 }
 
-/** True if a scene's WAV already exists and is non-empty (resumable from disk). */
-async function existingSceneFile(filePath: string): Promise<boolean> {
-  try {
-    const s = await stat(filePath)
-    return s.isFile() && s.size > 0
-  } catch {
-    return false
-  }
-}
-
-// --- Resume manifest ---------------------------------------------------------
-// A per-scene content hash keyed on everything that determines the audio (voice,
-// speed, model, and the exact narration text). The scene filename embeds it, so:
-//   • editing a beat's summary changes the hash → a new file → regeneration
-//     (never stale audio reused), and
-//   • an identical re-run finds the same file and, via manifest.json, reuses the
-//     recorded duration too — skipping both the paid TTS call AND ffprobe.
-const MANIFEST_FILE = 'manifest.json'
-
-interface ManifestEntry {
-  file: string
-  durationSeconds: number
-}
-interface ResumeManifest {
-  version: '1'
-  entries: Record<string, ManifestEntry>
-}
-
-function sceneHash(text: string, opts: { voice: string; speed: number; model: string }): string {
+function legacyHash(text: string, opts: { voice: string; speed: number; model: string }): string {
   return createHash('sha1')
     .update(`${text.length > MAX_TTS_CHARS ? 'full-narration-v2\x00' : ''}${opts.voice}\x00${opts.speed}\x00${opts.model}\x00${text}`)
-    .digest('hex')
-    .slice(0, 12)
+    .digest('hex').slice(0, 12)
 }
 
-async function loadManifest(path: string): Promise<Map<string, ManifestEntry>> {
+async function loadManifest(path: string): Promise<Map<string, AudioRecord>> {
   try {
-    const parsed = JSON.parse(await readFile(path, 'utf-8')) as ResumeManifest
-    if (parsed.version === '1' && parsed.entries) return new Map(Object.entries(parsed.entries))
-  } catch {
-    // Missing/corrupt manifest → start fresh (files are re-measured, not re-billed
-    // if they exist on disk).
+    const parsed = JSON.parse(await readFile(path, 'utf8'))
+    if (parsed?.version === '2' && parsed.entries && typeof parsed.entries === 'object') {
+      return new Map(Object.entries(parsed.entries).filter((entry): entry is [string, AudioRecord] =>
+        /^[a-f0-9]{64}$/.test(entry[0]) && isAudioRecord(entry[1])))
+    }
+  } catch (error) {
+    if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
   }
+  // Legacy/missing/broken manifests never supply trusted paths or durations.
   return new Map()
 }
 
@@ -88,56 +62,61 @@ export async function orchestrateTTS(
     voice: options.voice,
     speed: options.speed,
     model: options.model ?? DEFAULT_TTS_MODEL,
+    chunkTasks: new Map<string, Promise<string>>(),
   }
 
   // D-15: 0.3s silence between scenes, 1s bookend
   const SILENCE_GAP = 0.3
   const BOOKEND_SILENCE = 1.0
 
-  const manifestPath = join(audioDir, MANIFEST_FILE)
-  const priorManifest = await loadManifest(manifestPath)
-
-  const tasks = beats.map((beat, i) => async () => {
-    const hash = sceneHash(beat.summary, generateOpts)
-    const key = `${String(i).padStart(3, '0')}-${hash}`
-    const filePath = join(audioDir, `scene-${key}.wav`)
-
-    const cached = priorManifest.get(key)
-    const fileExists = await existingSceneFile(filePath)
-    if (fileExists) options.budget?.reuse('TTS cached scene')
-
-    // Full reuse: this exact scene was completed on a prior run — skip the paid
-    // TTS call AND the ffprobe measurement, trusting the recorded duration.
-    if (fileExists && cached !== undefined) {
-      onProgress?.(i + 1, beats.length)
-      return { beatIndex: i, filePath, durationSeconds: cached.durationSeconds, startOffsetSeconds: 0 }
-    }
-
-    // Synthesize only if the audio isn't already on disk (a failed run may have
-    // written the file without recording it in the manifest — reuse it, but
-    // measure since we have no cached duration).
-    if (!fileExists) {
-      await generateSceneAudio(client, beat.summary, filePath, generateOpts)
-    }
-    const durationSeconds = await measureAudioDuration(filePath)
-    onProgress?.(i + 1, beats.length)
-    return { beatIndex: i, filePath, durationSeconds, startOffsetSeconds: 0 }
-  })
-
-  const rawScenes = await withConcurrency(tasks, options.concurrency)
-
-  // Sort by beatIndex (concurrency may complete out of order)
-  rawScenes.sort((a, b) => a.beatIndex - b.beatIndex)
-
-  // Persist the manifest so the next run can resume completed scenes. Keyed by
-  // the same index-hash used for the filename.
-  const nextManifest: ResumeManifest = { version: '1', entries: {} }
-  for (const scene of rawScenes) {
-    const file = scene.filePath.slice(scene.filePath.lastIndexOf('/') + 1)
-    const key = file.replace(/^scene-/, '').replace(/\.wav$/, '')
-    nextManifest.entries[key] = { file, durationSeconds: scene.durationSeconds }
+  const manifestPath = join(audioDir, 'manifest.json')
+  const records = await loadManifest(manifestPath)
+  const legacyFiles = (await readdir(audioDir)).filter(file => /^scene-\d+-[a-f0-9]{12}\.wav$/.test(file))
+  let writes: Promise<void> = Promise.resolve()
+  const persist = (key: string, record: AudioRecord) => {
+    writes = writes.then(async () => {
+      records.set(key, record)
+      await atomicWrite(manifestPath, JSON.stringify({ version: '2', entries: Object.fromEntries(records) }, null, 2))
+    })
+    return writes
   }
-  await writeFile(manifestPath, JSON.stringify(nextManifest, null, 2)).catch(() => {})
+  // Identical beats share synthesis even when scheduled concurrently.
+  const pending = new Map<string, Promise<{ filePath: string; durationSeconds: number }>>()
+  let completed = 0
+  const tasks = beats.map((beat, i) => async () => {
+    const text = prepareSpeechText(beat.summary)
+    const key = audioKey(text, generateOpts)
+    let task = pending.get(key)
+    if (task) options.budget?.reuse('TTS shared scene')
+    else {
+      task = (async () => {
+        const filePath = join(audioDir, `scene-${key}.wav`)
+        let record = await readAudio(filePath, records.get(key))
+        if (!record) {
+          // Search legacy index-based names at every position; never trust manifest paths.
+          const hash = legacyHash(beat.summary, generateOpts)
+          for (const file of legacyFiles.filter(name => name.endsWith(`-${hash}.wav`))) {
+            record = await readAudio(join(audioDir, file))
+            if (record) { await atomicCopy(join(audioDir, file), filePath); break }
+          }
+        }
+        if (record) options.budget?.reuse('TTS cached scene')
+        else {
+          await generateSceneAudio(client, text, filePath, generateOpts)
+          record = await readAudio(filePath)
+          if (!record) throw new Error(`Generated audio failed validation: ${filePath}`)
+        }
+        // Persist each completed scene before reporting progress; write failures are visible.
+        await persist(key, record)
+        return { filePath, durationSeconds: record.durationSeconds }
+      })()
+      pending.set(key, task)
+    }
+    const scene = await task
+    onProgress?.(++completed, beats.length)
+    return { ...scene, beatIndex: i, startOffsetSeconds: 0 }
+  })
+  const rawScenes = await withConcurrency(tasks, options.concurrency)
 
   const schedule = createFrameSchedule({
     scenes: rawScenes, silenceGapSeconds: SILENCE_GAP, bookendSilenceSeconds: BOOKEND_SILENCE,
