@@ -12,6 +12,11 @@ and concatenates the result. Hardened for the paid path: per-request timeouts,
 retry on transient status faults, persistent paid job IDs, and an API-key preflight
 that validates against a cheap endpoint before any paid submission.
 
+Narration over 1,500 characters is split into additional scenes without dropping
+text, and those scenes are packed into jobs of at most ten scenes each. Split
+notices identify affected beats; previews show every resulting scene. Long
+narration can therefore require more paid work than older truncated renders.
+
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for details.
 
 ## Recovering a paid job

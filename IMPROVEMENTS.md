@@ -25,7 +25,7 @@ story of the development process and explain the decisions behind it.
    and cached audio.
 6. [x] **Medium: unify video timing.** Use one frame schedule for scene starts,
    narration padding, captions, and total duration.
-7. [ ] **Medium: preserve all narration.** Split oversized TTS input instead of
+7. [x] **Medium: preserve all narration.** Split oversized TTS input instead of
    truncating it; keep spoken text, captions, and visible text consistent.
 8. [ ] **Medium: unify configuration and preflight.** Honor the exact config
    file, target repository, and outputDir; validate all fields; check prerequisites
@@ -118,4 +118,18 @@ story of the development process and explain the decisions behind it.
   A real 1080p render has 142 frames and matching 4.733-second audio/video tracks;
   synthetic tone starts match SRT starts within 0.1 ms. Opening frame inspected.
   No paid calls made.
-- Next: item 7, preserve all narration instead of truncating oversized TTS input.
+- Item 7 complete: shared splitting preserves every character, prefers sentence
+  and whitespace boundaries, and avoids splitting surrogate pairs. OpenAI speech
+  chunks stay within 3,900 characters and are decoded/joined into one scene WAV;
+  HeyGen narration splits into scenes of at most 1,500 characters and jobs of
+  at most ten scenes. Previews include every request and budgets gate each one.
+  Full narration remains available to captions and visuals. Completed audio is
+  published atomically; old potentially truncated long-scene caches regenerate,
+  while short-scene caches remain compatible.
+- Item 7 verification: workspace build, typecheck, lint, all 445 tests, and diff
+  checks pass. Coverage includes long multilingual text, request/preview parity,
+  budget stops, partial failures, cache migration, and HeyGen scene packing. A
+  real FFmpeg check joined three synthetic MP3 responses into exactly 0.600 seconds
+  of PCM audio using a path with spaces and an apostrophe. No paid calls made.
+  Persisting completed chunks within an unfinished TTS scene remains for item 10.
+- Next: item 8, configuration and preflight consistency.

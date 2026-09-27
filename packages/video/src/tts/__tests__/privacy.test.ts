@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { generateSceneAudio, prepareSpeechText } from '../generate.js'
 import type OpenAI from 'openai'
 
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn(), mkdtemp: vi.fn().mockResolvedValue('/temporary'), rm: vi.fn(),
+  writeFile: vi.fn(), rename: vi.fn(),
+}))
+
 describe('speech privacy boundary', () => {
   it('sends the previewed, sanitized text even when called directly', async () => {
     const create = vi.fn().mockRejectedValue(new Error('Stop after inspecting request'))

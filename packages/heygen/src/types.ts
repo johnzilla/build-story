@@ -59,5 +59,5 @@ export type AdaptOptions = z.infer<typeof AdaptOptionsSchema>
 
 export interface AdaptResult {
   chunks: HeyGenScene[][] // one sub-array per API call (max 10 scenes each)
-  warnings: string[] // non-fatal notices (e.g., truncation)
+  warnings: string[] // non-fatal notices (e.g., narration split across scenes)
 }

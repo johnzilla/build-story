@@ -1,3 +1,4 @@
+import { MAX_TTS_CHARS } from './split.js'
 import { createFrameSchedule } from '../timing.js'
 import { mkdir, stat, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -55,7 +56,7 @@ interface ResumeManifest {
 
 function sceneHash(text: string, opts: { voice: string; speed: number; model: string }): string {
   return createHash('sha1')
-    .update(`${opts.voice}\x00${opts.speed}\x00${opts.model}\x00${text}`)
+    .update(`${text.length > MAX_TTS_CHARS ? 'full-narration-v2\x00' : ''}${opts.voice}\x00${opts.speed}\x00${opts.model}\x00${text}`)
     .digest('hex')
     .slice(0, 12)
 }

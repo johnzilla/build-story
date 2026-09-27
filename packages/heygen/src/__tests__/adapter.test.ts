@@ -212,7 +212,7 @@ describe('chunking', () => {
 // truncation
 // ---------------------------------------------------------------------------
 
-describe('truncation', () => {
+describe('long narration splitting', () => {
   it('summary exactly 1500 chars is not truncated', () => {
     const summary = 'a'.repeat(1499) + '.'
     const beat = makeBeat({ summary })
@@ -221,7 +221,7 @@ describe('truncation', () => {
     expect(result.warnings).toEqual([])
   })
 
-  it('summary of 1501 chars with sentence boundary before limit is truncated at that boundary', () => {
+  it('summary of 1501 chars with sentence boundary before limit splits at that boundary without losing the remainder', () => {
     // Build a summary with a sentence boundary (period + space) around char 1450,
     // then pad to exceed 1500 chars.
     const firstPart = 'x'.repeat(1448) + '. '
@@ -233,21 +233,20 @@ describe('truncation', () => {
     const truncated = result.chunks[0]![0]!.voice.input_text
     expect(truncated.length).toBeLessThanOrEqual(1500)
     // Should end with the sentence punctuation
-    expect(truncated.endsWith('.')).toBe(true)
+    expect(truncated.trimEnd().endsWith('.')).toBe(true)
+    expect(result.chunks.flat().map(scene => scene.voice.input_text).join('')).toBe(summary)
   })
 
-  it('summary of 1501 chars with no sentence boundary is hard-cut at 1500', () => {
+  it('summary of 1501 chars with no sentence boundary splits into bounded scenes', () => {
     const summary = 'x'.repeat(1501)
     const beat = makeBeat({ summary })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
     expect(result.chunks[0]![0]!.voice.input_text).toHaveLength(1500)
+    expect(result.chunks.flat().map(scene => scene.voice.input_text).join('')).toBe(summary)
   })
 
-  it('empty summary produces no truncation, no warning', () => {
-    const beat = makeBeat({ summary: '' })
-    const result = adaptStoryArc(makeArc([beat]), defaultOpts)
-    expect(result.chunks[0]![0]!.voice.input_text).toBe('')
-    expect(result.warnings).toEqual([])
+  it('rejects empty narration before creating a paid scene', () => {
+    expect(() => adaptStoryArc(makeArc([makeBeat({ summary: '' })]), defaultOpts)).toThrow('requires nonempty narration')
   })
 })
 
@@ -256,7 +255,7 @@ describe('truncation', () => {
 // ---------------------------------------------------------------------------
 
 describe('warnings', () => {
-  it('truncated summary produces a warning string containing the beat title', () => {
+  it('split summary produces a warning string containing the beat title', () => {
     const summary = 'x'.repeat(1501)
     const beat = makeBeat({ summary, title: 'My Important Beat' })
     const result = adaptStoryArc(makeArc([beat]), defaultOpts)
@@ -264,7 +263,7 @@ describe('warnings', () => {
     expect(result.warnings[0]).toContain('My Important Beat')
   })
 
-  it('non-truncated beats produce no warnings', () => {
+  it('short beats produce no warnings', () => {
     const beats = [
       makeBeat({ summary: 'Short summary.' }),
       makeBeat({ summary: 'Another short one.' }),
@@ -273,7 +272,7 @@ describe('warnings', () => {
     expect(result.warnings).toEqual([])
   })
 
-  it('multiple truncated beats each produce a warning', () => {
+  it('multiple split beats each produce a warning', () => {
     const beats = [
       makeBeat({ summary: 'a'.repeat(1501), title: 'Beat A' }),
       makeBeat({ summary: 'b'.repeat(1501), title: 'Beat B' }),
@@ -283,4 +282,13 @@ describe('warnings', () => {
     expect(result.warnings[0]).toContain('Beat A')
     expect(result.warnings[1]).toContain('Beat B')
   })
+})
+
+
+it('splits a long beat across multiple ten-scene jobs without dropping text', () => {
+  const summary = 'x'.repeat(1500 * 11 + 1)
+  const result = adaptStoryArc(makeArc([makeBeat({ summary })]), defaultOpts)
+  expect(result.chunks.map(chunk => chunk.length)).toEqual([10, 2])
+  expect(result.chunks.flat().map(scene => scene.voice.input_text).join('')).toBe(summary)
+  expect(result.chunks.flat().every(scene => scene.voice.input_text.length <= 1500)).toBe(true)
 })

@@ -1,3 +1,4 @@
+import { splitNarration, sanitizeOutboundText } from '@buildstory/core'
 import type { StoryBeat } from '@buildstory/core'
 import type { HeyGenConfig, HeyGenCostEstimate } from './types.js'
 
@@ -16,7 +17,7 @@ export function estimateHeyGenCost(
   const estimatedMinutes = totalSeconds / 60
   const creditsRequired = Math.ceil(estimatedMinutes * CREDITS_PER_MINUTE)
   return {
-    sceneCount: beats.length,
+    sceneCount: beats.reduce((sum, beat) => sum + splitNarration(sanitizeOutboundText(beat.summary), 1500).length, 0),
     estimatedMinutes,
     creditsRequired,
     estimatedCostUSD: creditsRequired * USD_PER_CREDIT,

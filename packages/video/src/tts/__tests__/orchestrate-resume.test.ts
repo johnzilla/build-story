@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { SpendBudget } from '@buildstory/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { StoryBeat } from '@buildstory/core'
@@ -118,4 +119,14 @@ describe('orchestrateTTS resume manifest', () => {
     expect(genMock).not.toHaveBeenCalled()
     expect(measureMock).toHaveBeenCalledTimes(2)
   })
+
+  it('regenerates a long scene whose old cache may contain truncated speech', async () => {
+    const summary = 'Long narration. '.repeat(300)
+    const oldHash = createHash('sha1').update(`nova\x001\x00tts-1-hd\x00${summary}`).digest('hex').slice(0, 12)
+    disk.set(`/out/audio/scene-000-${oldHash}.wav`, 'OLD TRUNCATED AUDIO')
+    await orchestrateTTS([beat(summary)], '/out', opts)
+    expect(genMock).toHaveBeenCalledTimes(1)
+    expect(genMock.mock.calls[0]![2]).not.toContain(oldHash)
+  })
+
 })

@@ -38,3 +38,5 @@ export { buildNarrationPreview } from './narrate/prepare.js'
 export { SpendBudget, BudgetExceededError } from './budget.js'
 export type { SpendEntry } from './budget.js'
 export { LLM_PRICE_PER_1M, llmCostUSD } from './narrate/pricing.js'
+
+export { splitNarration } from './narration-text.js'

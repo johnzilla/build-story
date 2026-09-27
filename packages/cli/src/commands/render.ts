@@ -76,17 +76,17 @@ export async function renderCommand(
         warnings: adapted.warnings,
       })
     } else {
-      const { prepareSpeechText } = await import('@buildstory/video')
+      const { prepareSpeechChunks } = await import('@buildstory/video')
       await writePayloadPreview(opts.previewPayload, {
         provider: 'openai',
         stage: 'speech-generation',
         note: 'Authentication omitted. Lists all scenes; cached audio may skip requests. No preflight or API calls made.',
-        requests: storyArc.beats.map((beat) => ({
+        requests: storyArc.beats.flatMap((beat) => prepareSpeechChunks(beat.summary).map((input) => ({
           model: ttsModel,
           voice: ttsVoice,
-          input: prepareSpeechText(beat.summary),
+          input,
           speed: ttsSpeed,
-        })),
+        }))),
       })
     }
     return

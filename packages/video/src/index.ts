@@ -1,5 +1,5 @@
 export { orchestrateTTS, estimateTTSCost } from './tts/index.js'
-export { prepareSpeechText } from './tts/generate.js'
+export { prepareSpeechText, prepareSpeechChunks } from './tts/generate.js'
 export { preflightCheck } from './preflight.js'
 export { renderVideo } from './render/index.js'
 export { generateSRT } from './render/srt.js'

@@ -84,4 +84,22 @@ describe('offline payload previews', () => {
     await expect(writePayloadPreview(output, {})).rejects.toThrow()
     expect(await readFile(output, 'utf8')).toBe('keep this file')
   })
+
+  it('previews all speech requests for long narration without losing its ending', async () => {
+    const summary = 'A decision and its outcome. '.repeat(350)
+    const input = join(dir, 'long-arc.json')
+    const output = join(dir, 'long-preview.json')
+    await writeFile(input, JSON.stringify({ version: '1',
+      metadata: { generatedAt: '', style: 'story', sourceTimeline: 'test' },
+      beats: [{ type: 'decision', title: 'Choice', summary,
+        evidence: [], sourceEventIds: [], significance: 2 }],
+    }))
+    await renderCommand(input, { output: dir, renderer: 'remotion', previewPayload: output })
+    const preview = JSON.parse(await readFile(output, 'utf8')) as { requests: { input: string }[] }
+    expect(preview.requests.length).toBeGreaterThan(1)
+    expect(preview.requests.map(request => request.input).join('')).toBe(summary)
+    expect(preview.requests.every(request => request.input.length <= 3900)).toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
 })

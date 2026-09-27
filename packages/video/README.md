@@ -12,6 +12,17 @@ Turns a `StoryArc` into a narrated MP4: per-scene TTS (content-keyed resume so a
 failed run never re-bills completed audio), a Remotion composition, and SRT
 subtitles.
 
+Long narration is split into requests of at most 3,900 characters, preferring
+sentence or whitespace boundaries and preserving Unicode characters. Each
+response is decoded to PCM before the chunks are joined into one scene WAV.
+The complete narration remains in the scene and SRT; budget checks apply to
+every speech request, and payload previews list every chunk.
+
+Only a completed scene is published to its cache path. Older long-scene cache
+entries may contain truncated speech and are regenerated once; short-scene
+cache keys stay compatible. Chunk progress within an unfinished scene is not
+yet persisted, so retrying a failed long scene may repeat its earlier requests.
+
 Requires **ffmpeg** and **ffprobe** on `PATH` (override with `FFMPEG_PATH` /
 `FFPROBE_PATH`) and headless Chrome for rendering. This package ships its `src/`
 because the Remotion bundler compiles the composition from source at render time.

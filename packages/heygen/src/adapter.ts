@@ -1,5 +1,5 @@
 import type { StoryArc, StoryBeat, BeatType } from '@buildstory/core'
-import { StoryArcSchema, sanitizeStoryArc } from '@buildstory/core'
+import { StoryArcSchema, sanitizeStoryArc, splitNarration } from '@buildstory/core'
 import type { AdaptOptions, AdaptResult, HeyGenScene } from './types.js'
 import { AdaptOptionsSchema } from './types.js'
 
@@ -26,32 +26,6 @@ const BEAT_COLOR_MAP: Record<BeatType, string> = {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function truncateSummary(text: string): { text: string; truncated: boolean } {
-  if (text.length <= HEYGEN_CHAR_LIMIT) {
-    return { text, truncated: false }
-  }
-
-  const slice = text.slice(0, HEYGEN_CHAR_LIMIT)
-
-  // Search backward for the last sentence boundary (. ! ?) followed by space or end
-  const boundaryRegex = /[.!?](?:\s|$)/g
-  let lastBoundaryPos = -1
-  let match: RegExpExecArray | null
-
-  while ((match = boundaryRegex.exec(slice)) !== null) {
-    lastBoundaryPos = match.index
-  }
-
-  if (lastBoundaryPos >= 0) {
-    // Include the punctuation character (lastBoundaryPos + 1), trim trailing whitespace
-    const truncated = slice.slice(0, lastBoundaryPos + 1).trimEnd()
-    return { text: truncated, truncated: true }
-  }
-
-  // No sentence boundary found — hard-cut at limit
-  return { text: slice, truncated: true }
-}
-
 function chunkBeats<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = []
   for (let i = 0; i < items.length; i += size) {
@@ -60,13 +34,14 @@ function chunkBeats<T>(items: T[], size: number): T[][] {
   return chunks
 }
 
-function beatToScene(
+function beatToScenes(
   beat: StoryBeat,
   opts: AdaptOptions,
-): { scene: HeyGenScene; warning: string | null } {
-  const { text: inputText, truncated } = truncateSummary(beat.summary)
+): { scenes: HeyGenScene[]; warning: string | null } {
+  if (!beat.summary.trim()) throw new Error(`Beat "${beat.title}" requires nonempty narration`)
+  const texts = splitNarration(beat.summary, HEYGEN_CHAR_LIMIT)
 
-  const scene: HeyGenScene = {
+  const scenes: HeyGenScene[] = texts.map((inputText) => ({
     character: {
       type: 'avatar',
       avatar_id: opts.avatarId,
@@ -82,13 +57,13 @@ function beatToScene(
       type: 'color',
       value: BEAT_COLOR_MAP[beat.type],
     },
-  }
+  }))
 
-  const warning = truncated
-    ? `Beat "${beat.title}" summary truncated from ${beat.summary.length} to ${inputText.length} characters at sentence boundary`
+  const warning = texts.length > 1
+    ? `Beat "${beat.title}" narration split into ${texts.length} scenes; all text retained`
     : null
 
-  return { scene, warning }
+  return { scenes, warning }
 }
 
 // ---------------------------------------------------------------------------
@@ -104,8 +79,8 @@ export function adaptStoryArc(arc: StoryArc, opts: AdaptOptions): AdaptResult {
   const scenes: HeyGenScene[] = []
 
   for (const beat of validatedArc.beats) {
-    const { scene, warning } = beatToScene(beat, validatedOpts)
-    scenes.push(scene)
+    const { scenes: beatScenes, warning } = beatToScenes(beat, validatedOpts)
+    scenes.push(...beatScenes)
     if (warning !== null) {
       warnings.push(warning)
     }
