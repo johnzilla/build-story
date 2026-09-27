@@ -2,27 +2,31 @@
 
 ## Supported versions
 
-BuildStory is pre-1.0. Only the latest `main` (and the most recent tagged
-release) receives security fixes.
+BuildStory is pre-1.0. Security fixes target `main`; older revisions are not
+maintained as separate security branches.
 
 ## Reporting a vulnerability
 
 Please report privately — do **not** open a public issue for a security problem.
 
-Use GitHub's private vulnerability reporting: the repository's **Security** tab →
-**Report a vulnerability**. That opens a private advisory visible only to the
-maintainer. Expect an initial response within a few days.
+If enabled on the repository, use GitHub’s **Security** tab → **Report a
+vulnerability**. Otherwise, arrange a private reporting channel with the
+maintainer before sharing exploit details. This document does not promise a
+response time.
 
 ## What data leaves your machine
 
-BuildStory is a local CLI. It reaches the network only in these phases, and only
-sends what's listed:
+The CLI scans local sources. Generation uses these network services:
 
 | Phase | Destination | What is sent |
 |-------|-------------|--------------|
-| `narrate` / `format` | LLM provider (Anthropic or OpenAI) | The timeline **payload** — per event: `id`, `date`, `source`, `path`, `summary`, `metadata`, `crossRefs`. Plus generated beats during formatting. |
-| `render` (Remotion) | OpenAI TTS | The narration text of each beat. |
-| `render` (HeyGen) | HeyGen | The narration text + scene config. |
+| Narration and text formatting | Anthropic or OpenAI | Sanitized timeline fields except `rawContent`, extraction prompts, generated beats during synthesis/formatting, and authentication. |
+| Remotion speech generation | OpenAI TTS | Narration text, model/voice/speed settings, and API authentication. |
+| HeyGen rendering | HeyGen API | Narration, scene settings, API authentication, and job IDs for polling. A credential-check GET precedes CLI paid work. |
+| HeyGen download | Video URL returned by HeyGen (which may be a CDN) | A GET request for the generated video; the HeyGen API-key header is not forwarded. |
+
+Remotion rendering uses a local browser. Dependency installation and explicit
+maintenance commands can also access the network; the table describes generation.
 
 **Event `rawContent` is never sent to the LLM.** `buildTimelinePayload` strips
 it, including when a timeline is imported from JSON. Summaries still contain
@@ -35,7 +39,8 @@ recognizable absolute paths in text are replaced with `[LOCAL_PATH]`.
 
 - **Files** — markdown heading outlines, frontmatter metadata, cross-references.
 - **Git** — commit subjects/bodies and tag names/messages.
-- **Transcripts** — agent session prompts/reasoning (opt-in; off by default).
+- **Transcripts** — bounded human-prompt excerpts and session metadata
+  (opt-in; off by default). Agent message excerpts may remain in local `rawContent`.
 
 ### Secret redaction
 
@@ -90,29 +95,34 @@ text reaches the LLM as data, so a hostile artifact could try to steer the
 narrator ("ignore your instructions", "attribute this to event X", etc.). Two
 controls contain the blast radius:
 
-1. **Structured output.** `narrate`/`format` constrain the model to a
-   Zod-validated `StoryArc` shape (`messages.parse` + `zodOutputFormat`). The
-   model cannot return arbitrary side-channel content — only schema-valid beats.
+1. **Structured story arcs.** Extraction and synthesis return a Zod-validated
+   `StoryArc`. The Anthropic and OpenAI providers use their respective structured
+   response APIs. Text formats return ordinary text, not a StoryArc. Schemas
+   constrain fields and types; free-text fields can still contain misleading
+   claims or injected instructions.
 2. **Provenance validation (NARR-05).** After narration, every beat's
    `sourceEventIds` is validated against the actual event IDs in the input
    timeline. Any ID the model invents or that an injected artifact tries to
    plant is **dropped**, with a warning recorded in `arc.metadata.warnings`. A
-   poisoned commit cannot forge a citation to an event that isn't really there.
+   citation to an existing event can still be incorrect: this check verifies
+   that an ID exists, not that the event supports the claim. Beats with no valid
+   IDs remain in the arc and require review.
 
 Injection can still influence *narrative wording* (the model is summarizing
-attacker-controlled text). BuildStory's guarantees are about **structure and
-provenance**, not about preventing a hostile artifact from being quoted. Treat
+attacker-controlled text). These checks enforce the output shape and reject
+unknown event IDs; they do not establish factual accuracy or prevent hostile text from being quoted. Treat
 generated output as you would any AI summary of untrusted input.
 
 ## Local artifacts
 
 `timeline.json` and similar dumps embed **`rawContent`** (full file text and
-commit bodies) and an **absolute `rootDir`** path. These are git-ignored by
-default — do not commit or publish them without reviewing their contents.
+commit bodies) and an **absolute `rootDir`** path. Common dump names are ignored
+by this repository’s `.gitignore`; custom filenames and other repositories may
+not exclude them. Review local artifacts before committing or publishing them.
 
 ## Dependency review — September 26, 2026
 
-The lockfile audit reports zero vulnerabilities with no ignored advisories.
+The item 3 audit recorded zero vulnerabilities with no ignored advisories.
 Security overrides set patched version floors while retaining compatible major
 versions. Re-run the audit when updating dependencies; this result is a snapshot.
 

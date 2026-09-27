@@ -10,7 +10,8 @@ import { renderWithHeyGen, estimateHeyGenCost, preflightHeyGenCheck } from '@bui
 Adapts a `StoryArc` into HeyGen scene chunks, submits and polls them, downloads
 and concatenates the result. Hardened for the paid path: per-request timeouts,
 retry on transient status faults, persistent paid job IDs, and an API-key preflight
-that validates against a cheap endpoint before any paid submission. Verification
+that validates against a lightweight endpoint. The CLI calls preflight before
+paid work; direct library callers must call `preflightHeyGenCheck` themselves. Verification
 failures, including service errors and network timeouts, block paid submission;
 retry once verification is available.
 
@@ -18,6 +19,10 @@ Narration over 1,500 characters is split into additional scenes without dropping
 text, and those scenes are packed into jobs of at most ten scenes each. Split
 notices identify affected beats; previews show every resulting scene. Long
 narration can therefore require more paid work than older truncated renders.
+
+This renderer outputs MP4 only; it does not produce a local SRT. It requires
+FFmpeg for multi-job assembly, and uses HeyGen voice settings rather than the
+CLI’s Remotion `[tts]` settings.
 
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for details.
 

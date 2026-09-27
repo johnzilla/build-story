@@ -1,3 +1,14 @@
+# Historical generated agent notes
+
+> The generated sections below preserve an earlier planning snapshot. Their
+> dependency versions, canvas/fluent-ffmpeg stack, bundled FFmpeg assumption,
+> dual-module output, integration plans, and GSD workflow are outdated.
+> GSD is retired in this repository (see `buildstory.toml`). Current architecture
+> and workflow are documented in [README.md](README.md) and
+> [CONTRIBUTING.md](CONTRIBUTING.md); current priorities are in
+> [IMPROVEMENTS.md](IMPROVEMENTS.md). Do not use these historical sections as
+> current setup or workflow instructions.
+
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 

@@ -1,12 +1,13 @@
 # @buildstory/core
 
-The pure core of [BuildStory](https://github.com/johnzilla/build-story): reconstruct
+The core library of [BuildStory](https://github.com/johnzilla/build-story): reconstruct
 a chronological development timeline and generate an LLM narrative script from git
 history, planning artifacts, and coding-agent transcripts.
 
-Zero I/O of its own — filesystem, git, and transcript access are injected
-(`ArtifactSource` / `GitSource` / `TranscriptSource`), so the library stays free
-of CLI, config, and vendor specifics. **ESM-only.**
+Filesystem, git, and transcript access are injected through `ArtifactSource`,
+`GitSource`, and `TranscriptSource`. The library does not read CLI configuration
+or write files. Its built-in Anthropic and OpenAI providers make network calls
+for narration and text formatting; callers can inject their own provider. **ESM-only.**
 
 ```ts
 import { scan, narrate, format, createProvider } from '@buildstory/core'

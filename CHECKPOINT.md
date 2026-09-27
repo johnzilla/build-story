@@ -1,4 +1,9 @@
-# Checkpoint — 2026-08-22
+# Historical checkpoint — 2026-08-22
+
+> This is a snapshot from August, not the current repository status. Test counts,
+> branch/tag state, dependency details, and recovery claims below describe that
+> checkpoint. For current behavior use [README.md](README.md); for completed work
+> and next priorities use [IMPROVEMENTS.md](IMPROVEMENTS.md).
 
 Working branch: `main` (source of truth; solo builder commits straight to main).
 State: **green** — `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`

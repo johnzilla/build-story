@@ -8,9 +8,9 @@ import { renderVideo, orchestrateTTS, estimateTTSCost, preflightCheck } from '@b
 import { TTS_PRICE_PER_1000_CHARS } from '@buildstory/video/pricing'
 ```
 
-Turns a `StoryArc` into a narrated MP4: per-scene TTS (content-keyed resume so a
-failed run never re-bills completed audio), a Remotion composition, and SRT
-subtitles.
+Turns a `StoryArc` into a narrated MP4 using per-scene TTS and a Remotion
+composition. It also writes a separate SRT, with one cue per beat; subtitles are
+not burned into the MP4. Narration uses beat summaries, not `video-script.md`.
 
 Long narration is split into requests of at most 3,900 characters, preferring
 sentence or whitespace boundaries and preserving Unicode characters. Each
@@ -18,13 +18,22 @@ response is decoded to PCM before the chunks are joined into one scene WAV.
 The complete narration remains in the scene and SRT; budget checks apply to
 every speech request, and payload previews list every chunk.
 
+Cache filenames include the beat index and a hash of narration/voice/speed/model.
+A matching nonempty file is reused; moving a beat to a different index may
+regenerate audio. Cached durations are trusted when a manifest entry exists.
+The manifest is written after all scenes complete; cache integrity checks and
+incremental manifest persistence remain planned work.
+
 Only a completed scene is published to its cache path. Older long-scene cache
 entries may contain truncated speech and are regenerated once; short-scene
 cache keys stay compatible. Chunk progress within an unfinished scene is not
 yet persisted, so retrying a failed long scene may repeat its earlier requests.
 
 Requires **ffmpeg** and **ffprobe** on `PATH` (override with `FFMPEG_PATH` /
-`FFPROBE_PATH`) and headless Chrome for rendering. This package ships its `src/`
+`FFPROBE_PATH`) and installed Chrome/Chromium for rendering. Automatic browser
+downloads are disabled. `preflightCheck` checks prerequisites; direct library
+callers should invoke it before paying for speech. Pass the discovered
+`chromePath` as `renderVideo`’s `browserExecutable` option. This package ships its `src/`
 because the Remotion bundler compiles the composition from source at render time.
 
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for details.

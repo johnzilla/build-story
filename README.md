@@ -11,12 +11,15 @@ Point it at any repo — no framework, no planning docs required. Commit history
 Also produces text formats: X threads, blog drafts, story outlines, and video scripts.
 
 **Two renderers:**
+
 - **Remotion** (default) — programmatic React video with timeline bars, decision callouts, and stats cards
 - **HeyGen** (`--renderer=heygen`) — AI avatar narrates your build story with beat-type colored backgrounds
 
 ## Quick Start
 
-From a clone of this repo (the CLI isn't published yet):
+Start from a clone of this repository. Use **Node.js 22+** and the pnpm version
+pinned in `package.json`. Remotion video also requires installed FFmpeg, FFprobe,
+and Chrome/Chromium; see [Requirements](#requirements).
 
 ```bash
 # Install and build the workspace
@@ -26,82 +29,109 @@ pnpm install && pnpm build
 echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env
 echo 'OPENAI_API_KEY=sk-proj-...' >> .env
 
+# Inspect the narration payload before making paid calls
+node packages/cli/dist/index.js run ~/my-project --preview-payload ./narration-preview.json
+
 # Run the full pipeline: scan -> narrate -> TTS -> render video
 node packages/cli/dist/index.js run ~/my-project
 
-# Or text-only (no video, no OpenAI key needed)
+# Or text-only (only the selected narration provider's key is needed)
 node packages/cli/dist/index.js run ~/my-project --skip-video
 ```
 
-Once published, install the CLI globally and use the `buildstory` command:
+The examples below use `buildstory` as shorthand for
+`node /absolute/path/to/build-story/packages/cli/dist/index.js`. The intended npm
+package name is **`@buildstory/cli`**, which installs that command. Avoid
+`npx buildstory`: the bare package name is unrelated to this project.
 
-```bash
-npm install -g @buildstory/cli   # the npm package is @buildstory/cli
-buildstory run ~/my-project
-```
+With no output setting, `run ~/my-project` writes to
+`~/my-project/buildstory-out/my-project/`. `--output` and `outputDir` can change
+the base directory; see [Configuration](#configuration).
 
-> The npm package is **`@buildstory/cli`** (the bare name `buildstory` belongs to
-> an unrelated package). It installs a `buildstory` command. Don't run
-> `npx buildstory` — that would fetch the unrelated package.
-
-Output goes to `./buildstory-out/<project-name>/`:
-- `<project>.mp4` -- narrated video with visual timeline
-- `<project>.srt` -- subtitles
-- `story-arc.json` -- structured narrative beats
+- `story-arc.json` — structured narrative beats, saved before rendering
+- `<project>.mp4` — narrated video
+- `<project>.srt` — separate subtitle file, **Remotion only**
 
 With `--skip-video` or `--include-text`, you also get:
-- `outline.md` -- full narrative essay (800-1500 words)
-- `thread.md` -- X/LinkedIn thread (8-15 posts, <280 chars each)
+
+- `outline.md` — narrative essay (prompt target: 800–1,500 words)
+- `thread.md` — X thread (prompt target: 8–15 posts, under 280 characters each)
 - `blog.md` -- blog post with headings, code blocks, blockquotes
 - `video-script.md` -- narrated script with scene markers
+
+Text lengths are prompt instructions, not enforced limits. Review drafts before
+publishing. Video narration comes from each story beat’s `summary`; editing
+`video-script.md` does not change a rendered video.
 
 ## CLI
 
 ```
 buildstory run [path]           Full pipeline: scan -> narrate -> TTS -> render
-buildstory scan [path]          Scan git history + planning artifacts into timeline.json
+buildstory scan [path]          Scan git history + planning artifacts into timeline JSON
 buildstory narrate <timeline>   Generate narrative from a timeline
 buildstory render <story-arc>   Render video from an existing story arc
 ```
 
 `run` and `scan` take a single project path (default: current directory).
+`scan` writes JSON to stdout unless `--output <file>` is supplied.
+
+For a staged workflow with a stable output location:
+
+```bash
+buildstory scan ~/my-project --output ./timeline.json
+buildstory narrate ./timeline.json --config ~/my-project/buildstory.toml --output ./buildstory-out
+# Review/edit the generated story-arc.json before paying for video.
+buildstory render ./buildstory-out/my-project/story-arc.json --config ~/my-project/buildstory.toml --output ./buildstory-out
+```
+
+Create the config file first, or omit `--config` to use automatic discovery.
+An explicitly named config file must exist. Rerendering an existing story arc
+avoids paying for narration again.
 
 ### Options
 
+Defaults below apply when no flag or configuration value overrides them.
+
+All four commands accept `-c, --config <file>` for an exact TOML file.
+`run`, `narrate`, and `render` also accept `--preview-payload <new-file>`; see
+[Preview outbound content](#preview-outbound-content).
+
 **run** (full pipeline)
+
 - `--provider <provider>` -- LLM provider: anthropic or openai (default: anthropic)
 - `--style <style>` -- Narrative style (default: story)
 - `--skip-video` -- Text-only output, no TTS or video rendering
 - `--include-text` -- Include text formats alongside video
 - `--dry-run` -- Show cost estimates without calling APIs
-- `--max-cost <usd>` -- Abort before any stage that would push total spend past this cap; partial results are kept
-- `--no-title-card` -- Disable auto-inserted title card
-- `--no-stats-card` -- Disable auto-inserted stats card
+- `--max-cost <usd>` — Check each paid request against a shared estimate-based budget; completed output files are kept. Available on `run` only.
+- `--renderer <renderer>` — remotion or heygen (default: remotion)
+- `--no-title-card` — Use normal scenes for first/last beats (Remotion only)
+- `--no-stats-card` — Use a normal scene for the penultimate beat (Remotion only)
 - `-o, --output <path>` -- Output base directory (overrides `outputDir`; see [Configuration](#configuration))
-- `-c, --config <path>` -- Path to buildstory.toml
 
 **scan**
+
 - `-o, --output <file>` -- Output file path (default: stdout as JSON)
-- `-c, --config <path>` -- Path to buildstory.toml
 
 **narrate**
+
 - `-f, --format <format>` -- Single format: outline, thread, blog, video-script (default: all)
 - `--provider <provider>` -- LLM provider: anthropic or openai (default: anthropic)
 - `--style <style>` -- Narrative style (default: story)
 - `-o, --output <path>` -- Output base directory (overrides `outputDir`; see [Configuration](#configuration))
 
 **render**
+
 - `--renderer <renderer>` -- Video renderer: remotion or heygen (default: remotion)
 - `--dry-run` -- Show cost estimate without calling APIs
-- `--no-title-card` -- Disable auto-inserted title card (Remotion only)
-- `--no-stats-card` -- Disable auto-inserted stats card (Remotion only)
+- `--no-title-card` — Use normal scenes for first/last beats (Remotion only)
+- `--no-stats-card` — Use a normal scene for the penultimate beat (Remotion only)
 - `-o, --output <path>` -- Output base directory (overrides `outputDir`; see [Configuration](#configuration))
 
-HeyGen rendering can take ~10 minutes per minute of video; BuildStory submits,
-polls, and downloads on your behalf. Every request has a timeout so a hung
-connection or stalled response body cannot stall a render forever. Transient status-poll errors are retried,
-and a server error page surfaces as a clear HTTP status rather than an opaque
-parse error — so a long render fails fast and legibly when something is wrong.
+HeyGen processing time depends on the service and story length. BuildStory polls
+for up to ten minutes per job by default. If that deadline expires, rerun
+`render` with the same arc, settings, and output directory to resume the saved
+job. See [Operation deadlines](#operation-deadlines).
 
 ### Preview outbound content
 
@@ -143,7 +173,7 @@ includeFiles = true    # false = commit-only timeline (ignore planning files)
 [commits]
 enabled = true         # scan git commits as timeline events (default: true)
 max = 500              # cap on commits pulled, most recent first
-# since = "2026-01-01" # only commits newer than this git-understood date/revision
+# since = "2026-01-01" # passed to git log --since (a date, not a revision)
 includeMerges = false  # merge commits are usually narration noise
 # paths = ["src/**"]   # restrict to commits touching these pathspecs
 
@@ -158,13 +188,13 @@ enabled = false        # opt-in: distill coding-agent sessions into events
 
 [tts]
 voice = "nova"         # OpenAI TTS voice: nova, alloy, echo, fable, onyx, shimmer
-speed = 1.0            # Playback speed (0.25 - 4.0)
+speed = 1.0            # Remotion TTS speed (0.25–4.0); not used by HeyGen
 concurrency = 2        # Parallel TTS requests (integer, 1–64)
 model = "tts-1-hd"     # OpenAI TTS model: "tts-1-hd" (default) or "tts-1" (cheaper)
 
 [render]
-titleCard = true       # Render first/last beats as title cards (--no-title-card overrides)
-statsCard = true       # Render a stats card near the end (--no-stats-card overrides)
+titleCard = true       # Use title-card layout for first/last beats (Remotion)
+statsCard = true       # Use summary-card layout for penultimate beat (Remotion)
 
 [video]
 renderer = "remotion"  # "remotion" (default) or "heygen"
@@ -193,6 +223,10 @@ them field by field, and command-line flags take precedence over both.
   the base is `buildstory-out` inside the target repository or beside the input
   JSON. `scan --output` continues to name a single JSON file.
 
+`scan.patterns` replaces the built-in include patterns; `scan.excludes` adds to
+the built-in exclusions. The sample above therefore scans only `.planning/` and
+`docs/` for files. Omit `patterns` to use the full default set.
+
 Malformed TOML, unknown fields, incorrect types, invalid enum values, and
 out-of-range numbers stop the command before API calls. Transcript dates must be
 quoted date strings, with `since` no later than `until`.
@@ -205,6 +239,7 @@ LLM key presence checks do not authenticate those keys remotely. Payload preview
 and dry runs remain offline and require no API keys or rendering tools.
 
 API keys via `.env` file (recommended) or environment variables:
+
 - `ANTHROPIC_API_KEY` -- for Claude (narration)
 - `OPENAI_API_KEY` -- for GPT (narration) and TTS (audio generation)
 - `HEYGEN_API_KEY` -- for HeyGen avatar video rendering
@@ -218,11 +253,11 @@ The CLI automatically loads `.env` from the current working directory.
 - **ffmpeg _and_ ffprobe** -- for Remotion audio processing (mp3→wav conversion and duration measurement). HeyGen requires FFmpeg for multi-job assembly. Override the binaries with `FFMPEG_PATH` / `FFPROBE_PATH`. Both `run` and `render` check their renderer's requirements before paid work.
 - **Headless Chrome** -- for Remotion video rendering
 
-All BuildStory packages (`@buildstory/video`, `@buildstory/heygen`) install with the CLI via `pnpm install` — there is no separate install step. Rendering requires an installed Chrome/Chromium. Automatic browser downloads are disabled to avoid archive-extraction risks. Install a browser ahead of time from a trusted source, or point `PUPPETEER_EXECUTABLE_PATH` / `CHROME_PATH` at an existing binary.
+Both renderer packages (`@buildstory/video`, `@buildstory/heygen`) install with the CLI via `pnpm install` — there is no separate install step. Remotion rendering requires an installed Chrome/Chromium; HeyGen does not. Automatic browser downloads are disabled to avoid archive-extraction risks. Install a browser ahead of time from a trusted source, or point `PUPPETEER_EXECUTABLE_PATH` / `CHROME_PATH` at an existing binary.
 
 ## Narrative Styles
 
-The default style is **story** for both `run` and `narrate` (they used to disagree). Override per run with `--style` or set `style` in `buildstory.toml`.
+The default style is **story** for both `run` and `narrate`. Override per run with `--style` or set `style` in `buildstory.toml`.
 
 - **story** (default) -- Warm documentary voice. Third-person narration, punchy short sentences, stakes and tension. Like someone telling the story of how you built it.
 - **overview** -- High-level project summary. Good for stakeholder updates.
@@ -237,7 +272,7 @@ BuildStory builds its timeline from pluggable event sources, merged and sorted c
 | Source | What it contributes | Default |
 |--------|--------------------|---------|
 | **git commits** | One event per commit: message, body, changed files, and +/- stats (from `git log --numstat`). The universal backbone — works on any repo regardless of workflow. | On (when the directory is a git repo) |
-| **git tags** | Release milestones. | On |
+| **git tags** | Tagged milestones (tags need not be releases). | On when git is available, independently of `commits.enabled` |
 | **agent transcripts** | The decision trail from coding-agent sessions — what you asked for, in order — distilled from the session logs (Claude Code and pi today). Secrets are redacted. | Off (opt-in) |
 | **planning files** | Markdown artifacts, when present (see below). Enriches the story; not required. | On |
 
@@ -245,29 +280,49 @@ Planning-file detection (when those files exist):
 
 | Type | Files |
 |------|-------|
-| GStack | PLANNING.md, ARCHITECTURE.md, DECISIONS.md, ROADMAP.md, STATUS.md, CHANGELOG.md |
-| GSD | TASKS.md, TODO.md, SESSION_LOG.md, BLOCKERS.md, .planning/**/*.md |
-| Generic | ADR/, docs/, README.md |
+| GStack | PLANNING.md, PLAN.md, ARCHITECTURE.md, DECISIONS.md, ROADMAP.md, STATUS.md, CHANGELOG.md, `*.gstack`, `.gstack/**/*.md` |
+| GSD/agent files | TASKS.md, TODO.md, SESSION_LOG.md, BLOCKERS.md, `*.gsd`, `.gsd/**/*.md`, `.planning/**/*.md`, `.claude/**/*.md` |
+| Generic | `ADR/**/*.md`, `adr/**/*.md`, `docs/**/*.md`, README.md |
 
-Custom file patterns and commit options are configured in `buildstory.toml` (see [Configuration](#configuration)). To narrate purely from commit history, set `scan.includeFiles = false`; commits themselves are scanned by default whenever the target is a git repo. Agent-session transcripts are **opt-in** — enable `[transcripts]` in `buildstory.toml`. They can contain secrets, which BuildStory redacts on a best-effort basis before they enter the timeline. When both commits and transcripts are present, each commit is annotated with the session reasoning that led to it (the human asks in the window before it) — so the narrator gets each change's "why" explicitly.
+Custom file patterns and commit options live in `buildstory.toml`. The default
+commit scan includes up to 500 commits reachable from HEAD and excludes merges.
+Shallow clones and that limit can omit earlier history. File scans use current
+contents; a file's date comes from git history when available, otherwise its
+modification time. They do not reconstruct every historical version.
+
+For commit/tag history only, set `scan.includeFiles = false` and leave
+transcripts disabled. Transcript adapters for Claude Code and pi are opt-in.
+When enabled, timestamp correlation attaches up to three nearby human prompts
+to each matching commit, looking back at most 24 hours and no earlier than the
+previous commit. This is a heuristic: proximity does not prove why a change was
+made. Disable it with `transcripts.correlate = false`.
 
 ## Video Output
 
-The renderer produces an MP4 with 4 scene types mapped to narrative beat types:
+Both renderers speak the sanitized `summary` of each story beat. Remotion uses
+four layouts; card settings select layouts for existing beats, without adding
+new narration or calculating project statistics.
 
-| Scene | Beat Types | Visual |
-|-------|-----------|--------|
-| Title Card | First/last beat | Project name, date range, fade in/out |
-| Timeline Bar | idea, goal, attempt, result, side_quest | Horizontal bar filling L→R with beat text |
-| Decision Callout | obstacle, pivot, decision | Styled callout box with planning artifact quote |
-| Stats Card | Second-to-last | Event count, phase count, timeline span |
+| Remotion layout | Selected beats | Visible content |
+| --- | --- | --- |
+| Title Card | First/last, when enabled | Beat title and summary, with fades |
+| Timeline Bar | All other beats except the cases below | Beat title, summary, and progress bar |
+| Decision Callout | obstacle, pivot, decision | Beat title, summary, and an icon/accent bar |
+| Stats Card | Penultimate, when enabled and not already a title card | Beat type, title, and summary; no computed counts |
 
-Default palette: dark navy (#1a1a2e) + warm red (#e94560) + off-white text (#eaeaea).
+The default palette is dark navy (#1a1a2e), warm red (#e94560), and off-white
+(#eaeaea). Evidence quotes, code diffs, and source links are not currently shown.
+Long summaries can overflow the layouts; review the video before sharing it.
+
+Remotion writes a separate SRT with one cue per beat, aligned to its spoken
+audio. Captions are not burned into the MP4 or split into sentences. HeyGen uses
+avatar scenes with beat-type background colors and does not produce a local SRT.
+Remotion card toggles and `[tts]` settings do not apply to HeyGen.
 
 ## Architecture
 
 ```
-@buildstory/core          Pure library (no CLI, no config, no filesystem writes)
+@buildstory/core          Library (no CLI/config or direct filesystem access)
   scan(source, opts, git)   Timeline from git commits + planning artifacts
   narrate(timeline, opts)   StoryArc with classified beats via LLM
   format(arc, type, llm)    Text output per format via LLM
@@ -294,7 +349,7 @@ buildstory CLI            Thin wrapper
                               transcript sources (Claude Code, pi)
 ```
 
-`@buildstory/video` and `@buildstory/heygen` are ordinary workspace dependencies of the CLI (always installed); the commands `import()` them only at render time so `scan`, `narrate`, and `--skip-video` never load Remotion. Core never imports `fs`, `process`, or config libraries. Filesystem access goes through an injected `ArtifactSource` interface, git access through an injected `GitSource`, and agent-session access through an injected `TranscriptSource` — so core stays free of I/O and vendor specifics. TTS and video rendering live in `@buildstory/video` to keep core pure.
+`@buildstory/video` and `@buildstory/heygen` are ordinary workspace dependencies of the CLI (always installed); the commands `import()` them only at render time so `scan`, `narrate`, and `--skip-video` never load Remotion. Core has no direct filesystem or config access. Filesystem access goes through an injected `ArtifactSource` interface, git access through an injected `GitSource`, and agent-session access through an injected `TranscriptSource` — so source access stays injectable. Built-in narration providers in core make network calls through the Anthropic and OpenAI SDKs. TTS and local video rendering live in `@buildstory/video`.
 
 ## Packages
 
@@ -318,14 +373,20 @@ pnpm format           # Prettier
 
 ## Cost
 
-Typical run on a project with 50-200 events:
-- **LLM narration**: ~$0.05-0.20 (Claude Sonnet) or ~$0.02-0.10 (GPT-4o)
-- **TTS audio** (Remotion): ~$0.05-0.15 (OpenAI TTS HD, ~$0.03/1000 chars)
-- **HeyGen rendering**: ~$0.99/credit/minute of video (~$5-15 per project)
-- **Total (Remotion)**: ~$0.10-0.35 per video
-- **Total (HeyGen)**: ~$5-15 per video (avatar rendering is the main cost)
+Costs depend on input size, generated narration, cache reuse, and renderer.
+The code uses these local rate assumptions (not live billing quotes):
 
-Use `--dry-run` to see cost estimates before any API calls. The estimate is priced at the TTS model you've configured (`[tts] model`), matching what render actually calls.
+| Service/model | Rate used by the code |
+| --- | --- |
+| Claude `claude-sonnet-4-5` | $3 input / $15 output per million tokens |
+| OpenAI `gpt-4o` | $2.50 input / $10 output per million tokens |
+| OpenAI `tts-1` / `tts-1-hd` | $0.015 / $0.03 per 1,000 speech characters |
+| HeyGen | $0.99 per credit, assuming one credit per video minute |
+
+`run --dry-run` estimates from event count before narration. `render --dry-run`
+uses an existing arc and estimates only rendering. Neither subtracts cached
+work. HeyGen's dry-run estimate rounds total minutes, while budget reservations
+round each submitted job separately, so those figures can differ.
 
 Pass `--max-cost <usd>` to `run` to check each paid request against a shared
 budget. This includes every narration chunk, synthesis, text format, TTS request,
@@ -349,10 +410,23 @@ new spend. The report also prints when a paid stage fails.
 
 ### Resuming a failed render
 
-Paid work is checkpointed so a mid-render failure doesn't re-bill you on the next run:
+Use `render` with the **same story arc, settings, and output base** to recover
+rendering work. Running `run` again repeats the paid narration stage and may
+produce different beats.
 
-- **TTS (Remotion path)** — each scene's audio is written under `audio/` with a filename keyed on the beat's content (voice + speed + model + text), and recorded in `audio/manifest.json`. A re-run reuses any scene whose content is unchanged — skipping both the paid TTS call and the duration probe — and regenerates only scenes that are missing or whose beat text changed. Editing a beat never reuses stale audio.
-- **HeyGen** — job IDs and completed avatar chunks are kept in `<output>.mp4.parts/`. Rerunning with the same story, settings, and output resumes polling or downloading the existing paid jobs. Cache identity includes dimensions. Submission POSTs are never automatically retried; uncertain outcomes stop with instructions to check the HeyGen account and recover the ID. The directory is removed after successful assembly. See [paid job recovery](packages/heygen/README.md#recovering-a-paid-job) for recovery steps and legacy cache handling.
+- **TTS (Remotion):** scene filenames include both the beat index and a hash of
+  narration, voice, speed, and model. Existing nonempty files at the same index
+  can be reused. Reordering beats can therefore regenerate audio. A saved
+  `audio/manifest.json` allows duration-probe reuse; without it, files are probed
+  again. The manifest is written after all scenes finish, and cached audio is
+  not fully integrity-checked. Completed scenes are published atomically, but
+  chunks inside an unfinished long scene are not saved for reuse.
+- **HeyGen:** job IDs and completed chunks remain in `<project>.mp4.parts/` after
+  interruption. Reruns resume saved jobs and downloads. Submission POSTs are
+  never retried automatically; uncertain outcomes require checking the account
+  and recovering the ID. Successful assembly removes the parts directory, so a
+  later successful rerender starts new paid jobs. See
+  [paid job recovery](packages/heygen/README.md#recovering-a-paid-job).
 
 ### Operation deadlines
 
@@ -383,7 +457,7 @@ may already have accepted them.
 
 - **Local dumps hold everything.** `timeline.json` (and other scan dumps) embed
   `rawContent` — the full text of scanned files and commit bodies — plus the
-  absolute `rootDir` path. They're git-ignored by default; don't commit or share
+  absolute `rootDir` path. Common dump names are ignored in this repository; other names and target repositories may not ignore them. Don't commit or share
   them without reviewing. **`rawContent` is never sent to the LLM** — only event
   summaries/metadata are.
 - **Secrets are redacted at ingress** across files, git commit/tag messages, and
@@ -395,6 +469,11 @@ See [SECURITY.md](./SECURITY.md) for the full threat model (including
 prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
+
+The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–9 are
+complete; items 10–17 cover recovery, decision evidence, editorial controls, and
+video quality. Historical plans are not descriptions of implemented features.
+
 
 - **More agent-transcript adapters** — Claude Code and pi ship today (enable `[transcripts]`, see [Configuration](#configuration)); goose and other harnesses are next. Each is a thin adapter behind the harness-neutral `TranscriptSource` interface, so one shape covers every agent, and enabling several reads them all into one timeline. A future "capture mode" (recording sessions live via ACP) would drop the per-harness log parsing entirely.
 - **Sharper correlation** — commit ↔ transcript linking ships today (timestamp windows). Next: use the touched files and commit message, not just time, to pick the reasoning — and walk pi's active branch rather than all turns.

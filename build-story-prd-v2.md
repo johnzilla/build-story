@@ -4,13 +4,13 @@
 **Author:** Generated from conversation, April 5, 2026
 **Status:** Historical — original v1 spec. Superseded on its core input premise (see banner).
 
-> **⚠️ Superseded premise (2026-08).** This PRD assumes the input is GStack/GSD
-> planning artifacts. That premise no longer holds: BuildStory now reconstructs
-> the timeline primarily from **git commits**, with planning files as an optional
-> enrichment, and agent session transcripts planned as a future source. The
-> pipeline shape (scan → narrate → render), the core-library pattern, and the
-> package boundaries below are still accurate. For current behavior see the
-> [README](./README.md); for current direction see [CHECKPOINT.md](./CHECKPOINT.md).
+> **Historical design, not current product documentation.** This April 2026 PRD
+> describes planned behavior and an earlier planning-artifact focus. Current
+> inputs include git commits, optional planning files, and opt-in Claude Code/pi
+> transcripts. Rendering lives in separate video/HeyGen packages; proposed n8n,
+> MCP, and GitHub Actions integrations are not implemented product interfaces.
+> Use the [README](README.md) for actual behavior and
+> [IMPROVEMENTS.md](IMPROVEMENTS.md) for the active work list.
 
 ---
 

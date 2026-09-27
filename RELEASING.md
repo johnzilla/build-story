@@ -1,14 +1,14 @@
 # Releasing
 
-BuildStory publishes four packages from this monorepo with [Changesets] and
+BuildStory’s release configuration covers four packages from this monorepo with [Changesets] and
 pnpm. All are ESM-only and scoped under `@buildstory`:
 
 | Package | Notes |
 |---------|-------|
-| `@buildstory/core` | ships `dist/` only |
+| `@buildstory/core` | runtime files in `dist/` |
 | `@buildstory/video` | ships `dist/` **and `src/`** (the Remotion bundler compiles the composition from source at render time), tests excluded |
-| `@buildstory/heygen` | ships `dist/` only |
-| `@buildstory/cli` | ships `dist/` only; installs the `buildstory` command |
+| `@buildstory/heygen` | runtime files in `dist/` |
+| `@buildstory/cli` | runtime files in `dist/`; installs the `buildstory` command |
 
 > **Naming:** the bare npm name `buildstory` is owned by an unrelated package, so
 > the CLI publishes as **`@buildstory/cli`**. Publishing any `@buildstory/*`
@@ -16,6 +16,9 @@ pnpm. All are ESM-only and scoped under `@buildstory`:
 > your account to be a member — create it once at npmjs.com before the first
 > release. `.changeset/config.json` sets `access: "public"` so scoped packages
 > publish publicly.
+
+All tarballs also include package metadata, README, and LICENSE. These are
+maintainer instructions, not confirmation that a release is available on npm.
 
 ## One-time setup
 
@@ -31,8 +34,8 @@ pnpm. All are ESM-only and scoped under `@buildstory`:
    ```
 
    Pick the affected packages and semver bump. This writes a markdown file under
-   `.changeset/`. Commit it. `updateInternalDependencies: "patch"` means a bump
-   to `core` cascades a patch bump to its workspace dependents.
+   `.changeset/`. Commit it. Changesets can also bump workspace dependents;
+   review the resulting versions and dependency ranges in the next step.
 
 2. **Version** — apply the pending changesets (updates versions + CHANGELOGs):
 
@@ -71,11 +74,16 @@ pnpm. All are ESM-only and scoped under `@buildstory`:
    versions automatically — do **not** use `npm publish` directly, which doesn't
    understand the `workspace:` protocol.
 
-5. **Tag and push:**
+5. **Create version tags and push** after confirming publication succeeded:
 
    ```bash
+   pnpm changeset tag
    git push --follow-tags origin main
    ```
+
+`pnpm changeset tag` creates package-version tags from the current manifests.
+It does not publish packages. Confirm the working tree contains the committed
+release versions before tagging.
 
 ## Notes
 

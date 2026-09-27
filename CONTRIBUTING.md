@@ -7,6 +7,7 @@ Thanks for your interest. This is a small TypeScript monorepo; the loop is fast.
 - **Node.js 22+** (enforced via `engines`)
 - **pnpm 10** — the version is pinned in `packageManager`. Run `corepack enable`
   once and pnpm will use the exact pinned version automatically.
+- **Installed Chrome/Chromium** for Remotion rendering (not needed for unit tests).
 - **ffmpeg** and **ffprobe** on your `PATH` (for the video/TTS paths). Override
   with `FFMPEG_PATH` / `FFPROBE_PATH`.
 
@@ -28,7 +29,7 @@ node packages/cli/dist/index.js run . --dry-run
 All four must be green before anything is committed to `main`:
 
 ```bash
-pnpm build       # tsup (ESM + .d.ts) for every package
+pnpm build       # tsup: ESM bundles; library packages also emit .d.ts
 pnpm typecheck   # tsc --noEmit across all src + tests (real gate; tsup only
                  # type-checks each package's entry graph)
 pnpm lint        # eslint packages/*/src
@@ -41,7 +42,7 @@ pnpm test        # vitest across all packages
 
 | Package | What it is |
 |---------|------------|
-| `@buildstory/core` | Pure library: scan → narrate → format. **No `fs`, `process`, or config** — I/O comes through injected `ArtifactSource` / `GitSource` / `TranscriptSource`. |
+| `@buildstory/core` | Scan → narrate → format. Source access is injected; built-in LLM providers make network calls. No direct filesystem/config access. |
 | `@buildstory/video` | Remotion rendering + OpenAI TTS. Loaded on demand at render time. |
 | `@buildstory/heygen` | HeyGen avatar rendering. Loaded on demand at render time. |
 | `@buildstory/cli` | Thin wrapper (the `buildstory` command). Reads config/env, maps flags to typed inputs, calls core/video/heygen. |
@@ -54,17 +55,20 @@ Guidelines:
 - **ESM-only.** Every package is `"type": "module"` and ships ESM only (the
   remark ecosystem core depends on is ESM-only). Use `.js` import specifiers in
   TypeScript (`moduleResolution: nodenext`).
-- **Validate at boundaries** with zod: LLM JSON output, config after TOML parse,
-  and public inputs to core.
+- **Validate at boundaries.** Use Zod schemas for LLM JSON and imported data.
+  The CLI validates TOML configuration with field-specific rules before work.
 - **Never let secrets or full file contents reach the LLM or a committed file.**
   `rawContent` is stripped before narration; secrets are redacted at every
-  ingress (`redactSecrets`); scan/timeline dumps are git-ignored.
+  ingress (`redactSecrets`) and outbound content boundaries. Redaction is
+  best-effort. Only known dump names are ignored here; check custom filenames.
 
 ## Tests
 
 Vitest, colocated (`*.test.ts` next to source or under `__tests__/`). Prefer pure,
-mockable units — see `packages/video/src/tts/` (concurrency, truncation, pricing)
-and the provider tests that mock the OpenAI/HeyGen SDKs.
+mockable units — see `packages/video/src/tts/` (concurrency, splitting, pricing)
+and the provider tests for Anthropic/OpenAI SDK mocks. HeyGen tests mock HTTP
+and process failures. The real FFmpeg assembly test runs when FFmpeg and FFprobe
+are available; otherwise it is skipped. No paid API calls are needed for tests.
 
 ## Releasing
 
