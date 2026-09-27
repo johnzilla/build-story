@@ -1,3 +1,4 @@
+import { EditorialOptionsSchema } from './editorial.js'
 import { z } from 'zod'
 
 export const BeatTypeSchema = z.enum([
@@ -33,6 +34,7 @@ export const StoryArcSchema = z.object({
     style: z.string(),
     sourceTimeline: z.string(),
     warnings: z.array(z.string()).optional(),
+    editorial: EditorialOptionsSchema.extend({ wordCount: z.number().int().nonnegative(), estimatedRuntimeSeconds: z.number().int().nonnegative() }).optional(),
     review: z.object({
       version: z.literal('1'),
       beats: z.array(z.object({
@@ -52,7 +54,7 @@ export const StoryArcSchema = z.object({
 
 // Providers generate narrative claims; only local code creates the source review.
 export const GeneratedStoryArcSchema = StoryArcSchema.extend({
-  metadata: StoryArcSchema.shape.metadata.omit({ review: true }),
+  metadata: StoryArcSchema.shape.metadata.omit({ review: true, editorial: true }),
 })
 
 export const FormatTypeSchema = z.enum(['outline', 'thread', 'blog', 'video-script'])

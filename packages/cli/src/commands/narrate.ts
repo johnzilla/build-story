@@ -1,3 +1,4 @@
+import { resolveEditorial } from '../editorial.js'
 import { checkOutputDirectory, requireNarrationKey } from '../preflight.js'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
@@ -40,6 +41,9 @@ function formatTokens(n: number): string {
 export async function narrateCommand(
   timelinePath: string,
   opts: {
+    question?: string
+    pivotalEvents?: string[]
+    targetRuntime?: string
     config?: string
     format?: string
     provider?: string
@@ -53,6 +57,7 @@ export async function narrateCommand(
   // Load config from the directory containing the timeline file or cwd
   const projectRoot = dirname(resolve(timelinePath))
   const config = loadConfig(projectRoot, opts.config)
+  const editorial = resolveEditorial(config.editorial, opts)
 
   // Validate inputs before any paid call. Precedence: flag > config > default.
   const errors: string[] = []
@@ -83,7 +88,7 @@ export async function narrateCommand(
     loadSpinner.stop()
     await writePayloadPreview(opts.previewPayload, {
       provider,
-      ...buildNarrationPreview(timeline, { style }),
+      ...buildNarrationPreview(timeline, { style, ...(editorial ? { editorial } : {}) }),
     })
     return
   }
@@ -104,7 +109,7 @@ export async function narrateCommand(
   const outputDir = resolveOutputDir(opts.output, config, projectRoot, projectName)
   await checkOutputDirectory(outputDir, ['story-arc.json', 'source-review.md', ...(opts.format ? [opts.format] : ['outline', 'thread', 'blog', 'video-script']).map(type => `${type}.md`)])
 
-  const narrateOpts: NarrateOptions = { provider, style, apiKey }
+  const narrateOpts: NarrateOptions = { provider, style, apiKey, ...(editorial ? { editorial } : {}) }
 
   console.log(
     chalk.dim(`  Provider: ${provider} | Style: ${narrateOpts.style}\n`),

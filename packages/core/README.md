@@ -45,6 +45,19 @@ schemas exclude the locally generated review. Existing warnings are preserved.
 reads; adapters without it are marked as having unknown coverage. Coverage travels
 through previews and all narration chunks. Old timelines are still accepted.
 
+`NarrateOptions.editorial` accepts `centralQuestion`, `pivotalEventIds`,
+`targetRuntimeSeconds` (integer, 10–3600), `compressRoutine`, and
+`preserveOpenLoops`. `EditorialOptionsSchema` validates shape and bounds; narration
+and previews reject IDs absent from the full timeline before extraction. Prompts
+carry the sanitized brief through chunking and synthesis. Boolean controls default
+to true only when a brief is supplied. No brief preserves existing behavior.
+
+Narration saves the effective brief, word count, and runtime estimate in
+`metadata.editorial`. Missing pivotal references and runtime estimates outside
+20% of target (minimum five seconds) add warnings. Timing assumes 130 words/minute;
+it is advisory, does not truncate narration, and adds no model calls. The source
+review includes these details; actual duration comes from audio generation.
+
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for the
 full pipeline and CLI.
 

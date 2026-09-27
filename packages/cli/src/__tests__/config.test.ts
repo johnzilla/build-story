@@ -35,6 +35,20 @@ describe('loadConfig', () => {
     expect(config).toEqual({ scan: {}, commits: {}, transcripts: {}, tts: {}, render: {}, video: {}, heygen: {} })
   })
 
+  it('merges editorial settings field by field and preserves explicit false', () => {
+    const home = join(tmpDir, 'home')
+    mkdirSync(join(home, '.config', 'buildstory'), { recursive: true })
+    vi.mocked(os.homedir).mockReturnValue(home)
+    writeFileSync(join(home, '.config', 'buildstory', 'config.toml'), '[editorial]\ncentralQuestion = "Why local?"\ntargetRuntimeSeconds = 120\ncompressRoutine = true\n')
+    writeFileSync(join(tmpDir, 'buildstory.toml'), '[editorial]\ntargetRuntimeSeconds = 90\ncompressRoutine = false\npivotalEventIds = []\n')
+    expect(loadConfig(tmpDir).editorial).toEqual({ centralQuestion: 'Why local?', targetRuntimeSeconds: 90, compressRoutine: false, pivotalEventIds: [] })
+  })
+
+  it.each(['targetRuntimeSeconds = 9', 'preserveOpenLoops = "yes"', 'pivotalEventIds = [1]', 'centralQuestion = ""'])('rejects invalid editorial config: %s', setting => {
+    writeFileSync(join(tmpDir, 'buildstory.toml'), `[editorial]\n${setting}\n`)
+    expect(() => loadConfig(tmpDir)).toThrow('Invalid editorial.')
+  })
+
   it('parses project buildstory.toml', () => {
     writeFileSync(join(tmpDir, 'buildstory.toml'), 'provider = "openai"\nstyle = "technical"\n')
     const config = loadConfig(tmpDir)

@@ -1,3 +1,4 @@
+import { resolveEditorial } from '../editorial.js'
 import { checkOutputDirectory, checkVideoPrerequisites, requireNarrationKey } from '../preflight.js'
 import { buildNarrationPreview, SpendBudget, BudgetExceededError } from '@buildstory/core'
 import { writePayloadPreview } from '../preview.js'
@@ -47,6 +48,9 @@ function formatTokens(n: number): string {
 export async function run(
   path: string | undefined,
   opts: {
+    question?: string
+    pivotalEvents?: string[]
+    targetRuntime?: string
     config?: string
     provider?: string
     style?: string
@@ -67,6 +71,7 @@ export async function run(
   const rootDir = resolve(path ?? process.cwd())
   if (!(await stat(rootDir)).isDirectory()) throw new Error(`Scan target is not a directory: ${rootDir}`)
   const config = loadConfig(rootDir, opts.config)
+  const editorial = resolveEditorial(config.editorial, opts)
   const projectName = projectLabel(rootDir)
 
   console.log(chalk.bold('\n  BuildStory\n'))
@@ -134,7 +139,7 @@ export async function run(
   if (opts.previewPayload) {
     await writePayloadPreview(opts.previewPayload, {
       provider,
-      ...buildNarrationPreview(timeline, { style }),
+      ...buildNarrationPreview(timeline, { style, ...(editorial ? { editorial } : {}) }),
     })
     return { timeline, arc: undefined, outputs: {} }
   }
@@ -196,7 +201,7 @@ export async function run(
   const videoPreflight = skipVideo ? {} : await checkVideoPrerequisites(renderer, config)
 
   const budget = new SpendBudget(maxCost)
-  const narrateOpts = { provider, style, apiKey, budget }
+  const narrateOpts = { provider, style, apiKey, budget, ...(editorial ? { editorial } : {}) }
   const llmProvider = createProvider(narrateOpts)
 
   function printSpendReport(): void {

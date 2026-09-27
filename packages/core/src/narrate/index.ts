@@ -1,3 +1,4 @@
+import { applyEditorialReview } from './editorial.js'
 import type { Timeline } from '../types/timeline.js'
 import type { NarrateOptions } from '../types/options.js'
 import type { StoryArc } from '../types/story.js'
@@ -63,5 +64,5 @@ export async function narrate(
     ? chunkArcs[0]!
     : sanitizeStoryArc(await llmProvider.synthesizeArcs(chunkArcs, prepared.systemPrompt))
 
-  return reviewStoryArc(finalArc, timeline)
+  return applyEditorialReview(reviewStoryArc(finalArc, timeline), prepared.editorial)
 }

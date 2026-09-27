@@ -3,11 +3,12 @@ import { readFileSync } from 'fs'
 import { join, resolve, dirname } from 'path'
 import { homedir } from 'os'
 import { parse } from 'smol-toml'
-import type { ScanOptions } from '@buildstory/core'
+import type { EditorialOptions, ScanOptions } from '@buildstory/core'
 
 export interface BuildStoryConfig {
   provider?: 'anthropic' | 'openai'
   style?: 'technical' | 'overview' | 'retrospective' | 'pitch' | 'story'
+  editorial?: EditorialOptions
   outputDir?: string
   scan?: {
     patterns?: string[]
@@ -78,6 +79,9 @@ const strings: Rule = value => Array.isArray(value) && value.every(text)
 const integer = (min: number, max = Number.MAX_SAFE_INTEGER): Rule => value => typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max
 const oneOf = (values: readonly string[]): Rule => value => typeof value === 'string' && values.includes(value)
 const sections: Record<string, Record<string, Rule>> = {
+  editorial: { centralQuestion: value => text(value) && (value as string).trim().length <= 1000,
+    pivotalEventIds: value => strings(value) && (value as string[]).length <= 20 && (value as string[]).every(id => id.trim().length <= 200),
+    targetRuntimeSeconds: integer(10, 3600), compressRoutine: boolean, preserveOpenLoops: boolean },
   scan: { patterns: strings, excludes: strings, maxDepth: integer(0), includeFiles: boolean },
   commits: { enabled: boolean, max: integer(1), since: text, includeMerges: boolean, paths: strings },
   transcripts: { enabled: boolean, harnesses: strings, claudeCodePath: text, piPath: text,
@@ -143,6 +147,7 @@ export function loadConfig(projectRoot: string, explicitFile?: string): BuildSto
   const merged = {
     ...globalConfig,
     ...projectConfig,
+    ...((globalConfig.editorial || projectConfig.editorial) ? { editorial: { ...globalConfig.editorial, ...projectConfig.editorial } } : {}),
     scan: { ...globalConfig.scan, ...projectConfig.scan },
     commits: { ...globalConfig.commits, ...projectConfig.commits },
     transcripts: { ...globalConfig.transcripts, ...projectConfig.transcripts },

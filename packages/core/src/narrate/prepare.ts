@@ -1,3 +1,4 @@
+import { prepareEditorial, editorialPrompt } from './editorial.js'
 import type { Timeline } from '../types/timeline.js'
 import type { NarrateOptions } from '../types/options.js'
 import { sanitizeTimeline } from '../privacy/outbound.js'
@@ -5,19 +6,20 @@ import { buildSystemPrompt } from './prompts/system.js'
 import { buildTimelinePayload, estimateTokens, guardTokens } from './tokens.js'
 import { chunkTimeline } from './chunker.js'
 
-type PreparationOptions = Pick<NarrateOptions, 'style' | 'maxInputTokens'>
+type PreparationOptions = Pick<NarrateOptions, 'style' | 'maxInputTokens' | 'editorial'>
 
 /** Shared by narration and the offline preview so chunking and content match. */
 export function prepareNarration(timeline: Timeline, options: PreparationOptions) {
   const safeTimeline = sanitizeTimeline(timeline)
+  const editorial = prepareEditorial(options.editorial, safeTimeline)
   const systemPrompt = buildSystemPrompt(options.style, {
     rootDir: safeTimeline.rootDir,
     scannedAt: safeTimeline.scannedAt,
-  })
+  }) + editorialPrompt(editorial)
   const budget = Math.max(1, (options.maxInputTokens ?? 100000) - estimateTokens(systemPrompt))
   const chunks = chunkTimeline(safeTimeline, budget)
   for (const chunk of chunks) guardTokens(buildTimelinePayload(chunk), budget)
-  return { timeline: safeTimeline, systemPrompt, chunks }
+  return { timeline: safeTimeline, systemPrompt, chunks, editorial }
 }
 
 export function buildNarrationPreview(timeline: Timeline, options: PreparationOptions) {

@@ -45,7 +45,7 @@ story of the development process and explain the decisions behind it.
 12. [x] **Validate narrative claims and chronology.** Distinguish documented
     facts from inference, retain source links, surface unsupported beats, and
     disclose incomplete commit coverage and uncertain decision dates.
-13. [ ] **Add editorial control.** Choose a central question, pivotal decisions,
+13. [x] **Add editorial control.** Choose a central question, pivotal decisions,
     and target runtime; compress routine updates and preserve unresolved questions.
 14. [ ] **Show evidence on screen.** Separate spoken narration from display text;
     implement validated visual cues for diffs, errors, architecture changes,
@@ -195,4 +195,20 @@ story of the development process and explain the decisions behind it.
   budget-stop test verifies the report survives later request failures. A real
   offline CLI preview confirmed current-HEAD and cap disclosures with rawContent
   excluded. No paid calls made.
-- Next: item 13, editorial controls.
+- Item 13 complete: optional editorial briefs set a central question, pivotal
+  source IDs, and target spoken runtime. Config and run/narrate flags support
+  field-level precedence; previews and narration use the same sanitized brief.
+  Prompts compress routine updates and retain documented open loops by default
+  when a brief is supplied, with explicit configuration to change either choice.
+  Chunk synthesis receives the whole-story budget. Unknown IDs fail before paid
+  extraction; omitted pivotal sources and runtime misses add review warnings.
+  Saved metadata and source-review.md include the brief and a word-based duration
+  estimate. Full narration is preserved; semantic choices and timing remain
+  advisory and require review. Existing callers without a brief remain compatible.
+- Item 13 verification: workspace build, typecheck, lint, and all 572 tests pass.
+  Tests cover config/flag precedence, bounds, invalid pivotal IDs before paid
+  calls, redaction, preview parity, chunk synthesis, runtime estimates, omitted
+  pivotal sources, and compatibility without a brief. Real offline CLI previews
+  for both run and narrate confirmed effective config, flag overrides, source
+  selection, and target runtime. No paid calls made.
+- Next: item 14, evidence on screen.

@@ -363,6 +363,57 @@ claims before publishing. After manual edits, the saved report can be stale;
 re-narrate the timeline for a fresh review, or use the core `reviewStoryArc` helper
 with your edited arc and its original timeline. Old version-1 JSON remains accepted.
 
+### Editorial controls
+
+Choose a question to organize the story, emphasize particular sources, and set a
+spoken runtime target. These controls guide narration and synthesis; they do not
+rewrite the scanned evidence or guarantee that a model follows every instruction.
+
+```toml
+[editorial]
+centralQuestion = "Why did the project move to offline storage?"
+targetRuntimeSeconds = 90  # whole story, 10–3600 seconds
+# pivotalEventIds = ["commit-..."]  # use actual IDs from timeline.json; at most 20
+compressRoutine = true    # group minor updates into brief transitions
+preserveOpenLoops = true  # retain documented unresolved questions
+```
+
+`run` and `narrate` also accept `--question`, `--target-runtime`, and
+`--pivotal-events` (one or more event IDs). Flags override the corresponding config
+fields; other editorial settings remain in effect. Compression and open-loop
+preservation default to true when an editorial brief is supplied. Without a brief,
+existing narration behavior is unchanged.
+
+```sh
+buildstory scan ~/my-project --output ./timeline.json
+# Inspect event IDs in timeline.json, then substitute the sources you want to emphasize.
+buildstory narrate ./timeline.json --question "Why did storage change?" \
+  --target-runtime 90 --pivotal-events commit-ACTUAL_ID commit-ANOTHER_ID \
+  --preview-payload ./editorial-preview.json
+# Remove --preview-payload and its file argument to generate the story.
+```
+
+Unknown pivotal IDs fail before any model call. Use `pivotalEventIds = []` to
+clear inherited selections in project config. Pivotal sources need not be
+proven decisions: narration must still distinguish documented statements from
+inference. A central question is a focus, not evidence that its premise is true.
+
+The brief appears in offline previews and is saved in `story-arc.json` under
+`metadata.editorial`, along with spoken word count and estimated runtime. It also
+appears in `source-review.md`. Runtime uses a rough **130 words/minute** estimate
+from beat summaries. A deviation exceeding 20% (at least five seconds) or an
+omitted pivotal source adds a review warning. The pipeline continues, preserving
+the full narration; it does not cut speech or make another paid revision request.
+Actual runtime depends on voice, language, speech speed, and rendering. Review
+outputs before rendering when precise duration matters. The video-script text
+format also receives the runtime target; other text formats keep their own lengths.
+
+The model is asked to preserve unresolved questions and compress routine work;
+these semantic choices require human review. Turning off open-loop preservation
+allows omission for focus, never invented closure. As with other narration input,
+the brief is redacted before outbound use, but may still contain private project
+context. Estimates describe the generated arc and can become stale after edits.
+
 ## Video Output
 
 Both renderers speak the sanitized `summary` of each story beat. Remotion uses
@@ -548,8 +599,8 @@ prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
 
-The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–12 are
-complete; items 13–17 cover editorial controls and
+The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–13 are
+complete; items 14–17 cover
 video quality. Historical plans are not descriptions of implemented features.
 
 

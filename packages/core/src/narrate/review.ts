@@ -92,6 +92,10 @@ function escape(text: string): string {
 
 export function renderSourceReview(arc: StoryArc): string {
   const lines = ['# Source review', '', 'Source matching checks quoted text against cited summaries and excerpts. It does not verify the truth of a source or whether it supports every claim in a summary. Claim basis is model supplied. Review narration before publishing; formatted prose and video speech are not independently fact checked.', '', '## Coverage and warnings', '']
+  if (arc.metadata.editorial) {
+    const editorial = arc.metadata.editorial
+    lines.push(`Editorial brief: ${escape(JSON.stringify(editorial))}`, '', 'Runtime estimate uses 130 words/minute; actual TTS timing varies.', '')
+  }
   for (const warning of arc.metadata.warnings ?? []) lines.push(`- ${escape(warning)}`)
   if (!arc.metadata.review) lines.push('- No local source review is available. Re-narrate the timeline to generate one.')
   for (const entry of arc.metadata.review?.beats ?? []) {

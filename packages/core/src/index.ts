@@ -45,3 +45,6 @@ export { SourceExcerptSchema, EvidenceTopicSchema } from './types/evidence.js'
 export type { SourceExcerpt, EvidenceTopic } from './types/evidence.js'
 
 export { reviewStoryArc, renderSourceReview } from './narrate/review.js'
+
+export { EditorialOptionsSchema } from './types/editorial.js'
+export type { EditorialOptions } from './types/editorial.js'

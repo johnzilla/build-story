@@ -1,3 +1,4 @@
+import type { EditorialOptions } from './editorial.js'
 import type { SpendBudget } from '../budget.js'
 /** Controls the `git-commit` event source (see `scan`). */
 export interface ScanCommitOptions {
@@ -49,5 +50,6 @@ export interface NarrateOptions {
   style: 'technical' | 'overview' | 'retrospective' | 'pitch' | 'story'
   apiKey: string
   budget?: SpendBudget
+  editorial?: EditorialOptions
   maxInputTokens?: number
 }
