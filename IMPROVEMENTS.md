@@ -53,7 +53,7 @@ story of the development process and explain the decisions behind it.
 15. [x] **Improve presentation.** Add sentence captions, chapter context,
     progressive reveals, bundled fonts, overflow checks, pronunciation controls,
     consistent loudness, and purposeful opening/closing scenes.
-16. [ ] **Add storyboard review and scene previews.** Edit, reorder, and preview
+16. [x] **Add storyboard review and scene previews.** Edit, reorder, and preview
     scenes with their sources and incremental costs before a full render.
 17. [ ] **Add offline video acceptance checks.** Render a small fixture with
     synthetic audio and verify caption timing, boundaries, overflow, and output
@@ -243,4 +243,21 @@ story of the development process and explain the decisions behind it.
   Offline CLI dictionary previews passed for both renderers. A pre-existing
   recovery test now targets a named failed scene instead of assuming concurrent
   request order. No paid calls made.
-- Next: item 16, storyboard review and scene previews.
+- Item 16 complete: the offline storyboard command creates a standalone HTML
+  editor for text, scene order, inclusion, source inspection, and edited arc
+  downloads. Optional timeline review refreshes source matches and chronology.
+  Incremental Remotion TTS estimates validate scene/chunk caches and count shared
+  missing requests once. Cached speech can be played locally; optional Chrome
+  stills use full-story layouts with audio disabled and measured/estimated timing.
+  Existing review directories are refused. Edits require download and regeneration
+  for refreshed stills, sources, pronunciation, and estimates. HeyGen preview and
+  live rendering inside the editor are outside this feature.
+- Item 16 verification: workspace build, typecheck, lint, and 619 tests pass.
+  Added coverage for cache integrity, read-only estimates, duplicate speech,
+  partial caches, settings/override identity, invalid scene selection, output
+  protection, source-review refresh, inert markup, and silent full-context stills.
+  A real offline Chrome run verified cached audio loading, a 1080p selected-scene
+  still, editing/reordering/exclusion, updated costs, schema-valid exported JSON,
+  and escaped hostile markup with no page errors. The editor and still were
+  visually inspected. No paid calls made.
+- Next: item 17, offline video acceptance checks.

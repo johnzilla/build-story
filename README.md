@@ -71,6 +71,7 @@ buildstory run [path]           Full pipeline: scan -> narrate -> TTS -> render
 buildstory scan [path]          Scan git history + planning artifacts into timeline JSON
 buildstory narrate <timeline>   Generate narrative from a timeline
 buildstory render <story-arc>   Render video from an existing story arc
+buildstory storyboard <arc>     Review/edit scenes locally with optional stills
 ```
 
 `run` and `scan` take a single project path (default: current directory).
@@ -215,7 +216,7 @@ them field by field, and command-line flags take precedence over both.
 
 - `run <directory>` and `scan <directory>` discover `buildstory.toml` inside that
   target directory (the current directory when omitted).
-- `narrate <timeline.json>` and `render <story-arc.json>` discover configuration
+- `narrate <timeline.json>`, `render <story-arc.json>`, and `storyboard <story-arc.json>` discover configuration
   beside the input JSON. Use `--config /path/to/custom.toml` to select a project
   config explicitly.
 - `--config` reads that exact file, replaces automatic project-config discovery,
@@ -535,6 +536,56 @@ fonts, reveals, normalization, card toggles, and Remotion voice/speed settings d
 not apply to it. Pronunciation dictionaries and manual speech text apply to both
 renderers. HeyGen does not produce a local SRT.
 
+### Storyboard review before rendering
+
+Review an existing story arc locally before paying for speech or video:
+
+```bash
+buildstory storyboard ./buildstory-out/my-project/story-arc.json \
+  --config ./buildstory.toml --timeline ./buildstory-out/my-project/timeline.json \
+  --output ./review-v1
+
+# Add all Remotion scene stills, or use --scene 2 for just the second scene
+buildstory storyboard ./buildstory-out/my-project/story-arc.json \
+  --config ./buildstory.toml --output ./review-stills --stills
+```
+
+Open `review-v1/storyboard.html` in your browser. Edit titles, chapters, narration,
+display text, and speech overrides; reorder or exclude scenes; inspect saved
+source references and evidence; then **Download edited story arc**. Edits stay
+in the page until downloaded; closing or reloading discards them. The page never
+calls an API or writes to your repository. A speech override takes priority over
+narration edits; edit or clear it to change spoken words.
+
+`storyboard` discovers configuration beside the input JSON. Pass `--config` for
+the original project configuration. Unlike pipeline output, `--output` is the
+exact review directory; it must not already exist and defaults to `storyboard/`
+beside the input. The directory includes a sanitized arc and `source-review.md`.
+`--timeline` refreshes source matching and chronology warnings locally. Without
+it, saved review metadata is retained. Matching quotations does not establish
+that every narration claim is supported.
+
+Optional `--stills` requires installed Chrome/Chromium; it uses the same Remotion
+composition and full-story context as the final video. `--scene` is 1-based and
+implies a still for that scene only. Previews are silent, use measured cached
+speech duration where available and estimated duration otherwise, and do not
+require FFmpeg or API credentials. Each still is one moment in the scene; it
+cannot verify every caption or animated reveal. HeyGen layouts are not previewed.
+
+The page estimates **additional Remotion TTS cost** at the bundled model rates,
+validating the same scene/chunk caches used during rendering and counting shared
+missing chunks once. `--cache-dir` points to the project output containing
+`audio/`; it defaults to the input directory. Valid complete audio is copied for
+local playback. Estimates are a cache snapshot, exclude narration and video
+service charges, and assume edited text has no cache until regenerated. A partial
+cache can have zero additional TTS cost if all chunks exist but need assembly.
+
+Stills, durations, source reviews, and audio are not regenerated inside the page.
+After downloading edits, rerun `storyboard` with the original `--timeline`,
+`--cache-dir`, and `--config`, choosing a new output directory. This also reapplies
+configured pronunciation rules from the edited summaries. Inspect the new review
+before using the edited JSON with `buildstory render`.
+
 ## Architecture
 
 ```
@@ -559,13 +610,14 @@ renderers. HeyGen does not produce a local SRT.
   estimateHeyGenCost(...)   Credit/USD cost estimation
 
 buildstory CLI            Thin wrapper
-  run, scan, narrate, render  Commands mapping to core/video/heygen functions
+  run, scan, narrate, render  Pipeline commands
+  storyboard                  Offline review, editing, costs, and optional stills
   config.ts                   TOML config loader
   adapters/                   ArtifactSource (fs + redaction), GitSource,
                               transcript sources (Claude Code, pi)
 ```
 
-`@buildstory/video` and `@buildstory/heygen` are ordinary workspace dependencies of the CLI (always installed); the commands `import()` them only at render time so `scan`, `narrate`, and `--skip-video` never load Remotion. Core has no direct filesystem or config access. Filesystem access goes through an injected `ArtifactSource` interface, git access through an injected `GitSource`, and agent-session access through an injected `TranscriptSource` — so source access stays injectable. Built-in narration providers in core make network calls through the Anthropic and OpenAI SDKs. TTS and local video rendering live in `@buildstory/video`.
+`@buildstory/video` and `@buildstory/heygen` are ordinary workspace dependencies of the CLI (always installed); the commands load their runtimes for rendering or storyboard review, so `scan`, `narrate`, and `--skip-video` never load Remotion. Core has no direct filesystem or config access. Filesystem access goes through an injected `ArtifactSource` interface, git access through an injected `GitSource`, and agent-session access through an injected `TranscriptSource` — so source access stays injectable. Built-in narration providers in core make network calls through the Anthropic and OpenAI SDKs. TTS and local video rendering live in `@buildstory/video`.
 
 ## Packages
 

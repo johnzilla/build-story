@@ -20,6 +20,21 @@ response is decoded to PCM before the chunks are joined into one scene WAV.
 The complete narration remains in the scene and SRT; budget checks apply to
 every speech request, and payload previews list every chunk.
 
+## Offline storyboard previews
+
+`inspectSpeechCache(beats, outputDir, { voice, speed, model })` reads and validates
+existing scene/chunk caches without writing or calling a provider. It returns
+measured or estimated durations, complete cached audio paths, missing chunk keys,
+and incremental TTS estimates with duplicates counted once in scene order.
+
+`renderStoryboardStills(arc, { outputDir, durations, scenes?, browserExecutable? })`
+renders PNGs using the full-story composition with audio disabled. Durations must
+contain one positive number per beat; optional `scenes` uses **zero-based** indices.
+Installed Chrome/Chromium is required. No TTS or FFmpeg runs. Each PNG captures one
+moment and does not check every caption/reveal. Use a dedicated output directory;
+the library can replace existing PNGs. The CLI `storyboard` command adds an editable
+HTML review and refuses existing output directories. Its scene flag is 1-based.
+
 ## Evidence on screen
 
 `displayText` supplies short on-screen copy; speech uses `speechText ?? summary`

@@ -36,6 +36,7 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
   storyArc,
   audioManifest,
   fps,
+  silentPreview = false,
   captions = true,
   showTitleCard = true,
   showStatsCard = true,
@@ -69,7 +70,7 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
             <Presentation chapter={`${String(i + 1).padStart(2, '0')} / ${beatsWithFrames.length} · ${beat.chapter ?? beat.type.replace('_', ' ')}`} captions={cues.filter(cue => cue.beatIndex === i)} startFrame={startFrame}>
             {visual ? <EvidenceCard beat={beat} visual={visual} citations={visual.panels.map(panel => sourceCaption(panel.sourceEventId, review, panel.text))} /> : <SceneForBeat beat={beat} isFirst={isFirst} isLast={isLast} isStats={isStats} {...(isFirst && storyArc.metadata.editorial?.centralQuestion ? { context: storyArc.metadata.editorial.centralQuestion } : isLast && storyArc.beats.some(b => b.type === 'open_loop') ? { context: 'Open questions remain in this story.' } : {})} />}
             </Presentation>
-            {audioManifest.scenes[i] && (
+            {!silentPreview && audioManifest.scenes[i] && (
               <Sequence from={timing.audioStartFrame - startFrame} durationInFrames={timing.audioEndFrame - timing.audioStartFrame}>
                 <Audio src={audioManifest.scenes[i]!.filePath} />
               </Sequence>

@@ -19,3 +19,7 @@ export type { FrameSchedule, SceneFrames } from './timing.js'
 
 export { createCaptionCues, captionSegments } from './captions.js'
 export type { CaptionCue } from './captions.js'
+
+export { inspectSpeechCache } from './tts/inspect.js'
+export type { SpeechCacheScene } from './tts/inspect.js'
+export { renderStoryboardStills } from './render/storyboard.js'

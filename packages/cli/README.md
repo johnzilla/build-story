@@ -25,7 +25,17 @@ writes to `<target>/buildstory-out/<project>/`. `narrate` and `render` discover
 config beside their input JSON; use `--config` and `--output` explicitly when
 continuing an earlier run. `--max-cost` is available only on `run`.
 
-Commands: `run`, `scan`, `narrate`, `render`. See the
+`storyboard <story-arc.json>` creates an offline HTML editor for scene text,
+ordering, inclusion, sources, and incremental Remotion TTS estimates. Open the
+HTML and download edits to save them. `--stills` previews all scenes with installed
+Chrome/Chromium; `--scene 2` previews only scene 2. No API credentials or FFmpeg
+are needed. Use `--timeline` to refresh source matching and `--cache-dir` to point
+to project output containing `audio/`. Config is discovered beside the input;
+`--config` selects the original project settings. Its `--output` is an exact new
+directory (default: `storyboard/` beside input), which must not already exist.
+Regenerate after edits to refresh stills, reviews, pronunciation, and estimates.
+
+Commands: `run`, `scan`, `narrate`, `render`, `storyboard`. See the
 [monorepo README](https://github.com/johnzilla/build-story#readme) for full options,
 configuration (`buildstory.toml`), and cost/data-safety notes.
 

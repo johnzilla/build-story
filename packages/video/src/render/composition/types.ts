@@ -12,6 +12,7 @@ export type BuildStoryInputProps = {
   audioManifest: AudioManifest
   fps: number
   /** Render first/last beats as title cards. Default true. */
+  silentPreview?: boolean
   captions?: boolean
   showTitleCard?: boolean
   /** Render the second-to-last beat as a stats card. Default true. */

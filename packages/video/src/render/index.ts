@@ -46,7 +46,7 @@ export interface RenderOptions {
 // tsup bundles everything into a single dist/index.js, so import.meta.url
 // points to packages/video/dist/index.js. Go up one level to package root.
 // The Remotion bundler needs the TypeScript source entry (it runs its own webpack/esbuild pass).
-function resolveCompositionEntry(): string {
+export function resolveCompositionEntry(): string {
   const thisFile = fileURLToPath(import.meta.url)
   const thisDir = path.dirname(thisFile)
 

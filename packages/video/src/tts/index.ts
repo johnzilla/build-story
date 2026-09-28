@@ -26,13 +26,13 @@ export function estimateTTSCost(
   }
 }
 
-function legacyHash(text: string, opts: { voice: string; speed: number; model: string }): string {
+export function legacyHash(text: string, opts: { voice: string; speed: number; model: string }): string {
   return createHash('sha1')
     .update(`${text.length > MAX_TTS_CHARS ? 'full-narration-v2\x00' : ''}${opts.voice}\x00${opts.speed}\x00${opts.model}\x00${text}`)
     .digest('hex').slice(0, 12)
 }
 
-async function loadManifest(path: string): Promise<Map<string, AudioRecord>> {
+export async function loadManifest(path: string): Promise<Map<string, AudioRecord>> {
   try {
     const parsed = JSON.parse(await readFile(path, 'utf8'))
     if (parsed?.version === '2' && parsed.entries && typeof parsed.entries === 'object') {

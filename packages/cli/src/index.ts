@@ -28,6 +28,7 @@ import { run } from './commands/run.js'
 import { scanCommand } from './commands/scan.js'
 import { narrateCommand } from './commands/narrate.js'
 import { renderCommand } from './commands/render.js'
+import { storyboardCommand } from './commands/storyboard.js'
 
 const program = new Command()
 
@@ -103,5 +104,16 @@ program
   .action(async (storyArc: string, opts) => {
     await renderCommand(storyArc, opts)
   })
+
+program
+  .command('storyboard <story-arc>')
+  .description('Review and edit a story locally, with optional offline Remotion stills')
+  .option('-c, --config <path>', 'Config file path')
+  .option('-o, --output <directory>', 'New review directory (default: storyboard beside input; must not exist)')
+  .option('--cache-dir <directory>', 'Project output containing audio/ (default: input directory)')
+  .option('--timeline <file>', 'Refresh source review against this timeline')
+  .option('--stills', 'Render PNG scene previews using installed Chrome/Chromium')
+  .option('--scene <number>', 'Render only this 1-based scene preview, in full-story context')
+  .action(storyboardCommand)
 
 await program.parseAsync(process.argv)
