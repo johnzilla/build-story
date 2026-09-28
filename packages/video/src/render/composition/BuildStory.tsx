@@ -1,3 +1,5 @@
+import { createCaptionCues } from '../../captions.js'
+import { Presentation } from './Presentation.js'
 import { EvidenceCard } from './scenes/EvidenceCard.js'
 import { evidenceForBeat, sourceCaption } from './evidence.js'
 import { createFrameSchedule } from '../../timing.js'
@@ -17,13 +19,14 @@ import { StatsCard } from './scenes/StatsCard.js'
 // StatsCard: inserted as second-to-last before closing title
 const DECISION_TYPES: Set<BeatType> = new Set(['obstacle', 'pivot', 'decision'])
 
-function SceneForBeat({ beat, isFirst, isLast, isStats }: {
+function SceneForBeat({ beat, isFirst, isLast, isStats, context }: {
+  context?: string
   beat: BeatWithFrames
   isFirst: boolean
   isLast: boolean
   isStats: boolean
 }): React.ReactElement {
-  if (isFirst || isLast) return <TitleCard beat={beat} isClosing={isLast} />
+  if (isFirst || isLast) return <TitleCard beat={beat} isClosing={isLast && !isFirst} {...(context ? { context } : {})} />
   if (isStats) return <StatsCard beat={beat} />
   if (DECISION_TYPES.has(beat.type)) return <DecisionCallout beat={beat} />
   return <TimelineBar beat={beat} />
@@ -33,12 +36,14 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
   storyArc,
   audioManifest,
   fps,
+  captions = true,
   showTitleCard = true,
   showStatsCard = true,
 }) => {
   if (storyArc.beats.length !== audioManifest.scenes.length) {
     throw new Error('Timing: beat/scene count mismatch')
   }
+  const cues = captions ? createCaptionCues(storyArc.beats, audioManifest, fps) : []
   const schedule = createFrameSchedule(audioManifest, fps)
   const beatsWithFrames: BeatWithFrames[] = storyArc.beats.map((beat, i) => {
     const timing = schedule.scenes[i]!
@@ -61,7 +66,9 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
         const visual = evidenceForBeat(beat, review)
         return (
           <Sequence key={`beat-${i}`} from={startFrame} durationInFrames={frames}>
-            {visual ? <EvidenceCard beat={beat} visual={visual} citations={visual.panels.map(panel => sourceCaption(panel.sourceEventId, review, panel.text))} /> : <SceneForBeat beat={beat} isFirst={isFirst} isLast={isLast} isStats={isStats} />}
+            <Presentation chapter={`${String(i + 1).padStart(2, '0')} / ${beatsWithFrames.length} · ${beat.chapter ?? beat.type.replace('_', ' ')}`} captions={cues.filter(cue => cue.beatIndex === i)} startFrame={startFrame}>
+            {visual ? <EvidenceCard beat={beat} visual={visual} citations={visual.panels.map(panel => sourceCaption(panel.sourceEventId, review, panel.text))} /> : <SceneForBeat beat={beat} isFirst={isFirst} isLast={isLast} isStats={isStats} {...(isFirst && storyArc.metadata.editorial?.centralQuestion ? { context: storyArc.metadata.editorial.centralQuestion } : isLast && storyArc.beats.some(b => b.type === 'open_loop') ? { context: 'Open questions remain in this story.' } : {})} />}
+            </Presentation>
             {audioManifest.scenes[i] && (
               <Sequence from={timing.audioStartFrame - startFrame} durationInFrames={timing.audioEndFrame - timing.audioStartFrame}>
                 <Audio src={audioManifest.scenes[i]!.filePath} />

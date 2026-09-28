@@ -61,7 +61,7 @@ With `--skip-video` or `--include-text`, you also get:
 - `video-script.md` -- narrated script with scene markers
 
 Text lengths are prompt instructions, not enforced limits. Review drafts before
-publishing. Video narration comes from each story beat’s `summary`; editing
+publishing. Video narration comes from each story beat’s `speechText` override or `summary`; editing
 `video-script.md` does not change a rendered video.
 
 ## CLI
@@ -193,7 +193,12 @@ speed = 1.0            # Remotion TTS speed (0.25–4.0); not used by HeyGen
 concurrency = 2        # Parallel TTS requests (integer, 1–64)
 model = "tts-1-hd"     # OpenAI TTS model: "tts-1-hd" (default) or "tts-1" (cheaper)
 
+[tts.pronunciations]
+# SQL = "sequel"       # literal, case-sensitive whole-term speech replacement
+
 [render]
+captions = true       # Burn estimated sentence captions into Remotion video
+normalizeLoudness = true # Normalize temporary render audio; keep TTS cache unchanged
 titleCard = true       # Use title-card layout for first/last beats (Remotion)
 statsCard = true       # Use summary-card layout for penultimate beat (Remotion)
 
@@ -416,7 +421,7 @@ context. Estimates describe the generated arc and can become stale after edits.
 
 ## Video Output
 
-Both renderers speak the sanitized `summary` of each story beat. Remotion uses
+Both renderers speak sanitized `speechText` when present, otherwise `summary`. Remotion uses
 the layouts below; card settings select layouts for existing beats, without adding
 new narration or calculating project statistics.
 
@@ -425,14 +430,15 @@ new narration or calculating project statistics.
 | Evidence Card | Beats with source-matched visual panels; takes precedence over other cards | Quoted evidence, source references, and short display text |
 | Title Card | First/last, when enabled and without evidence panels | Beat title and display text, with fades |
 | Timeline Bar | All other beats except the cases below | Beat title, display text, and progress bar |
-| Decision Callout | obstacle, pivot, decision | Beat title, display text, and an icon/accent bar |
-| Stats Card | Penultimate, when enabled and not already a title card | Beat type, title, and display text; no computed counts |
+| Decision Callout | obstacle, pivot, decision | Beat title, display text, type accent, and progress bar |
+| Stats Card | Penultimate, when enabled and not already a title card | Beat type, title, display text, and progress bar; no computed counts |
 
 The default palette is dark navy (#1a1a2e), warm red (#e94560), and off-white
 (#eaeaea). Evidence cards use a related palette with accents by visual kind.
 `displayText` is an optional short takeaway (maximum 240 characters); older beats
-fall back to their full `summary`. Speech and SRT always retain the full summary.
-Long legacy summaries can still overflow; review the video before sharing it.
+fall back to their full `summary`. SRT and visible captions retain readable summary text, while pronunciation overrides
+can change speech. Text shrinks within readable limits; unresolved overflow stops
+rendering with an error asking you to shorten display text or evidence.
 
 ### Evidence panels
 
@@ -478,10 +484,56 @@ produce them. Short display text and matched panels remain available in the save
 story arc; editing only display content leaves narration-based TTS caches reusable.
 HeyGen warns that evidence panels and separate display text require Remotion.
 
-Remotion writes a separate SRT with one cue per beat, aligned to its spoken
-audio. Captions are not burned into the MP4 or split into sentences. HeyGen uses
-avatar scenes with beat-type background colors and does not produce a local SRT.
-Remotion card toggles and `[tts]` settings do not apply to HeyGen.
+### Captions, typography, and pacing
+
+Remotion burns sentence captions into the video by default and writes the same
+cues to a separate SRT. Long sentences split into pieces of at most 90 Unicode
+characters where possible. Timing is estimated in proportion to text length within
+each scene's measured audio duration; it is **not forced alignment**. Pronunciation,
+pauses, and speech cadence can move actual sentence boundaries. For unusually short
+audio, pieces merge to keep every cue at least one frame long. Use
+`[render] captions = false` for a clean picture; SRT is still written.
+
+Every scene has its position and optional `chapter` label (otherwise beat type).
+Evidence panels reveal in sequence. The opening card establishes the question
+using the editorial brief when available; the closing card frames the current
+outcome or unresolved work. These reuse existing beats and add no spoken scenes.
+Matched evidence still takes precedence over cards. Fades use each scene's own
+length, and caption space is reserved so panels do not cover the text.
+
+IBM Plex Sans and IBM Plex Mono are bundled with their SIL Open Font License;
+rendering loads them locally. Unsupported characters can use system fallback
+fonts. Titles, narration cards, evidence text, chapters, and captions are measured
+after font loading. Overlong content that cannot fit at the minimum font size
+fails rather than silently clipping. Short `displayText` is preferable to long
+legacy summaries. Source citations remain bounded labels; full references stay
+in the source review.
+
+### Pronunciation and audio level
+
+Use `[tts.pronunciations]` for up to 50 literal, case-sensitive whole-term
+replacements, or edit a beat's optional `speechText` directly. Dictionary terms
+are limited to 100 characters and replacements to 200. Longest matching terms
+win; replacements do not recurse. A configured dictionary derives speech from
+`summary` and overrides saved `speechText`, so repeated runs are consistent.
+Without a dictionary, manual speech text remains in effect. Captions, display
+text, and evidence keep their original spelling. Both renderers, request previews,
+cost estimates, and cache keys use the effective speech text. Review a render
+payload preview before paying for pronunciation changes.
+
+Remotion normalizes temporary scene audio with two FFmpeg passes, targeting
+-16 LUFS integrated loudness, a -1.5 dBTP peak limit, and an 11 LU loudness range.
+This reduces level differences between scenes; it does not guarantee identical
+perceived loudness for every voice or clip. Silence is copied unchanged. Cached
+TTS files are preserved, durations stay bounded to the original scene, and audio
+processing has a deadline. Use `[render] normalizeLoudness = false` to retain the
+original levels. There are no additional provider calls for captions, fonts, or
+normalization.
+
+HeyGen retains its avatar scenes and provider-managed audio. Local captions,
+fonts, reveals, normalization, card toggles, and Remotion voice/speed settings do
+not apply to it. Pronunciation dictionaries and manual speech text apply to both
+renderers. HeyGen does not produce a local SRT.
 
 ## Architecture
 
@@ -646,8 +698,8 @@ prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
 
-The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–14 are
-complete; items 15–17 cover
+The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–15 are
+complete; items 16–17 cover
 video quality. Historical plans are not descriptions of implemented features.
 
 

@@ -86,12 +86,17 @@ describe('TTS recovery with real disk state', () => {
   })
 
   it('checkpoints successful in-flight scenes when another scene fails', async () => {
-    gen.mockImplementationOnce(async (_c, _t, path) => { await writeFile(path, wav()) }).mockRejectedValueOnce(new Error('speech failed'))
+    let failSecond = true
+    gen.mockImplementation(async (_c, text, path) => {
+      if (text === 'two' && failSecond) throw new Error('speech failed')
+      await writeFile(path, wav())
+    })
     await expect(orchestrateTTS(['one', 'two', 'three'].map(beat), out, opts)).rejects.toThrow('speech failed')
     expect(Object.keys((await manifest()).entries)).toHaveLength(1)
+    failSecond = false
     gen.mockClear()
     await orchestrateTTS(['one', 'two', 'three'].map(beat), out, opts)
-    expect(gen.mock.calls.map(call => call[1])).toEqual(['two', 'three'])
+    expect(gen.mock.calls.map(call => call[1]).sort()).toEqual(['three', 'two'])
   })
 
   it('reports manifest-write failures and reuses the completed WAV on retry', async () => {
@@ -123,4 +128,14 @@ describe('TTS recovery with real disk state', () => {
     await orchestrateTTS([beat(summary)], out, opts)
     expect(gen).toHaveBeenCalledOnce()
   })
+})
+
+it('keys and sends pronunciation text, retaining cached audio when only captions change', async () => {
+  await orchestrateTTS([{ ...beat('SQL'), speechText: 'sequel' }], out, opts)
+  expect(gen.mock.calls[0]?.[1]).toBe('sequel')
+  gen.mockClear()
+  await orchestrateTTS([{ ...beat('SQL database'), speechText: 'sequel' }], out, opts)
+  expect(gen).not.toHaveBeenCalled()
+  await orchestrateTTS([{ ...beat('SQL'), speechText: 'S Q L' }], out, opts)
+  expect(gen.mock.calls[0]?.[1]).toBe('S Q L')
 })

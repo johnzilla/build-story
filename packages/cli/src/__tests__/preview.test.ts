@@ -103,3 +103,13 @@ describe('offline payload previews', () => {
   })
 
 })
+
+it.each(['remotion', 'heygen'])('previews manual pronunciation text for %s without sending captions as speech', async renderer => {
+  const input = join(dir, 'pronunciation.json'), output = join(dir, 'speech.json')
+  await writeFile(input, JSON.stringify({ version: '1', metadata: { generatedAt: '', style: 'story', sourceTimeline: 'demo' }, beats: [{ type: 'decision', title: 'SQL', summary: 'SQL storage.', speechText: 'Sequel storage.', evidence: [], sourceEventIds: [], significance: 2 }] }))
+  await renderCommand(input, { renderer, previewPayload: output })
+  const text = await readFile(output, 'utf8')
+  expect(text).toContain('Sequel storage.')
+  expect(text).not.toContain('SQL storage.')
+  expect(fetchMock).not.toHaveBeenCalled()
+})

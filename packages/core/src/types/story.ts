@@ -18,6 +18,8 @@ export const StoryBeatSchema = z.object({
   type: BeatTypeSchema,
   title: z.string(),
   summary: z.string(),
+  speechText: z.string().trim().min(1).optional(),
+  chapter: z.string().trim().min(1).max(80).optional(),
   displayText: z.string().trim().min(1).max(240).optional(),
   visual: EvidenceVisualSchema.optional(),
   evidence: z.array(z.string()),
@@ -57,6 +59,7 @@ export const StoryArcSchema = z.object({
 
 // Providers generate narrative claims; only local code creates the source review.
 export const GeneratedStoryArcSchema = StoryArcSchema.extend({
+  beats: z.array(StoryBeatSchema.omit({ speechText: true })),
   metadata: StoryArcSchema.shape.metadata.omit({ review: true, editorial: true }),
 })
 

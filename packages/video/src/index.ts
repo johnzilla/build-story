@@ -16,3 +16,6 @@ export type { BuildStoryInputProps, BeatWithFrames } from './render/composition/
 
 export { createFrameSchedule, VIDEO_FPS } from './timing.js'
 export type { FrameSchedule, SceneFrames } from './timing.js'
+
+export { createCaptionCues, captionSegments } from './captions.js'
+export type { CaptionCue } from './captions.js'

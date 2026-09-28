@@ -6,6 +6,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 import {
   narrate,
+  applyPronunciations,
   renderSourceReview,
   format,
   createProvider,
@@ -132,7 +133,7 @@ export async function narrateCommand(
   // Step 1: Narrate — timeline -> StoryArc
   const narrateStart = Date.now()
   const narrateSpinner = ora(`[1/${totalSteps}] Extracting story arc from timeline...`).start()
-  const arc = await narrate(timeline, narrateOpts, llmProvider)
+  const arc = applyPronunciations(await narrate(timeline, narrateOpts, llmProvider), config.tts?.pronunciations)
   narrateSpinner.succeed(
     chalk.green(`[1/${totalSteps}] Story arc extracted — ${arc.beats.length} beats (${formatDuration(Date.now() - narrateStart)})`),
   )

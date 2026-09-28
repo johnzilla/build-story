@@ -49,6 +49,14 @@ describe('loadConfig', () => {
     expect(() => loadConfig(tmpDir)).toThrow('Invalid editorial.')
   })
 
+  it('validates presentation options and pronunciation dictionaries', () => {
+    writeFileSync(join(tmpDir, 'buildstory.toml'), '[render]\ncaptions = false\nnormalizeLoudness = true\n[tts.pronunciations]\nSQL = "sequel"\n')
+    expect(loadConfig(tmpDir).tts?.pronunciations).toEqual({ SQL: 'sequel' })
+    expect(loadConfig(tmpDir).render?.captions).toBe(false)
+    writeFileSync(join(tmpDir, 'buildstory.toml'), '[tts.pronunciations]\nSQL = ""\n')
+    expect(() => loadConfig(tmpDir)).toThrow('Invalid tts.pronunciations')
+  })
+
   it('parses project buildstory.toml', () => {
     writeFileSync(join(tmpDir, 'buildstory.toml'), 'provider = "openai"\nstyle = "technical"\n')
     const config = loadConfig(tmpDir)

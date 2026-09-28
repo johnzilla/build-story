@@ -11,13 +11,13 @@ export function estimateHeyGenCost(
 ): HeyGenCostEstimate {
   const totalSeconds = beats.reduce((sum, b) => {
     if (b.duration_seconds !== undefined) return sum + b.duration_seconds
-    const words = b.summary.split(/\s+/).length
+    const words = (b.speechText ?? b.summary).split(/\s+/).length
     return sum + (words / 150) * 60
   }, 0)
   const estimatedMinutes = totalSeconds / 60
   const creditsRequired = Math.ceil(estimatedMinutes * CREDITS_PER_MINUTE)
   return {
-    sceneCount: beats.reduce((sum, beat) => sum + splitNarration(sanitizeOutboundText(beat.summary), 1500).length, 0),
+    sceneCount: beats.reduce((sum, beat) => sum + splitNarration(sanitizeOutboundText(beat.speechText ?? beat.summary), 1500).length, 0),
     estimatedMinutes,
     creditsRequired,
     estimatedCostUSD: creditsRequired * USD_PER_CREDIT,

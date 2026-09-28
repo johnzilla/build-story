@@ -67,6 +67,14 @@ preserves whitespace. Raw content is not consulted or sent to generate panels.
 After manual visual edits, run `reviewStoryArc` with the original timeline again.
 Labels and source claims still require human review.
 
+Beats optionally carry `chapter` (up to 80 characters) and a manually supplied
+`speechText` pronunciation override. Providers cannot generate `speechText` via
+the response schema. `applyPronunciations(arc, rules)` produces sanitized speech
+from each summary using bounded literal whole-term replacements; display text,
+captions, and source evidence retain their original spelling. `PronunciationsSchema`
+validates dictionaries. Configured rules override saved speech text; absent rules
+preserve manual overrides.
+
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for the
 full pipeline and CLI.
 

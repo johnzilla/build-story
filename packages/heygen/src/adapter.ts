@@ -38,8 +38,8 @@ function beatToScenes(
   beat: StoryBeat,
   opts: AdaptOptions,
 ): { scenes: HeyGenScene[]; warning: string | null } {
-  if (!beat.summary.trim()) throw new Error(`Beat "${beat.title}" requires nonempty narration`)
-  const texts = splitNarration(beat.summary, HEYGEN_CHAR_LIMIT)
+  if (!(beat.speechText ?? beat.summary).trim()) throw new Error(`Beat "${beat.title}" requires nonempty narration`)
+  const texts = splitNarration(beat.speechText ?? beat.summary, HEYGEN_CHAR_LIMIT)
 
   const scenes: HeyGenScene[] = texts.map((inputText) => ({
     character: {

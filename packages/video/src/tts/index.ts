@@ -17,7 +17,7 @@ export function estimateTTSCost(
   model: TTSModel = DEFAULT_TTS_MODEL,
 ): TTSCostEstimate {
   beats = sanitizeOutboundValue(beats)
-  const totalCharacters = beats.reduce((sum, b) => sum + prepareSpeechText(b.summary).length, 0)
+  const totalCharacters = beats.reduce((sum, b) => sum + prepareSpeechText(b.speechText ?? b.summary).length, 0)
   return {
     totalCharacters,
     // Priced at the model actually used to synthesize (single source of truth).
@@ -84,7 +84,7 @@ export async function orchestrateTTS(
   const pending = new Map<string, Promise<{ filePath: string; durationSeconds: number }>>()
   let completed = 0
   const tasks = beats.map((beat, i) => async () => {
-    const text = prepareSpeechText(beat.summary)
+    const text = prepareSpeechText(beat.speechText ?? beat.summary)
     const key = audioKey(text, generateOpts)
     let task = pending.get(key)
     if (task) options.budget?.reuse('TTS shared scene')
@@ -94,7 +94,7 @@ export async function orchestrateTTS(
         let record = await readAudio(filePath, records.get(key))
         if (!record) {
           // Search legacy index-based names at every position; never trust manifest paths.
-          const hash = legacyHash(beat.summary, generateOpts)
+          const hash = legacyHash(text, generateOpts)
           for (const file of legacyFiles.filter(name => name.endsWith(`-${hash}.wav`))) {
             record = await readAudio(join(audioDir, file))
             if (record) { await atomicCopy(join(audioDir, file), filePath); break }

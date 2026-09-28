@@ -50,7 +50,7 @@ story of the development process and explain the decisions behind it.
 14. [x] **Show evidence on screen.** Separate spoken narration from display text;
     implement validated visual cues for diffs, errors, architecture changes,
     alternative comparisons, and outcomes.
-15. [ ] **Improve presentation.** Add sentence captions, chapter context,
+15. [x] **Improve presentation.** Add sentence captions, chapter context,
     progressive reveals, bundled fonts, overflow checks, pronunciation controls,
     consistent loudness, and purposeful opening/closing scenes.
 16. [ ] **Add storyboard review and scene previews.** Edit, reorder, and preview
@@ -225,4 +225,22 @@ story of the development process and explain the decisions behind it.
   matches, layout priority, unchanged captions, and HeyGen disclosure. Six real
   1080p Remotion stills (one per visual kind) rendered using synthetic source
   material and local silent audio; each was visually inspected. No paid calls.
-- Next: item 15, presentation improvements.
+- Item 15 complete: estimated sentence captions share one screen/SRT schedule;
+  chapters and scene positions provide context, evidence panels reveal in sequence,
+  and opening/closing cards frame the question and remaining work. Bundled IBM
+  Plex fonts include their license; text is measured after loading, shrinks within
+  readable limits, and fails explicitly on unresolved overflow. Pronunciation
+  dictionaries/manual speech text propagate through both renderers, previews,
+  costs, and audio caches without changing readable captions or evidence. Remotion
+  normalizes temporary audio with two FFmpeg passes and bounded concurrency;
+  source caches remain untouched. Caption alignment is estimated, not forced.
+- Item 15 verification: workspace build, typecheck, lint, and all 605 tests pass.
+  Coverage includes caption boundaries/Unicode/short audio, pronunciation matching,
+  cache reuse, both renderer previews, config validation, and real FFmpeg loudness
+  and duration measurements. A real 1080p synthetic-audio render verified fonts,
+  captions, chapter context, evidence reveals, opening/closing cards, overflow
+  rejection, and matching audio/video duration. Rendered frames were inspected.
+  Offline CLI dictionary previews passed for both renderers. A pre-existing
+  recovery test now targets a named failed scene instead of assuming concurrent
+  request order. No paid calls made.
+- Next: item 16, storyboard review and scene previews.

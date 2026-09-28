@@ -1,3 +1,4 @@
+import { PronunciationsSchema } from '@buildstory/core'
 import { PROVIDERS, STYLES, TTS_VOICES, TTS_MODELS, RENDERERS } from './validate.js'
 import { readFileSync } from 'fs'
 import { join, resolve, dirname } from 'path'
@@ -37,6 +38,7 @@ export interface BuildStoryConfig {
     correlate?: boolean
   }
   tts?: {
+    pronunciations?: Record<string, string>
     voice?: string
     speed?: number
     concurrency?: number
@@ -44,6 +46,8 @@ export interface BuildStoryConfig {
     model?: 'tts-1' | 'tts-1-hd'
   }
   render?: {
+    captions?: boolean
+    normalizeLoudness?: boolean
     titleCard?: boolean
     statsCard?: boolean
   }
@@ -87,9 +91,9 @@ const sections: Record<string, Record<string, Rule>> = {
   transcripts: { enabled: boolean, harnesses: strings, claudeCodePath: text, piPath: text,
     since: value => text(value) && Number.isFinite(Date.parse(value as string)),
     until: value => text(value) && Number.isFinite(Date.parse(value as string)), correlate: boolean },
-  tts: { voice: oneOf(TTS_VOICES), model: oneOf(TTS_MODELS), concurrency: integer(1, 64),
+  tts: { pronunciations: value => PronunciationsSchema.safeParse(value).success, voice: oneOf(TTS_VOICES), model: oneOf(TTS_MODELS), concurrency: integer(1, 64),
     speed: value => typeof value === 'number' && Number.isFinite(value) && value >= 0.25 && value <= 4 },
-  render: { titleCard: boolean, statsCard: boolean },
+  render: { captions: boolean, normalizeLoudness: boolean, titleCard: boolean, statsCard: boolean },
   video: { renderer: oneOf(RENDERERS) },
   heygen: { avatarId: text, voiceId: text },
 }

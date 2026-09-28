@@ -6,7 +6,7 @@ import { writeFile, mkdir, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import chalk from 'chalk'
 import ora from 'ora'
-import { scan, narrate, format, createProvider, renderSourceReview } from '@buildstory/core'
+import { applyPronunciations, scan, narrate, format, createProvider, renderSourceReview } from '@buildstory/core'
 import type { FormatType, StoryArc } from '@buildstory/core'
 import { loadConfig, toScanOptions, resolveOutputDir, projectLabel } from '../config.js'
 import { createFsSource } from '../adapters/fs-source.js'
@@ -223,7 +223,7 @@ export async function run(
     // Step 2: Narrate
     const narrateStart = Date.now()
     const narrateSpinner = activeSpinner = ora(`[2/${totalSteps}] Extracting story arc...`).start()
-    arc = await narrate(timeline, narrateOpts, llmProvider)
+    arc = applyPronunciations(await narrate(timeline, narrateOpts, llmProvider), config.tts?.pronunciations)
     narrateSpinner.succeed(
       chalk.green(
         `[2/${totalSteps}] Story arc extracted — ${arc.beats.length} beats (${formatDuration(Date.now() - narrateStart)})`,
@@ -339,6 +339,8 @@ export async function run(
           srtPath,
           showTitleCard,
           showStatsCard,
+          captions: config.render?.captions ?? true,
+          normalizeLoudness: config.render?.normalizeLoudness ?? true,
           // Use the Chrome/Chromium preflight already located, so a machine where
           // preflight passes always renders (no second, divergent discovery).
           ...(videoPreflight.chromePath ? { browserExecutable: videoPreflight.chromePath } : {}),

@@ -51,3 +51,5 @@ export type { EditorialOptions } from './types/editorial.js'
 
 export { EvidenceVisualSchema } from './types/visual.js'
 export type { EvidenceVisual } from './types/visual.js'
+
+export { applyPronunciations, PronunciationsSchema } from './pronunciation.js'

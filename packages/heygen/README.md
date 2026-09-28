@@ -22,7 +22,7 @@ narration can therefore require more paid work than older truncated renders.
 
 This renderer outputs MP4 only; it does not produce a local SRT. It requires
 FFmpeg for multi-job assembly, and uses HeyGen voice settings rather than the
-CLI’s Remotion `[tts]` settings.
+CLI’s Remotion voice/speed settings; pronunciation dictionaries apply to both renderers.
 
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for details.
 
@@ -66,3 +66,10 @@ but does not serialize downloads or final assembly.
 ## License
 
 [MIT](./LICENSE)
+
+## Pronunciation
+
+Narration uses a beat's optional `speechText`, falling back to `summary`. The CLI
+applies `[tts.pronunciations]` dictionaries for both renderers, and previews/cost
+estimates reflect effective speech. Captions, font assets, and local loudness
+normalization belong to the Remotion pipeline and are not applied by this adapter.

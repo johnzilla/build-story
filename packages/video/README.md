@@ -9,8 +9,10 @@ import { TTS_PRICE_PER_1000_CHARS } from '@buildstory/video/pricing'
 ```
 
 Turns a `StoryArc` into a narrated MP4 using per-scene TTS and a Remotion
-composition. It also writes a separate SRT, with one cue per beat; subtitles are
-not burned into the MP4. Narration uses beat summaries, not `video-script.md`.
+composition. Estimated sentence captions are burned into the MP4 by default and
+written to a separate SRT. Set render option `captions: false` for SRT only.
+Narration uses optional beat `speechText`, falling back to `summary`; captions
+retain summary spelling. The renderer does not speak `video-script.md`.
 
 Long narration is split into requests of at most 3,900 characters, preferring
 sentence or whitespace boundaries and preserving Unicode characters. Each
@@ -20,7 +22,8 @@ every speech request, and payload previews list every chunk.
 
 ## Evidence on screen
 
-`displayText` supplies short on-screen copy while TTS and SRT use the full summary.
+`displayText` supplies short on-screen copy; speech uses `speechText ?? summary`
+and captions use readable summary text.
 Older beats fall back to summary text. A typed `visual` can show source quotes,
 code diffs, errors, architecture descriptions, alternative comparisons, or reported
 outcomes. Panels take precedence over title/stats cards, so those defaults cannot
@@ -32,6 +35,26 @@ text and source IDs. Missing/stale matches fall back to ordinary layouts; malfor
 visual schemas fail validation before rendering. To refresh edited panels, call
 core `reviewStoryArc(arc, timeline)`. This checks source text, not semantic truth.
 Changing display text or panels does not change speech or invalidate audio caches.
+
+## Presentation
+
+Captions split at sentence boundaries, then at up to 90 Unicode characters for
+long sentences. Cues divide measured scene audio by text length; they are estimates,
+not forced alignment. Very short audio merges cues to preserve positive durations.
+The same `createCaptionCues` schedule drives the screen and SRT.
+
+Scenes show chapter/position context. Evidence panels reveal sequentially; opening
+and closing cards use existing beats and the editorial question where available.
+IBM Plex Sans and Mono are bundled under the included SIL Open Font License.
+Fonts load locally; unsupported characters can fall back to system fonts.
+`FitText` measures after font loading, shrinks within readable limits, and cancels
+rendering when text still overflows. Shorten display text or evidence to fix it.
+
+`normalizeLoudness` defaults to true: two-pass FFmpeg normalization targets -16
+LUFS, -1.5 dBTP, and LRA 11 on temporary render copies. Cached TTS files remain
+unchanged. Silence is copied as-is; duration is capped at the original audio
+length. Normalization is bounded to two concurrent jobs and a per-process deadline.
+Set `normalizeLoudness: false` to keep original levels.
 
 ## Recovery
 

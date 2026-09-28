@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto'
+import { withConcurrency } from '../tts/concurrency.js'
+import { normalizeSceneAudio } from './loudness.js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { getFfmpegPath } from '../tts/ffmpeg.js'
@@ -22,6 +25,8 @@ export interface RenderProgress {
 }
 
 export interface RenderOptions {
+  captions?: boolean
+  normalizeLoudness?: boolean
   outputPath: string
   srtPath: string
   /** Render the first/last beats as title cards (default true). */
@@ -88,14 +93,21 @@ export async function renderVideo(
   const audioPublicDir = path.join(bundleLocation, 'audio')
   await mkdir(audioPublicDir, { recursive: true })
 
+  const copies = new Map<string, Promise<void>>()
   const audioManifestForRemotion: typeof audioManifest = {
     ...audioManifest,
-    scenes: await Promise.all(
-      audioManifest.scenes.map(async (scene) => {
-        const filename = path.basename(scene.filePath)
-        await copyFile(scene.filePath, path.join(audioPublicDir, filename))
+    scenes: await withConcurrency(
+      audioManifest.scenes.map((scene) => async () => {
+        const filename = `${createHash('sha256').update(scene.filePath).digest('hex').slice(0, 24)}.wav`
+        let task = copies.get(filename)
+        if (!task) {
+          task = options.normalizeLoudness === false ? copyFile(scene.filePath, path.join(audioPublicDir, filename))
+            : normalizeSceneAudio(scene.filePath, path.join(audioPublicDir, filename), scene.durationSeconds)
+          copies.set(filename, task)
+        }
+        await task
         return { ...scene, filePath: `/audio/${filename}` }
-      }),
+      }), 2,
     ),
   }
 
@@ -103,6 +115,7 @@ export async function renderVideo(
     storyArc,
     audioManifest: audioManifestForRemotion,
     fps: VIDEO_FPS,
+    captions: options.captions ?? true,
     showTitleCard: options.showTitleCard ?? true,
     showStatsCard: options.showStatsCard ?? true,
   }

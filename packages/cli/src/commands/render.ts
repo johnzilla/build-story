@@ -1,3 +1,4 @@
+import { applyPronunciations } from '@buildstory/core'
 import { checkOutputDirectory, checkVideoPrerequisites } from '../preflight.js'
 import { writePayloadPreview } from '../preview.js'
 import { readFile, mkdir } from 'node:fs/promises'
@@ -50,7 +51,7 @@ export async function renderCommand(
 
   // Load and validate story arc (T-04-09: parse through Zod schema)
   const raw = await readFile(resolve(storyArcPath), 'utf-8')
-  const storyArc: StoryArc = sanitizeStoryArc(StoryArcSchema.parse(JSON.parse(raw)))
+  const storyArc: StoryArc = applyPronunciations(sanitizeStoryArc(StoryArcSchema.parse(JSON.parse(raw))), config.tts?.pronunciations)
 
   const projectName = storyArc.metadata.sourceTimeline
     ? projectLabel(storyArc.metadata.sourceTimeline)
@@ -82,7 +83,7 @@ export async function renderCommand(
         provider: 'openai',
         stage: 'speech-generation',
         note: 'Authentication omitted. Lists all scenes; cached audio may skip requests. No preflight or API calls made.',
-        requests: storyArc.beats.flatMap((beat) => prepareSpeechChunks(beat.summary).map((input) => ({
+        requests: storyArc.beats.flatMap((beat) => prepareSpeechChunks(beat.speechText ?? beat.summary).map((input) => ({
           model: ttsModel,
           voice: ttsVoice,
           input,
@@ -215,6 +216,8 @@ export async function renderCommand(
       srtPath,
       showTitleCard,
       showStatsCard,
+      captions: config.render?.captions ?? true,
+      normalizeLoudness: config.render?.normalizeLoudness ?? true,
       // Reuse the Chrome/Chromium preflight located, so a machine where preflight
       // passes always renders.
       ...(preflight.chromePath ? { browserExecutable: preflight.chromePath } : {}),
