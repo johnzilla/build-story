@@ -18,6 +18,21 @@ response is decoded to PCM before the chunks are joined into one scene WAV.
 The complete narration remains in the scene and SRT; budget checks apply to
 every speech request, and payload previews list every chunk.
 
+## Evidence on screen
+
+`displayText` supplies short on-screen copy while TTS and SRT use the full summary.
+Older beats fall back to summary text. A typed `visual` can show source quotes,
+code diffs, errors, architecture descriptions, alternative comparisons, or reported
+outcomes. Panels take precedence over title/stats cards, so those defaults cannot
+hide evidence. They include source citations, with matching excerpt locators where
+available. Text is escaped by React; visuals never load URLs or execute markup.
+
+Panels must have saved matches in `metadata.review` and still match the beat's
+text and source IDs. Missing/stale matches fall back to ordinary layouts; malformed
+visual schemas fail validation before rendering. To refresh edited panels, call
+core `reviewStoryArc(arc, timeline)`. This checks source text, not semantic truth.
+Changing display text or panels does not change speech or invalidate audio caches.
+
 ## Recovery
 
 Scene filenames use a SHA-256 key derived from outbound narration, voice, speed,

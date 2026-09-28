@@ -31,7 +31,7 @@ export function reviewStoryArc(input: StoryArc, original: Timeline): StoryArc {
     })
     const sources = sourceEventIds.map(id => events.get(id)!)
     if (!sources.length) notes.push('No valid sourceEventIds; this beat is unsupported.')
-    const matchedEvidence: Array<{ text: string; eventIds: string[] }> = []
+    const matchedEvidence: Array<{ text: string; eventIds: string[]; references?: string[] }> = []
     const unmatchedEvidence: string[] = []
     for (const text of beat.evidence) {
       const quote = normalize(text)
@@ -42,6 +42,30 @@ export function reviewStoryArc(input: StoryArc, original: Timeline): StoryArc {
         : []
       if (matches.length) matchedEvidence.push({ text, eventIds: matches })
       else unmatchedEvidence.push(text)
+    }
+    let visual = beat.visual
+    if (visual) {
+      const matches = visual.panels.map(panel => sources.find(source => source.id === panel.sourceEventId &&
+        !/\[(?:REDACTED|LOCAL_PATH)[^\]]*\]/i.test(panel.text) &&
+        [source.summary, ...(source.excerpts ?? []).map(excerpt => excerpt.text)]
+          .some(passage => (visual?.kind === 'diff' || visual?.kind === 'error')
+            ? passage.replace(/\r\n/g, '\n').includes(panel.text.replace(/\r\n/g, '\n'))
+            : normalize(passage).includes(normalize(panel.text)))))
+      if (matches.some(source => !source) || (visual.kind === 'diff' && !visual.panels.some(panel => /^[+-]/m.test(panel.text)))) {
+        notes.push('Evidence visual omitted: panel text did not match its cited source summary or excerpt.')
+        visual = undefined
+      } else {
+        visual.panels.forEach((panel, index) => {
+          const references = (matches[index]!.excerpts ?? [])
+            .filter(excerpt => (visual?.kind === 'diff' || visual?.kind === 'error')
+              ? excerpt.text.replace(/\r\n/g, '\n').includes(panel.text.replace(/\r\n/g, '\n'))
+              : normalize(excerpt.text).includes(normalize(panel.text)))
+            .map(excerpt => excerpt.locator.kind === 'lines'
+              ? `Scanned lines ${excerpt.locator.startLine}-${excerpt.locator.endLine}`
+              : `${excerpt.locator.role} turn ${excerpt.locator.turnIndex}`)
+          matchedEvidence.push({ text: panel.text, eventIds: [matches[index]!.id], references })
+        })
+      }
     }
     if (!beat.evidence.length) notes.push('No evidence supplied; review the claims against sources.')
     if (unmatchedEvidence.length) notes.push(`${unmatchedEvidence.length} evidence item(s) could not be matched to cited summaries or excerpts; paraphrases also require review.`)
@@ -77,7 +101,8 @@ export function reviewStoryArc(input: StoryArc, original: Timeline): StoryArc {
       notes,
     })
     warnings.push(...notes.map(note => `Beat ${beatIndex + 1} "${beat.title}": ${note}`))
-    return { ...beat, sourceEventIds }
+    const { visual: _originalVisual, ...rest } = beat
+    return { ...rest, sourceEventIds, ...(visual ? { visual } : {}) }
   })
   return StoryArcSchema.parse({
     ...arc, beats,

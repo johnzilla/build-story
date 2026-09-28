@@ -1,3 +1,4 @@
+import { EvidenceVisualSchema } from './visual.js'
 import { EditorialOptionsSchema } from './editorial.js'
 import { z } from 'zod'
 
@@ -17,6 +18,8 @@ export const StoryBeatSchema = z.object({
   type: BeatTypeSchema,
   title: z.string(),
   summary: z.string(),
+  displayText: z.string().trim().min(1).max(240).optional(),
+  visual: EvidenceVisualSchema.optional(),
   evidence: z.array(z.string()),
   claimBasis: z.enum(['documented', 'inference']).optional(),
   sourceEventIds: z.array(z.string()),
@@ -40,7 +43,7 @@ export const StoryArcSchema = z.object({
       beats: z.array(z.object({
         beatIndex: z.number().int().nonnegative(),
         status: z.enum(['source-matched', 'needs-review', 'inference']),
-        matchedEvidence: z.array(z.object({ text: z.string(), eventIds: z.array(z.string()) })),
+        matchedEvidence: z.array(z.object({ text: z.string(), eventIds: z.array(z.string()), references: z.array(z.string()).optional() })),
         unmatchedEvidence: z.array(z.string()),
         sources: z.array(z.object({
           eventId: z.string(), path: z.string().optional(), date: z.string(),

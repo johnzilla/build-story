@@ -76,6 +76,9 @@ export function adaptStoryArc(arc: StoryArc, opts: AdaptOptions): AdaptResult {
   const validatedOpts = AdaptOptionsSchema.parse(opts)
 
   const warnings: string[] = []
+  if (validatedArc.beats.some(beat => beat.visual || beat.displayText)) {
+    warnings.push('HeyGen uses spoken summaries only; evidence panels and separate display text require the Remotion renderer.')
+  }
   const scenes: HeyGenScene[] = []
 
   for (const beat of validatedArc.beats) {

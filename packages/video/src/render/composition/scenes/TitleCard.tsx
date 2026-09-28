@@ -44,7 +44,7 @@ export const TitleCard: React.FC<{ beat: BeatWithFrames; isClosing: boolean }> =
           marginTop: 24,
           textAlign: 'center',
         }}>
-          {beat.summary}
+          {beat.displayText ?? beat.summary}
         </p>
       )}
       {isClosing && (
@@ -56,7 +56,7 @@ export const TitleCard: React.FC<{ beat: BeatWithFrames; isClosing: boolean }> =
           marginTop: 24,
           opacity: 0.7,
         }}>
-          {beat.summary}
+          {beat.displayText ?? beat.summary}
         </p>
       )}
     </AbsoluteFill>

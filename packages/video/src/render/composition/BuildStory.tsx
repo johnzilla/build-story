@@ -1,3 +1,5 @@
+import { EvidenceCard } from './scenes/EvidenceCard.js'
+import { evidenceForBeat, sourceCaption } from './evidence.js'
 import { createFrameSchedule } from '../../timing.js'
 import React from 'react'
 import { AbsoluteFill, Sequence, Audio } from 'remotion'
@@ -55,9 +57,11 @@ export const BuildStoryComposition: React.FC<BuildStoryInputProps> = ({
         const isLast = showTitleCard && i === beatsWithFrames.length - 1
         const isStats = showStatsCard && i === beatsWithFrames.length - 2
 
+        const review = storyArc.metadata.review?.beats.find(entry => entry.beatIndex === i)
+        const visual = evidenceForBeat(beat, review)
         return (
           <Sequence key={`beat-${i}`} from={startFrame} durationInFrames={frames}>
-            <SceneForBeat beat={beat} isFirst={isFirst} isLast={isLast} isStats={isStats} />
+            {visual ? <EvidenceCard beat={beat} visual={visual} citations={visual.panels.map(panel => sourceCaption(panel.sourceEventId, review, panel.text))} /> : <SceneForBeat beat={beat} isFirst={isFirst} isLast={isLast} isStats={isStats} />}
             {audioManifest.scenes[i] && (
               <Sequence from={timing.audioStartFrame - startFrame} durationInFrames={timing.audioEndFrame - timing.audioStartFrame}>
                 <Audio src={audioManifest.scenes[i]!.filePath} />

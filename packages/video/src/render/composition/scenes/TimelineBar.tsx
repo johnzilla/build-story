@@ -56,7 +56,7 @@ export const TimelineBar: React.FC<{ beat: BeatWithFrames }> = ({ beat }) => {
           marginBottom: 40,
           opacity: 0.9,
         }}>
-          {beat.summary}
+          {beat.displayText ?? beat.summary}
         </p>
         {/* Timeline progress bar */}
         <div style={{ width: '100%', height: 6, backgroundColor: 'rgba(234, 234, 234, 0.15)', borderRadius: 3 }}>

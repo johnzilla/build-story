@@ -58,7 +58,7 @@ export const StatsCard: React.FC<{ beat: BeatWithFrames }> = ({ beat }) => {
           opacity: 0.9,
           maxWidth: 800,
         }}>
-          {beat.summary}
+          {beat.displayText ?? beat.summary}
         </p>
       </div>
     </AbsoluteFill>

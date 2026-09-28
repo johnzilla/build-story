@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import type { StoryArc } from '@buildstory/core'
-import { sanitizeStoryArc } from '@buildstory/core'
+import { sanitizeStoryArc, StoryArcSchema } from '@buildstory/core'
 import type { AudioManifest } from '../tts/types.js'
 import { generateSRT } from './srt.js'
 import { findChrome } from '../preflight.js'
@@ -59,7 +59,7 @@ export async function renderVideo(
   audioManifest: AudioManifest,
   options: RenderOptions,
 ): Promise<void> {
-  storyArc = sanitizeStoryArc(storyArc)
+  storyArc = StoryArcSchema.parse(sanitizeStoryArc(storyArc))
   // Validate timing and captions before expensive bundling or rendering.
   const srt = generateSRT(storyArc.beats, audioManifest, VIDEO_FPS)
   // Always supply an installed browser to BOTH renderer calls. Omitting it

@@ -58,6 +58,15 @@ Narration saves the effective brief, word count, and runtime estimate in
 it is advisory, does not truncate narration, and adds no model calls. The source
 review includes these details; actual duration comes from audio generation.
 
+`StoryBeat.displayText` is optional short screen copy (maximum 240 characters),
+separate from spoken `summary`. `EvidenceVisualSchema` defines an optional `visual`
+with a known kind and one or two bounded, attributed text panels. Narration review
+keeps only panels matched to cited summaries/excerpts, records their matches and
+applicable locators, and warns when visuals are omitted. Code/error text matching
+preserves whitespace. Raw content is not consulted or sent to generate panels.
+After manual visual edits, run `reviewStoryArc` with the original timeline again.
+Labels and source claims still require human review.
+
 See the [monorepo README](https://github.com/johnzilla/build-story#readme) for the
 full pipeline and CLI.
 

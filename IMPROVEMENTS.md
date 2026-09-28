@@ -47,7 +47,7 @@ story of the development process and explain the decisions behind it.
     disclose incomplete commit coverage and uncertain decision dates.
 13. [x] **Add editorial control.** Choose a central question, pivotal decisions,
     and target runtime; compress routine updates and preserve unresolved questions.
-14. [ ] **Show evidence on screen.** Separate spoken narration from display text;
+14. [x] **Show evidence on screen.** Separate spoken narration from display text;
     implement validated visual cues for diffs, errors, architecture changes,
     alternative comparisons, and outcomes.
 15. [ ] **Improve presentation.** Add sentence captions, chapter context,
@@ -211,4 +211,18 @@ story of the development process and explain the decisions behind it.
   pivotal sources, and compatibility without a brief. Real offline CLI previews
   for both run and narrate confirmed effective config, flag overrides, source
   selection, and target runtime. No paid calls made.
-- Next: item 14, evidence on screen.
+- Item 14 complete: optional short displayText is separate from spoken summaries.
+  Typed evidence panels cover quotes, diffs, errors, architecture descriptions,
+  alternatives, and reported outcomes. Local review requires source matches;
+  unsupported panels are omitted with warnings. Remotion rechecks saved text/ID
+  matches, displays source references and matching locators, and gives evidence
+  precedence over bookend/stats cards. Markup stays literal and no assets are
+  fetched. Diff/log text must already exist in shared source data; the scanner
+  does not retrieve patches. HeyGen discloses its unsupported visual fields.
+- Item 14 verification: workspace build, typecheck, lint, and all 593 tests pass.
+  Added checks for source matching, raw-only/uncited evidence rejection, diff
+  whitespace, panel bounds, correct excerpt locators, escaped markup, stale
+  matches, layout priority, unchanged captions, and HeyGen disclosure. Six real
+  1080p Remotion stills (one per visual kind) rendered using synthetic source
+  material and local silent audio; each was visually inspected. No paid calls.
+- Next: item 15, presentation improvements.

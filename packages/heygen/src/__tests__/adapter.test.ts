@@ -292,3 +292,9 @@ it('splits a long beat across multiple ten-scene jobs without dropping text', ()
   expect(result.chunks.flat().map(scene => scene.voice.input_text).join('')).toBe(summary)
   expect(result.chunks.flat().every(scene => scene.voice.input_text.length <= 1500)).toBe(true)
 })
+
+it('warns that evidence panels and display text are Remotion-only while preserving speech', () => {
+  const result = adaptStoryArc(makeArc([makeBeat({ summary: 'Speak all of this.', displayText: 'Short label' })]), defaultOpts)
+  expect(result.warnings.join(' ')).toContain('Remotion renderer')
+  expect(result.chunks[0]?.[0]?.voice.input_text).toBe('Speak all of this.')
+})

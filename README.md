@@ -417,19 +417,66 @@ context. Estimates describe the generated arc and can become stale after edits.
 ## Video Output
 
 Both renderers speak the sanitized `summary` of each story beat. Remotion uses
-four layouts; card settings select layouts for existing beats, without adding
+the layouts below; card settings select layouts for existing beats, without adding
 new narration or calculating project statistics.
 
 | Remotion layout | Selected beats | Visible content |
 | --- | --- | --- |
-| Title Card | First/last, when enabled | Beat title and summary, with fades |
-| Timeline Bar | All other beats except the cases below | Beat title, summary, and progress bar |
-| Decision Callout | obstacle, pivot, decision | Beat title, summary, and an icon/accent bar |
-| Stats Card | Penultimate, when enabled and not already a title card | Beat type, title, and summary; no computed counts |
+| Evidence Card | Beats with source-matched visual panels; takes precedence over other cards | Quoted evidence, source references, and short display text |
+| Title Card | First/last, when enabled and without evidence panels | Beat title and display text, with fades |
+| Timeline Bar | All other beats except the cases below | Beat title, display text, and progress bar |
+| Decision Callout | obstacle, pivot, decision | Beat title, display text, and an icon/accent bar |
+| Stats Card | Penultimate, when enabled and not already a title card | Beat type, title, and display text; no computed counts |
 
 The default palette is dark navy (#1a1a2e), warm red (#e94560), and off-white
-(#eaeaea). Evidence quotes, code diffs, and source links are not currently shown.
-Long summaries can overflow the layouts; review the video before sharing it.
+(#eaeaea). Evidence cards use a related palette with accents by visual kind.
+`displayText` is an optional short takeaway (maximum 240 characters); older beats
+fall back to their full `summary`. Speech and SRT always retain the full summary.
+Long legacy summaries can still overflow; review the video before sharing it.
+
+### Evidence panels
+
+Narration can emit an optional typed `visual` with one or two panels:
+
+```json
+{
+  "kind": "comparison",
+  "panels": [
+    {"label": "alternative", "text": "The remote option required a network connection.", "sourceEventId": "commit-ACTUAL_ID"},
+    {"label": "chosen", "text": "Local storage allowed edits to continue offline.", "sourceEventId": "commit-ANOTHER_ID"}
+  ]
+}
+```
+
+Visual kinds are `quote`, `diff`, `error`, `architecture`, `comparison`, and
+`outcome`. Architecture changes and alternative comparisons use labeled source
+passages, not generated diagrams. Diff/error panels use monospace text; diff
+lines beginning with `+` or `-` receive addition/removal colors. Outcome panels
+show source-reported results, not independently verified measurements.
+
+Each panel is limited to 12–360 characters and eight lines. Labels are limited
+to `evidence`, `before`, `after`, `alternative`, `chosen`, `observed`, and `expected`.
+Local narration review requires panel text to match the specified source's summary
+or excerpts, and that source must also appear in the beat's `sourceEventIds`.
+Prose matching normalizes whitespace; diff/error matching preserves it except for
+Windows line endings. Diff visuals also require an addition/removal line. Unknown
+sources, missing matches, or redaction placeholders remove the entire visual and
+add a review warning. Labels and interpretations still need human review.
+
+Rendering rechecks panel text/IDs against saved source matches; stale or absent
+matches use the ordinary beat layout. After editing panels, use `reviewStoryArc`
+with the original timeline to refresh matches. Schema-invalid panels fail validation.
+The screen shows available paths or commit hashes, plus a matching excerpt's line
+or turn reference when available. These are readable citations, not clickable or
+revision-pinned links. Matching source text is not proof that it is true.
+
+Panels render literal text: HTML, scripts, and URLs are never executed or fetched.
+The legacy freeform `visual_cue` remains descriptive only. The scanner does not
+fetch code patches or logs; diff/error visuals require that text to already exist
+in a summary or excerpt. No raw file contents are added to outbound requests to
+produce them. Short display text and matched panels remain available in the saved
+story arc; editing only display content leaves narration-based TTS caches reusable.
+HeyGen warns that evidence panels and separate display text require Remotion.
 
 Remotion writes a separate SRT with one cue per beat, aligned to its spoken
 audio. Captions are not burned into the MP4 or split into sentences. HeyGen uses
@@ -599,8 +646,8 @@ prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
 
-The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–13 are
-complete; items 14–17 cover
+The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–14 are
+complete; items 15–17 cover
 video quality. Historical plans are not descriptions of implemented features.
 
 

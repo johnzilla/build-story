@@ -75,7 +75,7 @@ export const DecisionCallout: React.FC<{ beat: BeatWithFrames }> = ({ beat }) =>
           margin: 0,
           opacity: 0.9,
         }}>
-          {beat.summary}
+          {beat.displayText ?? beat.summary}
         </p>
         {/* Left accent bar */}
         <div style={{
