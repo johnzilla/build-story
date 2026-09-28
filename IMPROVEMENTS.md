@@ -55,7 +55,7 @@ story of the development process and explain the decisions behind it.
     consistent loudness, and purposeful opening/closing scenes.
 16. [x] **Add storyboard review and scene previews.** Edit, reorder, and preview
     scenes with their sources and incremental costs before a full render.
-17. [ ] **Add offline video acceptance checks.** Render a small fixture with
+17. [x] **Add offline video acceptance checks.** Render a small fixture with
     synthetic audio and verify caption timing, boundaries, overflow, and output
     validity. Add these checks alongside the rendering changes they validate.
 
@@ -260,4 +260,21 @@ story of the development process and explain the decisions behind it.
   still, editing/reordering/exclusion, updated costs, schema-valid exported JSON,
   and escaped hostile markup with no page errors. The editor and still were
   visually inspected. No paid calls made.
-- Next: item 17, offline video acceptance checks.
+- Item 17 complete: a separate `pnpm test:acceptance` suite renders a synthetic
+  three-scene fixture through the production 1080p pipeline. It checks H.264/AAC
+  decoding, exact frame count, stream durations, audio/silence windows, SRT timing,
+  visible caption boundaries and changes, chapter boundaries, and explicit
+  overflow rejection. Chrome/Chromium and FFmpeg/FFprobe are required; missing
+  tools fail instead of skipping. Artifacts remain for inspection. A separate
+  CI job has a 15-minute limit and retains available artifacts for seven days.
+- Item 17 verification: build, typecheck, lint, all 619 regular tests, and all four
+  real-render acceptance tests pass locally. Three representative rendered PNGs
+  were visually inspected. No paid calls made. The new GitHub job awaits its first
+  remote run; local checks do not establish runner-specific success.
+- Final documentation sweep: reviewed the root/package READMEs, contributor,
+  release, security, and historical guidance. Corrected stale command counts,
+  palette values, and roadmap status; added storyboard options, review privacy,
+  acceptance prerequisites, artifact handling, and release checks. Local file
+  links and diff whitespace checks pass. Historical documents remain labeled.
+- All 17 items in the September review checklist and the final documentation
+  sweep are complete.

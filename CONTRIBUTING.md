@@ -43,7 +43,7 @@ pnpm test        # vitest across all packages
 | Package | What it is |
 |---------|------------|
 | `@buildstory/core` | Scan → narrate → format. Source access is injected; built-in LLM providers make network calls. No direct filesystem/config access. |
-| `@buildstory/video` | Remotion rendering + OpenAI TTS. Loaded on demand at render time. |
+| `@buildstory/video` | Remotion rendering + OpenAI TTS. Loaded on demand for rendering and storyboard review. |
 | `@buildstory/heygen` | HeyGen avatar rendering. Loaded on demand at render time. |
 | `@buildstory/cli` | Thin wrapper (the `buildstory` command). Reads config/env, maps flags to typed inputs, calls core/video/heygen. |
 
@@ -69,6 +69,29 @@ mockable units — see `packages/video/src/tts/` (concurrency, splitting, pricin
 and the provider tests for Anthropic/OpenAI SDK mocks. HeyGen tests mock HTTP
 and process failures. The real FFmpeg assembly test runs when FFmpeg and FFprobe
 are available; otherwise it is skipped. No paid API calls are needed for tests.
+
+### Offline video acceptance
+
+After `pnpm build`, run `pnpm test:acceptance` when changing rendering, timing,
+captions, audio assembly, fonts, or layout. This separate suite requires installed
+Chrome/Chromium, FFmpeg, and FFprobe; missing tools fail the run rather than skip it.
+`CHROME_PATH` or `PUPPETEER_EXECUTABLE_PATH`, `FFMPEG_PATH`, and `FFPROBE_PATH`
+select custom binaries. No credentials or paid services are used.
+
+The fixture creates three 1.2-second tones and renders the production 1080p
+pipeline. Checks cover H.264/AAC decoding, 204 frames at 30 fps, stream duration,
+audio/silence windows, SRT cue timing, caption visibility and changes at frame
+boundaries, chapter changes, and rejection of unfit text. Pixel checks compare
+bright text regions within the same render, avoiding platform-specific golden
+images. They do not assess narration quality or every possible layout.
+
+A unique directory under the OS temporary directory retains the MP4, SRT, source
+fixture, FFprobe report, and representative PNGs on success or failure. The path
+is printed. Set `BUILDSTORY_ACCEPTANCE_DIR` to choose the parent; runs do not reuse
+or overwrite a prior fixture directory. Partial artifacts remain after failures.
+Review the PNGs/video when changing presentation. Delete old artifacts when no
+longer needed. CI runs this suite separately with a 15-minute job limit and
+uploads available artifacts for seven days, including failed runs.
 
 ## Releasing
 

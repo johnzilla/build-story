@@ -31,11 +31,13 @@
     "dist/",
     "src/",
     "!src/**/__tests__/**",
+    "!src/acceptance/**",
     "!src/**/*.test.ts"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "test:acceptance": "vitest run --config acceptance.config.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

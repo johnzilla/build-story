@@ -50,11 +50,12 @@ maintainer instructions, not confirmation that a release is available on npm.
 
    ```bash
    pnpm build && pnpm typecheck && pnpm lint && pnpm test
+   pnpm test:acceptance  # requires installed Chrome/Chromium, FFmpeg, FFprobe
    pnpm -r publish --dry-run --no-git-checks   # inspect every tarball
    ```
 
    Confirm no test files, `.env`, or scan dumps appear in any tarball, and that
-   `@buildstory/video` includes `src/` (minus `__tests__`). Each package ships its
+   `@buildstory/video` includes `src/` (minus `__tests__` and acceptance fixtures). Each package ships its
    own committed `LICENSE` and `README.md` (not relying on pnpm's implicit copy),
    so the MIT notice is present under either `pnpm` or `npm` — no copy step needed.
 

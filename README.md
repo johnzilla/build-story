@@ -94,7 +94,7 @@ avoids paying for narration again.
 
 Defaults below apply when no flag or configuration value overrides them.
 
-All four commands accept `-c, --config <file>` for an exact TOML file.
+All five commands accept `-c, --config <file>` for an exact TOML file.
 `run`, `narrate`, and `render` also accept `--preview-payload <new-file>`; see
 [Preview outbound content](#preview-outbound-content).
 
@@ -134,6 +134,16 @@ HeyGen processing time depends on the service and story length. BuildStory polls
 for up to ten minutes per job by default. If that deadline expires, rerun
 `render` with the same arc, settings, and output directory to resume the saved
 job. See [Operation deadlines](#operation-deadlines).
+
+**storyboard** (offline review)
+
+- `-o, --output <directory>` — Exact new review directory; must not exist
+- `--cache-dir <directory>` — Project output containing `audio/` (default: input directory)
+- `--timeline <file>` — Refresh source matching and chronology warnings
+- `--stills` — Render all scene PNGs using installed Chrome/Chromium
+- `--scene <number>` — Render only this 1-based scene preview
+
+See [Storyboard review](#storyboard-review-before-rendering) for editing and export.
 
 ### Preview outbound content
 
@@ -434,8 +444,8 @@ new narration or calculating project statistics.
 | Decision Callout | obstacle, pivot, decision | Beat title, display text, type accent, and progress bar |
 | Stats Card | Penultimate, when enabled and not already a title card | Beat type, title, display text, and progress bar; no computed counts |
 
-The default palette is dark navy (#1a1a2e), warm red (#e94560), and off-white
-(#eaeaea). Evidence cards use a related palette with accents by visual kind.
+The default palette uses dark navy (#111925), off-white (#eff4fa), and accents
+by beat type. Evidence cards use related colors with accents by visual kind.
 `displayText` is an optional short takeaway (maximum 240 characters); older beats
 fall back to their full `summary`. SRT and visible captions retain readable summary text, while pronunciation overrides
 can change speech. Text shrinks within readable limits; unresolved overflow stops
@@ -633,11 +643,20 @@ buildstory CLI            Thin wrapper
 ```bash
 pnpm install          # Install dependencies
 pnpm build            # Build all packages
-pnpm test             # Run all tests
+pnpm test             # Run the regular regression suite
+pnpm test:acceptance  # Render/check offline video (Chrome, FFmpeg, FFprobe required)
 pnpm typecheck        # tsc --noEmit across all packages
 pnpm lint             # ESLint
 pnpm format           # Prettier
 ```
+
+The acceptance suite uses a synthetic three-scene story and local tone WAVs, with
+no provider calls. It verifies a full 1080p MP4, caption visibility at boundaries,
+SRT timing, scene transitions, audio/silence windows, and overflow rejection.
+It fails if media tools or Chrome are missing. Artifacts are kept in a printed
+temporary directory; set `BUILDSTORY_ACCEPTANCE_DIR` to choose their parent.
+CI runs this separately and retains artifacts for seven days. See
+[Contributing](CONTRIBUTING.md#offline-video-acceptance) for details.
 
 ## Cost
 
@@ -750,9 +769,9 @@ prompt-injection handling) and how to report a vulnerability.
 
 ## Roadmap
 
-The prioritized work list is [IMPROVEMENTS.md](IMPROVEMENTS.md). Items 1–15 are
-complete; items 16–17 cover
-video quality. Historical plans are not descriptions of implemented features.
+The September review checklist in [IMPROVEMENTS.md](IMPROVEMENTS.md) is complete
+(items 1–17). The ideas below remain future work. Historical plans are not
+descriptions of implemented features.
 
 
 - **More agent-transcript adapters** — Claude Code and pi ship today (enable `[transcripts]`, see [Configuration](#configuration)); goose and other harnesses are next. Each is a thin adapter behind the harness-neutral `TranscriptSource` interface, so one shape covers every agent, and enabling several reads them all into one timeline. A future "capture mode" (recording sessions live via ACP) would drop the per-harness log parsing entirely.

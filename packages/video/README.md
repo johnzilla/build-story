@@ -128,6 +128,15 @@ For library callers, `generateSRT(beats, manifest, fps?)` now takes the full
 `AudioManifest`, replacing the earlier scene-array argument. This ensures
 caption generation has the same gap and bookend settings as rendering.
 
+## Contributor acceptance checks
+
+From the repository root after building, run `pnpm test:acceptance`. Installed
+Chrome/Chromium, FFmpeg, and FFprobe are required; no API keys are used. It renders
+synthetic audio through the full video pipeline and verifies encoding, timing,
+caption boundaries, scene changes, and overflow rejection. It retains artifacts
+for visual review and runs separately from the regular tests. See
+[CONTRIBUTING.md](https://github.com/johnzilla/build-story/blob/main/CONTRIBUTING.md#offline-video-acceptance).
+
 ## License
 
 [MIT](./LICENSE)

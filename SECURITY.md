@@ -90,6 +90,20 @@ authentication checks, or rendering. It refuses to overwrite existing files.
 Previews can still contain private project information. They are for local
 review, not automatically safe to publish.
 
+### Offline storyboard review
+
+`storyboard` produces a local HTML editor, sanitized arc, and source review in a
+new owner-only directory. Optional stills use installed Chrome; neither the
+editor nor the command calls a provider. Source text is embedded as escaped JSON
+and inserted with DOM text/value APIs under a restrictive Content Security Policy.
+Evidence strings and URLs are shown as text. Cached audio is copied for playback;
+it and the story may still contain private project information.
+
+Edits exist in browser memory until downloaded. Downloaded edits have not been
+re-sanitized or re-reviewed by the CLI; regenerate the storyboard with the original
+timeline to refresh review, then inspect it before sharing. Browser download
+permissions follow the browser's settings. Source matching is not fact checking.
+
 ## Frontmatter parsing
 
 Scanned documents may contain YAML (including `yaml`/`yml` labels) or JSON

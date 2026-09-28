@@ -11,3 +11,6 @@ timeline.json
 story-arc.json
 buildstory-scan.json
 *.tsbuildinfo
+
+# Local/CI video acceptance artifacts
+/acceptance-artifacts/
