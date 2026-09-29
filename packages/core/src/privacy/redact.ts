@@ -9,7 +9,9 @@ export function isSecretField(key: string): boolean {
 export const SECRET_PATTERNS: Array<[RegExp, string]> = [
   [new RegExp(`((?:["']?\\b${SECRET_NAME}["']?)\\s*[=:]\\s*)"(?:\\\\.|[^"\\\\])*"`, 'gi'), '$1"[REDACTED]"'],
   [new RegExp(`((?:["']?\\b${SECRET_NAME}["']?)\\s*[=:]\\s*)'(?:\\\\.|[^'\\\\])*'`, 'gi'), "$1'[REDACTED]'"],
-  [/(https?:\/\/)[^/\s:@]+:[^@\s/]+@/gi, '$1[REDACTED]@'],
+  // URL/DSN userinfo, including password-only Redis credentials and encoded values.
+  // Stop at URL/prose delimiters so a malformed authority cannot consume a query.
+  [/((?:https?|postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?|amqps?|ftps?):\/\/)[^/\s:@?#"'<>`]*:[^@\s/?#"'<>`]*@/gi, '$1[REDACTED]@'],
   // Multi-line PEM private key blocks (any key type)
   [
     /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/g,
@@ -19,6 +21,12 @@ export const SECRET_PATTERNS: Array<[RegExp, string]> = [
   [/sk-ant-[A-Za-z0-9\-_]{20,}/g, '[REDACTED]'],
   // Stripe live secret/restricted keys (underscore form — before sk- hyphen form)
   [/(?:sk|rk)_live_[0-9A-Za-z]{16,}/g, '[REDACTED]'],
+  // HeyGen V2 keys: tolerate opaque base64/base64url payloads and padding.
+  [/\bsk_V2_[A-Za-z0-9_+/-]{20,}={0,2}/g, '[REDACTED]'],
+  // Hugging Face user access tokens (before the generic assignment fallback).
+  [/\bhf_[A-Za-z0-9]{20,}/g, '[REDACTED]'],
+  // Telegram bot ID + opaque token, including /bot<TOKEN>/METHOD API URLs.
+  [/\b(bot)?[0-9]{6,}:[A-Za-z0-9_-]{30,}/g, '$1[REDACTED]'],
   // OpenAI API keys (sk- prefix, including sk-proj- variants)
   [/sk-[A-Za-z0-9\-_]{20,}/g, '[REDACTED]'],
   // AWS Access Key IDs

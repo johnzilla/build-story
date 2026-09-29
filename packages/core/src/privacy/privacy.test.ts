@@ -52,6 +52,60 @@ describe('privacy policy', () => {
     expect(sanitizeOutboundText('cwd:/Users/private-person/repo')).toBe('cwd:[LOCAL_PATH]')
   })
 
+  it.each(['http', 'https', 'postgres', 'postgresql', 'mysql', 'mongodb', 'mongodb+srv', 'redis', 'rediss', 'amqp', 'amqps', 'ftp', 'ftps'])(
+    'redacts %s URL credentials without losing the host, path, or query', scheme => {
+      const input = `${scheme}://user%40company:fake%3Ap%40ss@db.example:1234/database?ssl=true`
+      const expected = `${scheme}://[REDACTED]@db.example:1234/database?ssl=true`
+      expect(redactSecrets(input)).toBe(expected)
+      expect(redactSecrets(expected)).toBe(expected)
+      expect(sanitizeOutboundText(input)).not.toContain('fake%3Ap%40ss')
+    },
+  )
+
+  it.each([
+    ['REDIS://:fake-pass@localhost:6379/0', 'REDIS://[REDACTED]@localhost:6379/0'],
+    ['postgres://person:@db.example/app', 'postgres://[REDACTED]@db.example/app'],
+    ['"mysql://name:fake:pass@host/db"', '"mysql://[REDACTED]@host/db"'],
+    ['mongodb://person:fake-pass@host1,host2/app', 'mongodb://[REDACTED]@host1,host2/app'],
+  ])('redacts userinfo variants in %s', (input, expected) => {
+    expect(redactSecrets(input)).toBe(expected)
+    expect(redactSecrets(expected)).toBe(expected)
+  })
+
+  // Synthetic shapes, not live credentials. Specific tokens must work in prose,
+  // ordinary JSON fields, and imported outbound content, not only secret fields.
+  it.each([
+    'sk_V2_' + 'Ab9_'.repeat(10),
+    'sk_V2_' + 'Ab9+/'.repeat(10) + '==',
+    'hf_' + 'aB9'.repeat(10),
+    '1234567890:' + 'Ab9_-'.repeat(7),
+  ])('redacts a bare vendor token: %s', token => {
+    expect(redactSecrets(`Copied (${token}), then continued.`)).toBe('Copied ([REDACTED]), then continued.')
+    expect(sanitizeOutboundValue({ note: token })).toEqual({ note: '[REDACTED]' })
+    const result = redactSecrets(JSON.stringify({ note: token, token }))
+    expect(JSON.parse(result)).toEqual({ note: '[REDACTED]', token: '[REDACTED]' })
+    expect(redactSecrets(result)).toBe(result)
+    const imported = structuredClone(timeline)
+    imported.events[0]!.summary = token
+    expect(buildTimelinePayload(imported)).not.toContain(token)
+  })
+
+  it('redacts Telegram tokens embedded in API URL paths', () => {
+    const token = '123456789:' + 'aB9_-'.repeat(7)
+    expect(sanitizeOutboundText(`https://api.telegram.org/bot${token}/getMe`))
+      .toBe('https://api.telegram.org/bot[REDACTED]/getMe')
+  })
+
+  it.each([
+    'postgres://db.example/app?ssl=true',
+    'https://example.com/docs?topic=privacy&page=2',
+    'mysql://db.example/app?contact=person:example@company.test',
+    'hf_model sk_V2_example 123456:short-example',
+    'https://example.com/path user:pass@example.test',
+  ])('preserves non-secret examples: %s', input => {
+    expect(redactSecrets(input)).toBe(input)
+  })
+
   it('redacts structured sensitive values of any type without changing the input', () => {
     const value = { password: ['one', 'two'], nested: { refreshToken: { value: secret } }, count: 3 }
     expect(sanitizeOutboundValue(value)).toEqual({ password: '[REDACTED]', nested: { refreshToken: '[REDACTED]' }, count: 3 })

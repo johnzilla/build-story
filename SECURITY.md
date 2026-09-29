@@ -58,9 +58,23 @@ All three ingress paths run untrusted text through `redactSecrets` **before it
 enters the timeline** (`packages/core/src/privacy/redact.ts`, re-exported by
 `packages/cli/src/adapters/redact.ts`): files, git
 commit/tag messages, and transcript turns. Patterns cover common API keys and
-tokens (OpenAI/Anthropic, AWS, Slack, Google, Stripe, npm, GitHub, JWTs, PEM
+tokens (OpenAI/Anthropic, HeyGen V2, Hugging Face, Telegram bots, AWS, Slack,
+Google, Stripe, npm, GitHub, JWTs, PEM
 private-key blocks, URL credentials, and `key: value` / `key=value` secret
 assignments, including quoted JSON keys and quoted values with spaces/escapes).
+
+URL credentials are removed from HTTP(S), Postgres/PostgreSQL, MySQL,
+MongoDB (including `mongodb+srv`), Redis/Rediss, AMQP(S), and FTP(S) URLs.
+The scheme and address remain; username/password userinfo becomes `[REDACTED]`.
+Vendor token patterns are shape heuristics with minimum lengths, not validation
+against a provider; unusual, shortened, or future formats may evade detection.
+
+**Accepted query-parameter gap:** ordinary URLs are preserved. Existing token and
+secret-assignment patterns catch some literal query values, but there is no
+complete query parser or percent-decoding pass. Encoded names (such as
+`%74oken`), generic `key`/`sig` parameters, and signed URLs can retain credentials.
+Review and remove these URLs before generation or sharing; a sanitized URL is not
+a guarantee that it is safe to publish.
 
 Outbound sanitization also runs before LLM extraction, synthesis, formatting,
 OpenAI speech generation, and HeyGen scene construction. Nested sensitive
